@@ -845,7 +845,7 @@ let data l =
 
 (* Beginning / end of an assembly file *)
 
-let begin_assembly() =
+let begin_assembly ~source_file_name:_ =
   float_constants := [];
   `.386\n`;
   `	.MODEL	FLAT\n\n`;

@@ -933,7 +933,7 @@ let data l =
 
 (* Beginning / end of an assembly file *)
 
-let begin_assembly() =
+let begin_assembly ~source_file_name:_ =
   defined_functions := StringSet.empty;
   external_functions := StringSet.empty;
   (* Emit the beginning of the segments *)

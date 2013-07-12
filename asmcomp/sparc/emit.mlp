@@ -744,7 +744,7 @@ let data l =
 
 (* Beginning / end of an assembly file *)
 
-let begin_assembly() =
+let begin_assembly ~source_file_name:_ =
   let lbl_begin = Compilenv.make_symbol (Some "data_begin") in
   `	.data\n`;
   `	.global	{emit_symbol lbl_begin}\n`;

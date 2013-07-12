@@ -16,7 +16,7 @@ include config/Makefile
 include stdlib/StdlibModules
 
 CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I boot
-CAMLOPT=boot/ocamlrun ./ocamlopt -nostdlib -I stdlib -I otherlibs/dynlink
+CAMLOPT=boot/ocamlrun ./ocamlopt -nostdlib -I stdlib -I otherlibs/dynlink -g
 COMPFLAGS=-strict-sequence -w +33..39 -warn-error A $(INCLUDES)
 LINKFLAGS=
 
@@ -33,7 +33,7 @@ CAMLP4OUT=$(CAMLP4:=out)
 CAMLP4OPT=$(CAMLP4:=opt)
 
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I asmcomp -I driver \
-	 -I toplevel
+	 -I toplevel -I asmcomp/dwarf -I asmcomp/dwarf_low
 
 UTILS=utils/misc.cmo utils/tbl.cmo utils/config.cmo \
   utils/clflags.cmo utils/terminfo.cmo utils/ccomp.cmo utils/warnings.cmo \
@@ -75,7 +75,39 @@ BYTECOMP=bytecomp/meta.cmo bytecomp/instruct.cmo bytecomp/bytegen.cmo \
   bytecomp/bytelink.cmo bytecomp/bytelibrarian.cmo bytecomp/bytepackager.cmo \
   driver/errors.cmo driver/compile.cmo
 
-ASMCOMP=asmcomp/arch.cmo asmcomp/debuginfo.cmo \
+DWARF=asmcomp/dwarf/compilation_unit_state.cmo \
+  asmcomp/dwarf/dwarf_dot_std.cmo
+
+DWARF_LOW=\
+  asmcomp/dwarf_low/std_internal.cmo \
+  asmcomp/dwarf_low/emitter.cmo \
+  asmcomp/dwarf_low/emittable.cmo \
+  asmcomp/dwarf_low/value.cmo \
+  asmcomp/dwarf_low/child_determination.cmo \
+  asmcomp/dwarf_low/tag.cmo \
+  asmcomp/dwarf_low/form.cmo \
+  asmcomp/dwarf_low/attribute.cmo \
+  asmcomp/dwarf_low/abbreviation_code.cmo \
+  asmcomp/dwarf_low/abbreviations_table_entry.cmo \
+  asmcomp/dwarf_low/abbreviations_table.cmo \
+  asmcomp/dwarf_low/aranges_table.cmo \
+  asmcomp/dwarf_low/encoding_attribute.cmo \
+  asmcomp/dwarf_low/attribute_value.cmo \
+  asmcomp/dwarf_low/debugging_information_entry.cmo \
+  asmcomp/dwarf_low/version.cmo \
+  asmcomp/dwarf_low/operator.cmo \
+  asmcomp/dwarf_low/simple_location_expression.cmo \
+  asmcomp/dwarf_low/location_expression.cmo \
+  asmcomp/dwarf_low/location_list_entry.cmo \
+  asmcomp/dwarf_low/location_list.cmo \
+  asmcomp/dwarf_low/debug_info_section.cmo \
+  asmcomp/dwarf_low/debug_loc_table.cmo \
+  asmcomp/dwarf_low/pubnames_table.cmo \
+  asmcomp/dwarf_low/section_names.cmo \
+  asmcomp/dwarf_low/dwarf_low_dot_std.cmo
+
+ASMCOMP=$(DWARF_LOW) $(DWARF) \
+  asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/cmm.cmo asmcomp/printcmm.cmo \
   asmcomp/reg.cmo asmcomp/mach.cmo asmcomp/proc.cmo \
   asmcomp/clambda.cmo asmcomp/printclambda.cmo asmcomp/compilenv.cmo \
@@ -802,7 +834,7 @@ partialclean::
 	rm -f *~
 
 depend: beforedepend
-	(for d in utils parsing typing bytecomp asmcomp driver toplevel; \
+	(for d in utils parsing typing bytecomp asmcomp driver toplevel asmcomp/dwarf asmcomp/dwarf_low; \
 	 do $(CAMLDEP) $(DEPFLAGS) $$d/*.mli $$d/*.ml; \
 	 done) > .depend
 

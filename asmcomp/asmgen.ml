@@ -96,7 +96,7 @@ let compile_genfuns ppf f =
        | _ -> ())
     (Cmmgen.generic_functions true [Compilenv.current_unit_infos ()])
 
-let compile_implementation ?toplevel prefixname ppf (size, lam) =
+let compile_implementation ?toplevel ?source_file_name prefixname ppf (size, lam) =
   let asmfile =
     if !keep_asm_file
     then prefixname ^ ext_asm
@@ -104,7 +104,7 @@ let compile_implementation ?toplevel prefixname ppf (size, lam) =
   let oc = open_out asmfile in
   begin try
     Emitaux.output_channel := oc;
-    Emit.begin_assembly();
+    Emit.begin_assembly ~source_file_name;
     Closure.intro size lam
     ++ clambda_dump_if ppf
     ++ Cmmgen.compunit size

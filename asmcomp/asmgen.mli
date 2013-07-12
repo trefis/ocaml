@@ -14,6 +14,7 @@
 
 val compile_implementation :
     ?toplevel:(string -> bool) ->
+    ?source_file_name:string ->
     string -> Format.formatter -> int * Lambda.lambda -> unit
 val compile_phrase :
     Format.formatter -> Cmm.phrase -> unit

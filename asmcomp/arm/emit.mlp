@@ -908,7 +908,7 @@ let data l =
 
 (* Beginning / end of an assembly file *)
 
-let begin_assembly() =
+let begin_assembly ~source_file_name:_ =
   reset_debug_info();
   `	.syntax	unified\n`;
   begin match !arch with
