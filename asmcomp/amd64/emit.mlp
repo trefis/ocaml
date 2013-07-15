@@ -738,9 +738,23 @@ let fundecl fundecl =
   else
     `	.globl	{emit_symbol fundecl.fun_name}\n`;
   `{emit_symbol fundecl.fun_name}:\n`;
+  let fun_args_and_locations =
+    let module Reg_location = Dwarf.Compilation_unit_state.Reg_location in
+    (* CR mshinwell: for goodness' sake, let's have filter_map *)
+    ListLabels.fold_right fundecl.fun_args_and_locations
+      ~init:[]
+      ~f:(fun (ident, reg_loc) acc ->
+            match reg_loc with
+            | Reg.Unknown -> acc
+            | Reg.Reg reg_num ->
+              (ident, Reg_location.hard_register ~reg_num)::acc
+            | Reg.Stack _stack_loc ->
+              (ident, Reg_location.stack ())::acc)
+  in
   let dwarf_func =
     Dwarf.Compilation_unit_state.start_function (get_dwarf_comp_unit_state ())
       ~function_name:fundecl.fun_name
+      ~arguments_and_locations:fun_args_and_locations
   in
   emit_debug_info fundecl.fun_dbg;
   cfi_startproc ();

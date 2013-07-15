@@ -39,8 +39,17 @@ module Function : sig
   type t
 end
 
+module Reg_location : sig
+  type t
+
+  val hard_register : reg_num:int -> t
+  val stack : unit -> t
+end
+
+
 val start_function : t
   -> function_name:string
+  -> arguments_and_locations:((Ident.t * Reg_location.t) list)
   -> Function.t
 
 val end_function : t -> Function.t -> unit

@@ -46,17 +46,83 @@ let create ~emitter ~source_file_path ~start_of_code_label ~end_of_code_label =
     debug_loc_table = Debug_loc_table.create ();
   }
 
+let builtin_ocaml_type_label_value = "type_value"
+
+let build_ocaml_type_tags () = [
+  1, builtin_ocaml_type_label_value, Dwarf_low.Tag.base_type, [
+    Dwarf_low.Attribute_value.create_name ~source_file_path:"value";
+    Dwarf_low.Attribute_value.create_encoding
+      ~encoding:Dwarf_low.Encoding_attribute.signed;
+    Dwarf_low.Attribute_value.create_byte_size
+      ~byte_size:8;
+  ];
+]
+
 module Function = struct
   type t = string  (* function name, ahem *)
 end
 
-let start_function t ~function_name =
+module Reg_location = struct
+  type t = [
+  | `Hard_register of int
+  | `Stack of unit
+  ]
+
+  let hard_register ~reg_num = `Hard_register reg_num
+  let stack () = `Stack ()
+end
+
+let start_function t ~function_name ~arguments_and_locations =
   let starting_label = sprintf "Llr_begin_%s" function_name in
   let ending_label = sprintf "Llr_end_%s" function_name in
   Emitter.emit_label_declaration t.emitter starting_label;
-  let debug_loc_table = t.debug_loc_table in
-  (* CR-soon mshinwell: This is where the function argument code goes. *)
-  let argument_tags = [] in
+  let debug_loc_table, argument_tags =
+    List.fold arguments_and_locations
+      ~init:(t.debug_loc_table, [])
+      ~f:(fun (debug_loc_table, tags) (ident, pseudoreg_location) ->
+            let location_expression =
+              match pseudoreg_location with
+              (* CR mshinwell: fix the stack case *)
+              | `Stack () -> None
+              | `Hard_register reg_number ->
+                Some (Dwarf_low.Location_expression.in_register reg_number)
+            in
+            match location_expression with
+            | None -> debug_loc_table, tags
+            | Some location_expression ->
+              let base_address_selection_entry =
+                Dwarf_low.Location_list_entry.
+                  create_base_address_selection_entry
+                  ~base_address_label:starting_label
+              in
+              let location_list_entry =
+                Dwarf_low.Location_list_entry.create_location_list_entry
+                  ~start_of_code_label:starting_label
+                  ~first_address_when_in_scope:starting_label
+                  ~first_address_when_not_in_scope:ending_label  (* fixme *)
+                  ~location_expression
+              in
+              let location_list =
+                Dwarf_low.Location_list.create
+                  [base_address_selection_entry; location_list_entry]
+              in
+              let debug_loc_table, loclistptr_attribute_value =
+                Dwarf_low.Debug_loc_table.insert debug_loc_table
+                  ~location_list
+              in
+              let arg_name = Ident.name ident in
+              let tag =
+                2, function_name ^ "__arg__" ^ (Ident.unique_name ident),
+                  Dwarf_low.Tag.formal_parameter,
+                  [Dwarf_low.Attribute_value.create_name
+                     ~source_file_path:arg_name;
+                   loclistptr_attribute_value;
+                   Dwarf_low.Attribute_value.create_type
+                     ~label_name:builtin_ocaml_type_label_value;
+                  ]
+              in
+              debug_loc_table, tag::tags)
+  in
   let subprogram_tag =
     let tag =
       if List.length argument_tags > 0 then
@@ -116,8 +182,7 @@ let emit_debugging_info_epilogue t =
   let tags_with_attribute_values = [
     0, "compile_unit",
       Tag.compile_unit, compile_unit_attribute_values;
-    (* CR-soon mshinwell: resurrect the type tags here *)
-  ] (* @ (build_ocaml_type_tags ()) *) @ t.function_tags
+  ] @ (build_ocaml_type_tags ()) @ t.function_tags
   in
   let debug_info = Debug_info_section.create ~tags_with_attribute_values in
   let debug_abbrev = Debug_info_section.to_abbreviations_table debug_info in
