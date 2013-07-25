@@ -46,7 +46,7 @@ val invert_test: Mach.test -> Mach.test
 
 type fundecl =
   { fun_name: string;
-    fun_args_and_locations: (Ident.t * Reg.location) list;
+    fun_args_and_locations: (Ident.t * Reg.t) list; (* CR mshinwell: bad name *)
     fun_body: instruction;
     fun_fast: bool;
     fun_dbg : Debuginfo.t }

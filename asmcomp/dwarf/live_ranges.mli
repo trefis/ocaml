@@ -20,35 +20,28 @@
 (*                                                                     *)
 (***********************************************************************)
 
+(* Use liveness information in a linearized function declaration to
+   produce DWARF attributes describing the live ranges of named
+   variables.  A new linearized function declaration is returned that
+   contains labels, referenced from the DWARF attributes, identifying
+   the live ranges.
+*)
+
 open Dwarf_low_dot_std
 
-(* A value of type [t] holds all state necessary to emit DWARF
-   debugging information for a single compilation unit. *)
-type t
-
-val create : emitter:Dwarf_low.Emitter.t
-  -> source_file_path:string option
-  -> start_of_code_label:string
-  -> end_of_code_label:string
-  -> t
-
-val emit_debugging_info_prologue : t -> unit
-val emit_debugging_info_epilogue : t -> unit
-
-module Function : sig
-  type t
-end
-
-module Reg_location : sig
+module One_live_range : sig
   type t
 
-  val hard_register : reg_num:int -> t
-  val stack : unit -> t
+  val unique_name : t -> string
+
+  val to_dwarf : t
+    -> debug_loc_table:Dwarf_low.Debug_loc_table.t
+    -> builtin_ocaml_type_label_value:string
+    -> Dwarf_low.Tag.t * Dwarf_low.Attribute_value.t list
+         * Dwarf_low.Debug_loc_table.t
 end
 
-val start_function : t
-  -> linearized_fundecl:Linearize.fundecl
-(*  -> arguments_and_locations:((Ident.t * Reg_location.t) list) *)
-  -> Function.t * Linearize.fundecl
-
-val end_function : t -> Function.t -> unit
+(* [process_fundecl fundecl] may modify [fundecl] in-place by inserting label
+   declarations. *)
+val process_fundecl : Linearize.fundecl
+  -> One_live_range.t list * Linearize.fundecl

@@ -22,7 +22,9 @@ type t =
     mutable prefer: (t * int) list;     (* Preferences for other regs *)
     mutable degree: int;                (* Number of other regs live sim. *)
     mutable spill_cost: int;            (* Estimate of spilling cost *)
-    mutable visited: bool }             (* For graph walks *)
+    mutable visited: bool;              (* For graph walks *)
+    mutable is_parameter: int option;   (* Is a function parameter; if so, which one *)
+  }
 
 and location =
     Unknown
@@ -54,4 +56,8 @@ val all_registers: unit -> t list
 val num_registers: unit -> int
 val reinit: unit -> unit
 
+val name : t -> string
 val location : t -> location
+
+val set_is_parameter : t -> parameter_index:int -> unit
+val is_parameter : t -> int option

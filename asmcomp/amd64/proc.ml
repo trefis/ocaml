@@ -158,7 +158,8 @@ let calling_conventions first_int last_int first_float last_float make_stack
       Int | Addr as ty ->
         if !int <= last_int then begin
           loc.(i) <- phys_reg !int;
-          incr int
+          incr int;
+          Reg.set_is_parameter loc.(i) ~parameter_index:i
         end else begin
           loc.(i) <- stack_slot (make_stack !ofs) ty;
           ofs := !ofs + size_int
@@ -166,10 +167,12 @@ let calling_conventions first_int last_int first_float last_float make_stack
     | Float ->
         if !float <= last_float then begin
           loc.(i) <- phys_reg !float;
-          incr float
+          incr float;
+          Reg.set_is_parameter loc.(i) ~parameter_index:i
         end else begin
           loc.(i) <- stack_slot (make_stack !ofs) Float;
-          ofs := !ofs + size_float
+          ofs := !ofs + size_float;
+          Reg.set_is_parameter loc.(i) ~parameter_index:i
         end
   done;
   (loc, Misc.align !ofs 16)  (* keep stack 16-aligned *)

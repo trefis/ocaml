@@ -580,11 +580,11 @@ asmcomp/debuginfo.cmi : parsing/location.cmi bytecomp/lambda.cmi
 asmcomp/emit.cmi : asmcomp/linearize.cmi asmcomp/cmm.cmi
 asmcomp/emitaux.cmi : asmcomp/debuginfo.cmi
 asmcomp/interf.cmi : asmcomp/mach.cmi
-asmcomp/linearize.cmi : asmcomp/reg.cmi asmcomp/mach.cmi \
+asmcomp/linearize.cmi : asmcomp/reg.cmi asmcomp/mach.cmi typing/ident.cmi \
     asmcomp/debuginfo.cmi
 asmcomp/liveness.cmi : asmcomp/mach.cmi
-asmcomp/mach.cmi : asmcomp/reg.cmi asmcomp/debuginfo.cmi asmcomp/cmm.cmi \
-    asmcomp/arch.cmo
+asmcomp/mach.cmi : asmcomp/reg.cmi typing/ident.cmi asmcomp/debuginfo.cmi \
+    asmcomp/cmm.cmi asmcomp/arch.cmo
 asmcomp/printclambda.cmi : asmcomp/clambda.cmi
 asmcomp/printcmm.cmi : asmcomp/cmm.cmi
 asmcomp/printlinear.cmi : asmcomp/linearize.cmi
@@ -723,10 +723,10 @@ asmcomp/interf.cmo : asmcomp/reg.cmi asmcomp/proc.cmi asmcomp/mach.cmi \
 asmcomp/interf.cmx : asmcomp/reg.cmx asmcomp/proc.cmx asmcomp/mach.cmx \
     asmcomp/interf.cmi
 asmcomp/linearize.cmo : asmcomp/reg.cmi asmcomp/proc.cmi utils/misc.cmi \
-    asmcomp/mach.cmi asmcomp/debuginfo.cmi asmcomp/cmm.cmi \
+    asmcomp/mach.cmi typing/ident.cmi asmcomp/debuginfo.cmi asmcomp/cmm.cmi \
     asmcomp/linearize.cmi
 asmcomp/linearize.cmx : asmcomp/reg.cmx asmcomp/proc.cmx utils/misc.cmx \
-    asmcomp/mach.cmx asmcomp/debuginfo.cmx asmcomp/cmm.cmx \
+    asmcomp/mach.cmx typing/ident.cmx asmcomp/debuginfo.cmx asmcomp/cmm.cmx \
     asmcomp/linearize.cmi
 asmcomp/liveness.cmo : asmcomp/reg.cmi asmcomp/proc.cmi \
     asmcomp/printmach.cmi utils/misc.cmi asmcomp/mach.cmi \
@@ -734,10 +734,10 @@ asmcomp/liveness.cmo : asmcomp/reg.cmi asmcomp/proc.cmi \
 asmcomp/liveness.cmx : asmcomp/reg.cmx asmcomp/proc.cmx \
     asmcomp/printmach.cmx utils/misc.cmx asmcomp/mach.cmx \
     asmcomp/liveness.cmi
-asmcomp/mach.cmo : asmcomp/reg.cmi asmcomp/debuginfo.cmi asmcomp/cmm.cmi \
-    asmcomp/arch.cmo asmcomp/mach.cmi
-asmcomp/mach.cmx : asmcomp/reg.cmx asmcomp/debuginfo.cmx asmcomp/cmm.cmx \
-    asmcomp/arch.cmx asmcomp/mach.cmi
+asmcomp/mach.cmo : asmcomp/reg.cmi typing/ident.cmi asmcomp/debuginfo.cmi \
+    asmcomp/cmm.cmi asmcomp/arch.cmo asmcomp/mach.cmi
+asmcomp/mach.cmx : asmcomp/reg.cmx typing/ident.cmx asmcomp/debuginfo.cmx \
+    asmcomp/cmm.cmx asmcomp/arch.cmx asmcomp/mach.cmi
 asmcomp/printclambda.cmo : bytecomp/printlambda.cmi bytecomp/lambda.cmi \
     typing/ident.cmi asmcomp/clambda.cmi parsing/asttypes.cmi \
     asmcomp/printclambda.cmi
@@ -1044,12 +1044,15 @@ toplevel/trace.cmx : typing/types.cmx toplevel/toploop.cmx \
     typing/printtyp.cmx typing/predef.cmx typing/path.cmx utils/misc.cmx \
     bytecomp/meta.cmx parsing/longident.cmx typing/ctype.cmx \
     toplevel/trace.cmi
-asmcomp/dwarf/compilation_unit_state.cmi : typing/ident.cmi \
+asmcomp/dwarf/compilation_unit_state.cmi : asmcomp/linearize.cmi \
+    asmcomp/dwarf_low/dwarf_low_dot_std.cmo
+asmcomp/dwarf/live_ranges.cmi : asmcomp/linearize.cmi \
     asmcomp/dwarf_low/dwarf_low_dot_std.cmo
 asmcomp/dwarf/compilation_unit_state.cmo : asmcomp/dwarf_low/tag.cmi \
     asmcomp/dwarf/std_internal.cmo asmcomp/dwarf_low/section_names.cmi \
-    asmcomp/dwarf_low/pubnames_table.cmi typing/ident.cmi \
-    asmcomp/dwarf_low/emitter.cmi asmcomp/dwarf_low/dwarf_low_dot_std.cmo \
+    asmcomp/dwarf_low/pubnames_table.cmi asmcomp/dwarf/live_ranges.cmi \
+    asmcomp/linearize.cmi asmcomp/dwarf_low/emitter.cmi \
+    asmcomp/dwarf_low/dwarf_low_dot_std.cmo \
     asmcomp/dwarf_low/debug_loc_table.cmi \
     asmcomp/dwarf_low/debug_info_section.cmi \
     asmcomp/dwarf_low/attribute_value.cmi asmcomp/dwarf_low/aranges_table.cmi \
@@ -1057,8 +1060,9 @@ asmcomp/dwarf/compilation_unit_state.cmo : asmcomp/dwarf_low/tag.cmi \
     asmcomp/dwarf/compilation_unit_state.cmi
 asmcomp/dwarf/compilation_unit_state.cmx : asmcomp/dwarf_low/tag.cmx \
     asmcomp/dwarf/std_internal.cmx asmcomp/dwarf_low/section_names.cmx \
-    asmcomp/dwarf_low/pubnames_table.cmx typing/ident.cmx \
-    asmcomp/dwarf_low/emitter.cmx asmcomp/dwarf_low/dwarf_low_dot_std.cmx \
+    asmcomp/dwarf_low/pubnames_table.cmx asmcomp/dwarf/live_ranges.cmx \
+    asmcomp/linearize.cmx asmcomp/dwarf_low/emitter.cmx \
+    asmcomp/dwarf_low/dwarf_low_dot_std.cmx \
     asmcomp/dwarf_low/debug_loc_table.cmx \
     asmcomp/dwarf_low/debug_info_section.cmx \
     asmcomp/dwarf_low/attribute_value.cmx asmcomp/dwarf_low/aranges_table.cmx \
@@ -1066,6 +1070,10 @@ asmcomp/dwarf/compilation_unit_state.cmx : asmcomp/dwarf_low/tag.cmx \
     asmcomp/dwarf/compilation_unit_state.cmi
 asmcomp/dwarf/dwarf_dot_std.cmo : asmcomp/dwarf/compilation_unit_state.cmi
 asmcomp/dwarf/dwarf_dot_std.cmx : asmcomp/dwarf/compilation_unit_state.cmx
+asmcomp/dwarf/live_ranges.cmo : asmcomp/reg.cmi asmcomp/linearize.cmi \
+    asmcomp/dwarf_low/dwarf_low_dot_std.cmo asmcomp/dwarf/live_ranges.cmi
+asmcomp/dwarf/live_ranges.cmx : asmcomp/reg.cmx asmcomp/linearize.cmx \
+    asmcomp/dwarf_low/dwarf_low_dot_std.cmx asmcomp/dwarf/live_ranges.cmi
 asmcomp/dwarf/std_internal.cmo :
 asmcomp/dwarf/std_internal.cmx :
 asmcomp/dwarf_low/abbreviation_code.cmi : asmcomp/dwarf_low/emittable.cmo

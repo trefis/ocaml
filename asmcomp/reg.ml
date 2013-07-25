@@ -22,7 +22,9 @@ type t =
     mutable prefer: (t * int) list;
     mutable degree: int;
     mutable spill_cost: int;
-    mutable visited: bool }
+    mutable visited: bool;
+    mutable is_parameter: int option;
+  }
 
 and location =
     Unknown
@@ -38,7 +40,8 @@ type reg = t
 
 let dummy =
   { name = ""; stamp = 0; typ = Int; loc = Unknown; spill = false;
-    interf = []; prefer = []; degree = 0; spill_cost = 0; visited = false }
+    interf = []; prefer = []; degree = 0; spill_cost = 0; visited = false;
+    is_parameter = None; }
 
 let currstamp = ref 0
 let reg_list = ref([] : t list)
@@ -46,7 +49,7 @@ let reg_list = ref([] : t list)
 let create ty =
   let r = { name = ""; stamp = !currstamp; typ = ty; loc = Unknown;
             spill = false; interf = []; prefer = []; degree = 0;
-            spill_cost = 0; visited = false } in
+            spill_cost = 0; visited = false; is_parameter = None; } in
   reg_list := r :: !reg_list;
   incr currstamp;
   r
@@ -71,7 +74,7 @@ let clone r =
 let at_location ty loc =
   let r = { name = "R"; stamp = !currstamp; typ = ty; loc = loc; spill = false;
             interf = []; prefer = []; degree = 0; spill_cost = 0;
-            visited = false } in
+            visited = false; is_parameter = None; } in
   incr currstamp;
   r
 
@@ -147,5 +150,14 @@ let set_of_array v =
            if i >= n then Set.empty else Set.add v.(i) (add_all(i+1))
          in add_all 0
 
+let name t =
+  t.name
+
 let location t =
   t.loc
+
+let set_is_parameter t ~parameter_index =
+  t.is_parameter <- Some parameter_index
+
+let is_parameter t =
+  t.is_parameter

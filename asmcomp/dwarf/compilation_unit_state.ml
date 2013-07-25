@@ -72,6 +72,59 @@ module Reg_location = struct
   let stack () = `Stack ()
 end
 
+let start_function t ~linearized_fundecl =
+  let function_name = linearized_fundecl.Linearize.fun_name in
+  (* CR mshinwell: sort this source_file_path stuff out *)
+  if t.source_file_path = None then function_name, linearized_fundecl else
+  let starting_label = sprintf "Llr_begin_%s" function_name in
+  let ending_label = sprintf "Llr_end_%s" function_name in
+  Emitter.emit_label_declaration t.emitter starting_label;
+  let live_ranges, fundecl =
+    (* note that [process_fundecl] may modify [linearize_fundecl] *)
+    Live_ranges.process_fundecl linearized_fundecl
+  in
+  let debug_loc_table, live_range_tags =
+    List.fold live_ranges
+      ~init:(t.debug_loc_table, [])
+      ~f:(fun (debug_loc_table, live_range_tags) live_range ->
+            let name = Live_ranges.One_live_range.unique_name live_range in
+            let tag, attribute_values, debug_loc_table =
+              (* CR mshinwell: should maybe return an option instead *)
+              Live_ranges.One_live_range.to_dwarf live_range
+                ~builtin_ocaml_type_label_value
+                ~debug_loc_table
+            in
+            match attribute_values with
+            | [] -> debug_loc_table, live_range_tags
+            | _ ->
+              let live_range_tag =
+                2, function_name ^ "__var__" ^ name, tag, attribute_values
+              in
+              debug_loc_table, live_range_tag::live_range_tags)
+  in
+  let subprogram_tag =
+    let tag =
+      if List.length live_range_tags > 0 then
+        Tag.subprogram
+      else
+        Tag.subprogram_with_no_children
+    in
+    let module AV = Attribute_value in
+    1, function_name, tag, [
+      AV.create_name ~source_file_path:function_name;
+      AV.create_external ~is_visible_externally:true;
+      AV.create_low_pc ~address_label:starting_label;
+      AV.create_high_pc ~address_label:ending_label;
+    ]
+  in
+  let this_function's_tags = subprogram_tag::(List.rev live_range_tags) in
+  t.externally_visible_functions <-
+    function_name::t.externally_visible_functions;
+  t.debug_loc_table <- debug_loc_table;
+  t.function_tags <- t.function_tags @ this_function's_tags;
+  function_name, fundecl
+
+(*
 let start_function t ~function_name ~arguments_and_locations =
   let starting_label = sprintf "Llr_begin_%s" function_name in
   let ending_label = sprintf "Llr_end_%s" function_name in
@@ -144,6 +197,7 @@ let start_function t ~function_name ~arguments_and_locations =
   t.debug_loc_table <- debug_loc_table;
   t.function_tags <- t.function_tags @ this_function's_tags;
   function_name
+*)
 
 let end_function t function_name =
   Emitter.emit_label_declaration t.emitter (sprintf "Llr_end_%s" function_name)

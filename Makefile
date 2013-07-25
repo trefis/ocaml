@@ -75,7 +75,8 @@ BYTECOMP=bytecomp/meta.cmo bytecomp/instruct.cmo bytecomp/bytegen.cmo \
   bytecomp/bytelink.cmo bytecomp/bytelibrarian.cmo bytecomp/bytepackager.cmo \
   driver/errors.cmo driver/compile.cmo
 
-DWARF=asmcomp/dwarf/compilation_unit_state.cmo \
+DWARF=asmcomp/dwarf/live_ranges.cmo \
+  asmcomp/dwarf/compilation_unit_state.cmo \
   asmcomp/dwarf/dwarf_dot_std.cmo
 
 DWARF_LOW=\
@@ -106,7 +107,7 @@ DWARF_LOW=\
   asmcomp/dwarf_low/section_names.cmo \
   asmcomp/dwarf_low/dwarf_low_dot_std.cmo
 
-ASMCOMP=$(DWARF_LOW) $(DWARF) \
+ASMCOMP= \
   asmcomp/arch.cmo asmcomp/debuginfo.cmo \
   asmcomp/cmm.cmo asmcomp/printcmm.cmo \
   asmcomp/reg.cmo asmcomp/mach.cmo asmcomp/proc.cmo \
@@ -119,6 +120,7 @@ ASMCOMP=$(DWARF_LOW) $(DWARF) \
   asmcomp/reloadgen.cmo asmcomp/reload.cmo \
   asmcomp/printlinear.cmo asmcomp/linearize.cmo \
   asmcomp/schedgen.cmo asmcomp/scheduling.cmo \
+  $(DWARF_LOW) $(DWARF) \
   asmcomp/emitaux.cmo asmcomp/emit.cmo asmcomp/asmgen.cmo \
   asmcomp/asmlink.cmo asmcomp/asmlibrarian.cmo asmcomp/asmpackager.cmo \
   driver/opterrors.cmo driver/optcompile.cmo

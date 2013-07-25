@@ -29,7 +29,7 @@ type t = {
 let create ~tags_with_attribute_values =
   let next_abbreviation_code = ref 1 in
   (* CR mshinwell: the depth thing is nasty -- use a proper tree? *)
-  let _depth, dies =
+  let depth, dies =
     List.fold_left tags_with_attribute_values
       ~init:(0, [])
       ~f:(fun (current_depth, dies) 
@@ -53,7 +53,11 @@ let create ~tags_with_attribute_values =
             in
             depth, (die::dies))
   in
-  { dies = (List.rev dies) @ [Debugging_information_entry.create_null ()];
+  let rec create_terminators = function
+    | 0 -> []
+    | n -> (Debugging_information_entry.create_null ()) :: (create_terminators (n - 1))
+  in
+  { dies = (List.rev dies) @ (create_terminators depth);
   }
 
 let dwarf_version = Version.two

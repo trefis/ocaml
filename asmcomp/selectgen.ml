@@ -812,6 +812,11 @@ method emit_fundecl f =
     List.fold_right2
       (fun (id, ty) r env -> Tbl.add id r env)
       f.Cmm.fun_args rargs Tbl.empty in
+(*  let loc_arg = Array.map Reg.clone loc_arg in
+  Array.iter Reg.set_is_parameter loc_arg;*)
+  Array.iteri (fun parameter_index reg ->
+    Reg.set_is_parameter reg ~parameter_index)
+    rarg;
   self#insert_moves loc_arg rarg;
   self#emit_tail env f.Cmm.fun_body;
   { fun_name = f.Cmm.fun_name;
