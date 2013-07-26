@@ -21,6 +21,7 @@
 (***********************************************************************)
 
 open Dwarf_low_dot_std
+open Dwarf_std_internal
 
 module Reg_map = struct
   include Reg.Map
@@ -44,6 +45,7 @@ module One_live_range = struct
       reg : Reg.t;
       starting_label : Linearize.label;
       ending_label : Linearize.label;
+      starts_at_beginning_of_function : bool;
     }
 
     let compare t t' =
@@ -59,7 +61,7 @@ module One_live_range = struct
 
   let unique_id = ref 0  (* CR mshinwell: may not suffice for 32-bit *)
 
-  let create ~parameter_or_variable ~reg =
+  let create ~parameter_or_variable ~reg ~starts_at_beginning_of_function =
     let our_id = !unique_id in
     unique_id := !unique_id + 1;
     let starting_label = Linearize.new_label () in
@@ -69,17 +71,17 @@ module One_live_range = struct
       reg;
       starting_label;
       ending_label;
+      starts_at_beginning_of_function;
     }
-
-  let name t = Reg.name t.reg
-
-  let unique_name t = Printf.sprintf "%s__%d" (name t) t.id
 
   let code_for_starting_label t =
     Linearize.Llabel t.starting_label
 
   let code_for_ending_label t =
     Linearize.Llabel t.ending_label
+
+  let parameter_or_variable t =
+    t.parameter_or_variable
 
   let dwarf_tag t =
     match t.parameter_or_variable with
@@ -89,43 +91,123 @@ module One_live_range = struct
   let reg_name t =
     match t.parameter_or_variable with
     | `Parameter name -> name
-    | `Variable -> Reg.name t.reg
+    | `Variable ->
+      let name = Reg.name t.reg in
+      let spilled_prefix = "spilled-" in
+      if String.length name <= String.length spilled_prefix then
+        name
+      else if String.sub name 0 (String.length spilled_prefix) = spilled_prefix then
+        String.sub name (String.length spilled_prefix)
+          (String.length name - String.length spilled_prefix)
+      else
+        name
 
-  let dwarf_attribute_values t ~builtin_ocaml_type_label_value
-        ~debug_loc_table =
-    (* CR mshinwell: fix the stack case *)
-    match Reg.location t.reg with
-    | Reg.Unknown | Reg.Stack _ -> [], debug_loc_table
-    | Reg.Reg reg_number ->
-      (* CR mshinwell: this needs fixing, ESPECIALLY "R".  and below.
-         find out why there seems to be some problem with cloning [loc_args]---we
-         could just name them for this function if we could do that *)
-      match reg_name t with
-      | "R" | "" -> [], debug_loc_table
-      | _ ->
-      let starting_label =  (* CR mshinwell: this is a hack *)
+  let unique_name t = Printf.sprintf "%s__%d" (reg_name t) t.id
+
+  let location_list_entry t ~start_of_function_label =
+    let starting_label =  (* CR mshinwell: this is a hack *)
+      if t.starts_at_beginning_of_function then
+        (* CR mshinwell: it's yucky in this case that we ignore
+           [t.starting_label], which will actually have been emitted.  Clean
+           this up as part of the coalescing-labels work. *)
+        start_of_function_label
+      else
         Printf.sprintf ".L%d" t.starting_label
-      in
-      let ending_label =
-        Printf.sprintf ".L%d" t.ending_label
-      in
-      let location_expression =
-        Dwarf_low.Location_expression.in_register reg_number
-      in
-      let base_address_selection_entry =
-        Dwarf_low.Location_list_entry.create_base_address_selection_entry
-          ~base_address_label:starting_label
-      in
+    in
+    let ending_label =
+      Printf.sprintf ".L%d" t.ending_label
+    in
+    let location_expression =
+      match Reg.location t.reg with
+      | Reg.Reg reg_number ->
+        (* CR mshinwell: this needs fixing, ESPECIALLY "R".  and below.
+           find out why there seems to be some problem with cloning [loc_args]
+           ---we could just name them for this function if we could do that *)
+        begin match reg_name t with
+        | "R" | "" -> None
+        | _ ->
+          Some (Dwarf_low.Location_expression.in_register reg_number)
+        end
+      | Reg.Stack (Reg.Local stack_slot_index) ->
+        Some (Dwarf_low.Location_expression.at_offset_from_stack_pointer
+            ~offset_in_bytes:(stack_slot_index * 8))
+      | Reg.Stack (Reg.Incoming _) -> None  (* CR mshinwell: don't know *)
+      | Reg.Stack (Reg.Outgoing _) -> None
+      | Reg.Unknown -> None
+    in
+    match location_expression with
+    | None -> None
+    | Some location_expression ->
       let location_list_entry =
         Dwarf_low.Location_list_entry.create_location_list_entry
-          ~start_of_code_label:starting_label
+          ~start_of_code_label:start_of_function_label
           ~first_address_when_in_scope:starting_label
           ~first_address_when_not_in_scope:ending_label
           ~location_expression
       in
+      Some location_list_entry
+end
+
+(* CR mshinwell: this many/one live ranges thing isn't great; consider
+   restructuring *)
+
+module Many_live_ranges = struct
+  type t = {
+    live_ranges : One_live_range.t list
+  }
+
+  let create live_ranges =
+    match live_ranges with
+    | [] -> { live_ranges = []; }
+    | live_range::_remainder ->
+(* doesn't work
+      let validate live_range' =
+        (* CR mshinwell: note that this doesn't actually make sure the live
+           ranges are for the same variable. *)
+        Pervasives.(=) (One_live_range.parameter_or_variable live_range)
+          (One_live_range.parameter_or_variable live_range')
+      in
+      if not (List.for_all validate live_ranges) then
+        Misc.fatal_error "Many_live_ranges.create: validation failed";
+*)
+      { live_ranges; }
+
+  let dwarf_tag t =
+    (* CR mshinwell: needs sorting out too *)
+    match List.dedup (List.map t.live_ranges ~f:One_live_range.dwarf_tag) with
+    | [tag] -> tag
+    | [] -> Dwarf_low.Tag.variable (* doesn't get used *)
+    | _tags -> Dwarf_low.Tag.formal_parameter
+
+  let name t =
+    (* CR mshinwell: the name handling needs thought.  Maybe we should
+       attach properly-stamped idents to Regs?  This must be required to
+       fix problems when names are shadowed. *)
+    let names = List.map t.live_ranges ~f:One_live_range.reg_name in
+    let without_dummies =
+      List.filter names ~f:(function "R" | "" -> false | _ -> true)
+    in
+    match List.dedup without_dummies with
+    | [name] -> name
+    | [] -> "<anon>"
+    | multiple -> String.concat "/" multiple
+
+  let dwarf_attribute_values t ~builtin_ocaml_type_label_value
+        ~debug_loc_table ~start_of_function_label =
+    let base_address_selection_entry =
+      Dwarf_low.Location_list_entry.create_base_address_selection_entry
+        ~base_address_label:start_of_function_label
+    in
+    let location_list_entries =
+      List.filter_map t.live_ranges
+        ~f:(One_live_range.location_list_entry ~start_of_function_label)
+    in
+    match location_list_entries with
+    | [] -> [], debug_loc_table
+    | location_list_entries ->
       let location_list =
         Dwarf_low.Location_list.create
-          [ base_address_selection_entry; location_list_entry]
+          (base_address_selection_entry :: location_list_entries)
       in
       let debug_loc_table, loclistptr_attribute_value =
         Dwarf_low.Debug_loc_table.insert debug_loc_table
@@ -140,20 +222,29 @@ module One_live_range = struct
       in
       attribute_values, debug_loc_table
 
-  let to_dwarf t ~debug_loc_table ~builtin_ocaml_type_label_value =
+  let to_dwarf t ~debug_loc_table ~builtin_ocaml_type_label_value
+        ~start_of_function_label =
     let tag = dwarf_tag t in
     let attribute_values, debug_loc_table =
-      dwarf_attribute_values t ~builtin_ocaml_type_label_value ~debug_loc_table
+      dwarf_attribute_values t
+        ~builtin_ocaml_type_label_value
+        ~debug_loc_table
+        ~start_of_function_label
     in
     tag, attribute_values, debug_loc_table
 end
 
-(* CR mshinwell: thought: find out how C++ compilers emit DWARF for local variables that
-   are defined not at the start of a block. *)
+(* CR mshinwell: thought: find out how C++ compilers emit DWARF for local
+   variables that are defined not at the start of a block. *)
 
 let rec process_instruction ~insn ~first_insn ~prev_insn ~current_live_regs
       ~current_live_ranges ~previous_live_ranges ~fundecl =
-  let regs_live_across_this_insn = insn.Linearize.live in
+  let regs_live_across_this_insn =
+    (* CR mshinwell: need to precisely understand the semantics of "arg" *)
+    Array.fold_left (fun regs reg -> Reg_set.add reg regs)
+      insn.Linearize.live
+      insn.Linearize.arg
+  in
   let must_start_live_ranges_for =
     (* Regs whose live ranges will start immediately before this insn. *)
     Reg_set.diff regs_live_across_this_insn current_live_regs
@@ -185,6 +276,7 @@ let rec process_instruction ~insn ~first_insn ~prev_insn ~current_live_regs
             in
             let live_range =
               One_live_range.create ~parameter_or_variable ~reg
+                ~starts_at_beginning_of_function:(prev_insn = None)
             in
             let current_live_ranges =
               Reg_map.add current_live_ranges ~key:reg ~data:live_range
@@ -223,7 +315,7 @@ let rec process_instruction ~insn ~first_insn ~prev_insn ~current_live_regs
     (* Inserting the code to emit the live range labels is complicated by the
        structure of values of type [Linearize.instruction]. *)
     let first_insn', last_insn' =
-      ListLabels.fold_left labels_to_insert_before_insn
+      List.fold_left labels_to_insert_before_insn
         ~init:(None, None)
         ~f:(fun (first_insn, prev_insn) desc ->
               let insn =
@@ -295,5 +387,20 @@ let process_fundecl fundecl =
       ~current_live_ranges:Reg_map.empty
       ~previous_live_ranges:[]
       ~fundecl
+  in
+  let name_map =
+    List.fold live_ranges
+      ~init:String.Map.empty
+      ~f:(fun name_map live_range ->
+            let name = One_live_range.reg_name live_range in
+            match String.Map.find name_map name with
+            | None -> String.Map.add name_map ~key:name ~data:[live_range]
+            | Some live_ranges ->
+              let data = live_range::live_ranges in
+              String.Map.add (* replace *) name_map ~key:name ~data)
+  in
+  let live_ranges =
+    List.map (List.map (String.Map.to_alist name_map) ~f:snd)
+      ~f:Many_live_ranges.create
   in
   live_ranges, { fundecl with Linearize. fun_body = first_insn; }

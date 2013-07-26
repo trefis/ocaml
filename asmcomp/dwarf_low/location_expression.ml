@@ -44,6 +44,10 @@ let in_register ~reg_number =
   in
   Simple_location_expression.in_register ~reg_number
 
+let at_offset_from_stack_pointer ~offset_in_bytes =
+  Simple_location_expression.register_based_addressing ~reg_number:7 (* %rsp *)
+    ~offset_in_bytes
+
 let size t =
   Simple_location_expression.size t
 

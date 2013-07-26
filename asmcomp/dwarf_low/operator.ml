@@ -22,19 +22,29 @@
 
 type t =
   | DW_op_regx of Value.t
+  | DW_op_bregx of [ `Register of Value.t ] * [ `Offset of Value.t ]
 
-let register ~reg_number ~offset:_ =
+let register ~reg_number =
   let reg_number = Value.as_uleb128 reg_number in
   DW_op_regx reg_number
 
+let register_based_addressing ~reg_number ~offset_in_bytes =
+  let reg_number = Value.as_uleb128 reg_number in
+  (* CR mshinwell: strictly speaking the offset should be signed leb128 *)
+  let offset_in_bytes = Value.as_uleb128 offset_in_bytes in
+  DW_op_bregx (`Register reg_number, `Offset offset_in_bytes)
+
 let opcode = function
   | DW_op_regx _ -> 0x90
+  | DW_op_bregx _ -> 0x92
 
 let size t =
   let opcode_size = 1 in
   let args_size =
     match t with
     | DW_op_regx reg_number -> Value.size reg_number
+    | DW_op_bregx (`Register reg_number, `Offset offset) ->
+      Value.size reg_number + Value.size offset
   in
   opcode_size + args_size
 
@@ -42,3 +52,6 @@ let emit t ~emitter =
   Value.emit (Value.as_byte (opcode t)) ~emitter;
   match t with
   | DW_op_regx reg_number -> Value.emit reg_number ~emitter
+  | DW_op_bregx (`Register reg_number, `Offset offset) ->
+    Value.emit reg_number ~emitter;
+    Value.emit offset ~emitter

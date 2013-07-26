@@ -29,14 +29,13 @@
 
 open Dwarf_low_dot_std
 
-module One_live_range : sig
+module Many_live_ranges : sig
   type t
-
-  val unique_name : t -> string
 
   val to_dwarf : t
     -> debug_loc_table:Dwarf_low.Debug_loc_table.t
     -> builtin_ocaml_type_label_value:string
+    -> start_of_function_label:string
     -> Dwarf_low.Tag.t * Dwarf_low.Attribute_value.t list
          * Dwarf_low.Debug_loc_table.t
 end
@@ -44,4 +43,4 @@ end
 (* [process_fundecl fundecl] may modify [fundecl] in-place by inserting label
    declarations. *)
 val process_fundecl : Linearize.fundecl
-  -> One_live_range.t list * Linearize.fundecl
+  -> Many_live_ranges.t list * Linearize.fundecl

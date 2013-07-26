@@ -75,7 +75,8 @@ BYTECOMP=bytecomp/meta.cmo bytecomp/instruct.cmo bytecomp/bytegen.cmo \
   bytecomp/bytelink.cmo bytecomp/bytelibrarian.cmo bytecomp/bytepackager.cmo \
   driver/errors.cmo driver/compile.cmo
 
-DWARF=asmcomp/dwarf/live_ranges.cmo \
+DWARF=asmcomp/dwarf/dwarf_std_internal.cmo \
+  asmcomp/dwarf/live_ranges.cmo \
   asmcomp/dwarf/compilation_unit_state.cmo \
   asmcomp/dwarf/dwarf_dot_std.cmo
 

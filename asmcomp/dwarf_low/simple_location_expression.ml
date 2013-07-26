@@ -20,12 +20,14 @@
 (*                                                                     *)
 (***********************************************************************)
 
-(* Register name operators only for the moment.  There are other
-   cases (p23-24) *)
+(* Single operators only for the moment.  There are other cases (p23-24) *)
 type t = Operator.t
 
 let in_register ~reg_number =
-  Operator.register ~reg_number ~offset:0
+  Operator.register ~reg_number
+
+let register_based_addressing ~reg_number ~offset_in_bytes =
+  Operator.register_based_addressing ~reg_number ~offset_in_bytes
 
 let size t =
   Operator.size t

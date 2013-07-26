@@ -26,3 +26,4 @@ type t
 include Emittable.S with type t := t
 
 val in_register : reg_number:int -> t
+val at_offset_from_stack_pointer : offset_in_bytes:int -> t

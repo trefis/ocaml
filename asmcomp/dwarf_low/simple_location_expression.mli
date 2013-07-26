@@ -25,3 +25,4 @@ type t
 include Emittable.S with type t := t
 
 val in_register : reg_number:int -> t
+val register_based_addressing : reg_number:int -> offset_in_bytes:int -> t

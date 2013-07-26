@@ -23,7 +23,7 @@
 (* CR-soon mshinwell: fix uses of [open] *)
 open Dwarf_low_dot_std
 open Dwarf_low
-open Std_internal
+open Dwarf_std_internal
 
 type t = {
   emitter : Emitter.t;
@@ -83,24 +83,26 @@ let start_function t ~linearized_fundecl =
     (* note that [process_fundecl] may modify [linearize_fundecl] *)
     Live_ranges.process_fundecl linearized_fundecl
   in
-  let debug_loc_table, live_range_tags =
+  let _id, debug_loc_table, live_range_tags =
     List.fold live_ranges
-      ~init:(t.debug_loc_table, [])
-      ~f:(fun (debug_loc_table, live_range_tags) live_range ->
-            let name = Live_ranges.One_live_range.unique_name live_range in
+      ~init:(0, t.debug_loc_table, [])
+      ~f:(fun (id, debug_loc_table, live_range_tags) live_range ->
+            let name = Printf.sprintf "%d" id in
             let tag, attribute_values, debug_loc_table =
               (* CR mshinwell: should maybe return an option instead *)
-              Live_ranges.One_live_range.to_dwarf live_range
+              Live_ranges.Many_live_ranges.to_dwarf live_range
                 ~builtin_ocaml_type_label_value
                 ~debug_loc_table
+                ~start_of_function_label:starting_label
             in
+            let id = id + 1 in
             match attribute_values with
-            | [] -> debug_loc_table, live_range_tags
+            | [] -> id, debug_loc_table, live_range_tags
             | _ ->
               let live_range_tag =
-                2, function_name ^ "__var__" ^ name, tag, attribute_values
+                2, function_name ^ "__lr__" ^ name, tag, attribute_values
               in
-              debug_loc_table, live_range_tag::live_range_tags)
+              id, debug_loc_table, live_range_tag::live_range_tags)
   in
   let subprogram_tag =
     let tag =
