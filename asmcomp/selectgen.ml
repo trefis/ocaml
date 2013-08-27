@@ -815,6 +815,8 @@ method emit_fundecl f =
 (*  let loc_arg = Array.map Reg.clone loc_arg in
   Array.iter Reg.set_is_parameter loc_arg;*)
   Array.iteri (fun parameter_index reg ->
+    Printf.printf "function %s: setting reg %s as an arg\n%!"
+      f.Cmm.fun_name (Reg.name reg);
     Reg.set_is_parameter reg ~parameter_index)
     rarg;
   self#insert_moves loc_arg rarg;

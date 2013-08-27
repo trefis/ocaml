@@ -32,6 +32,9 @@ type t =
   | String of string
   | Code_address_from_label of string
   | Code_address_from_label_diff of string * string
+  (* CR mshinwell: remove the following once we probably address CR in
+     location_list_entry.ml (to do with boundary conditions on PC ranges). *)
+  | Code_address_from_label_diff_minus_8 of string * string
   | Code_address of Int64.t
 
 exception Too_large_for_four_byte_int of int
@@ -75,6 +78,9 @@ let as_code_address_from_label s =
 let as_code_address_from_label_diff s2 s1 =
   Code_address_from_label_diff (s2, s1)
 
+let as_code_address_from_label_diff_minus_8 s2 s1 =
+  Code_address_from_label_diff_minus_8 (s2, s1)
+
 let as_code_address i =
   Code_address i
 
@@ -87,7 +93,8 @@ let size = function
     else 1 + int_of_float (floor (log (float_of_int i) /. log 128.))
   | String s -> 1 + String.length s
   | Code_address_from_label _ | Code_address _
-  | Code_address_from_label_diff _ -> 8
+  | Code_address_from_label_diff _
+  | Code_address_from_label_diff_minus_8 _ -> 8
 
 let emit t ~emitter =
   match t with
@@ -115,6 +122,12 @@ let emit t ~emitter =
     Emitter.emit_string emitter "\t.quad\t";
     Emitter.emit_symbol emitter s2;
     Emitter.emit_string emitter " - ";
+    Emitter.emit_symbol emitter s1;
+    Emitter.emit_string emitter "\n"
+  | Code_address_from_label_diff_minus_8 (s2, s1) ->
+    Emitter.emit_string emitter "\t.quad\t";
+    Emitter.emit_symbol emitter s2;
+    Emitter.emit_string emitter " - 1 - "; (* CR mshinwell: !!! *)
     Emitter.emit_symbol emitter s1;
     Emitter.emit_string emitter "\n"
   | Code_address i ->

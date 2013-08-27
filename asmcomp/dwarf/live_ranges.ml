@@ -23,6 +23,9 @@
 open Dwarf_low_dot_std
 open Dwarf_std_internal
 
+(* CR mshinwell: we should rename "live range" to "available range"
+   or something. *)
+
 module Reg_map = struct
   include Reg.Map
   let add t ~key ~data = add key data t
@@ -66,6 +69,10 @@ module One_live_range = struct
     unique_id := !unique_id + 1;
     let starting_label = Linearize.new_label () in
     let ending_label = Linearize.new_label () in
+    (*Printf.eprintf "reg %s: start %d, end %d\n%!"
+      (Reg.name reg)
+      starting_label
+      ending_label; *)
     { id = our_id;
       parameter_or_variable;
       reg;
@@ -138,6 +145,9 @@ module One_live_range = struct
     match location_expression with
     | None -> None
     | Some location_expression ->
+      Printf.printf "reg '%s' (lr name %s): %s -> %s\n%!" (Reg.name t.reg)
+        (reg_name t)
+        starting_label ending_label;
       let location_list_entry =
         Dwarf_low.Location_list_entry.create_location_list_entry
           ~start_of_code_label:start_of_function_label
@@ -225,8 +235,7 @@ module Many_live_ranges = struct
   let to_dwarf t ~debug_loc_table ~builtin_ocaml_type_label_value
         ~start_of_function_label =
     let tag = dwarf_tag t in
-    let attribute_values, debug_loc_table =
-      dwarf_attribute_values t
+    let attribute_values, debug_loc_table = dwarf_attribute_values t
         ~builtin_ocaml_type_label_value
         ~debug_loc_table
         ~start_of_function_label
@@ -237,27 +246,39 @@ end
 (* CR mshinwell: thought: find out how C++ compilers emit DWARF for local
    variables that are defined not at the start of a block. *)
 
-let rec process_instruction ~insn ~first_insn ~prev_insn ~current_live_regs
+let rec process_instruction ~insn ~first_insn ~prev_insn
       ~current_live_ranges ~previous_live_ranges ~fundecl =
-  let regs_live_across_this_insn =
-    (* CR mshinwell: need to precisely understand the semantics of "arg" *)
-    Array.fold_left (fun regs reg -> Reg_set.add reg regs)
-      insn.Linearize.live
-      insn.Linearize.arg
-  in
   let must_start_live_ranges_for =
     (* Regs whose live ranges will start immediately before this insn. *)
-    Reg_set.diff regs_live_across_this_insn current_live_regs
+    match prev_insn with
+    | None -> insn.Linearize.available_before
+    | Some prev_insn ->
+      Reg_set.diff insn.Linearize.available_before prev_insn.Linearize.available_before
   in
   let must_finish_live_ranges_for =
-    (* Regs whose live ranges will stop immediately before this insn. *)
-    Reg_set.diff current_live_regs regs_live_across_this_insn
+    match prev_insn with
+    | None -> Reg_set.empty
+    | Some prev_insn ->
+      Reg_set.diff prev_insn.Linearize.available_before insn.Linearize.available_before
+    (* The following appears to be wrong.
+    (* Regs whose live ranges will stop immediately after this insn.
+       Since the PC ranges seem to be inclusive at the boundaries, the address of each
+       such register must be the address of *this* insn. *)
+    match insn.Linearize.next.Linearize.desc with
+    | Linearize.Lend -> insn.Linearize.available_before
+    | _ ->
+      Reg_set.diff insn.Linearize.available_before
+        insn.Linearize.next.Linearize.available_before *)
   in
   let current_live_ranges, labels_to_insert_before_insn =
     Reg_set.fold must_start_live_ranges_for
       ~init:(current_live_ranges, [])
       ~f:(fun (current_live_ranges, labels_to_insert_before_insn) reg ->
             let parameter_or_variable =
+              match Reg.is_parameter reg with
+              | Some _parameter_index -> `Parameter (Reg.name reg)
+              | None -> `Variable
+(*
               match Reg.is_parameter reg with
               | Some parameter_index ->
                 let parameter_name =
@@ -273,6 +294,7 @@ let rec process_instruction ~insn ~first_insn ~prev_insn ~current_live_regs
                 `Parameter parameter_name
               | None ->
                 `Variable
+*)
             in
             let live_range =
               One_live_range.create ~parameter_or_variable ~reg
@@ -326,6 +348,7 @@ let rec process_instruction ~insn ~first_insn ~prev_insn ~current_live_regs
                   res = [| |];
                   dbg = insn.Linearize.dbg;
                   live = insn.Linearize.live;
+                  available_before = insn.Linearize.available_before;
                 }
               in
               begin match prev_insn with
@@ -373,17 +396,16 @@ let rec process_instruction ~insn ~first_insn ~prev_insn ~current_live_regs
     process_instruction ~insn:insn.Linearize.next
       ~first_insn
       ~prev_insn:(Some insn)
-      ~current_live_regs:regs_live_across_this_insn
       ~current_live_ranges
       ~previous_live_ranges
       ~fundecl
 
 let process_fundecl fundecl =
+  Printf.printf "STARTING FUNCTION: %s\n%!" fundecl.Linearize.fun_name;
   let first_insn, live_ranges =
     process_instruction ~insn:fundecl.Linearize.fun_body
       ~first_insn:(ref fundecl.Linearize.fun_body)
       ~prev_insn:None
-      ~current_live_regs:Reg_set.empty
       ~current_live_ranges:Reg_map.empty
       ~previous_live_ranges:[]
       ~fundecl
@@ -393,9 +415,11 @@ let process_fundecl fundecl =
       ~init:String.Map.empty
       ~f:(fun name_map live_range ->
             let name = One_live_range.reg_name live_range in
+            Printf.printf "adding lr: %s\n%!" name;
             match String.Map.find name_map name with
             | None -> String.Map.add name_map ~key:name ~data:[live_range]
             | Some live_ranges ->
+              Printf.printf "more than one lr for '%s'\n%!" name;
               let data = live_range::live_ranges in
               String.Map.add (* replace *) name_map ~key:name ~data)
   in
@@ -403,4 +427,5 @@ let process_fundecl fundecl =
     List.map (List.map (String.Map.to_alist name_map) ~f:snd)
       ~f:Many_live_ranges.create
   in
+  Printf.printf "FINISHING FUNCTION: %s\n%!" fundecl.Linearize.fun_name;
   live_ranges, { fundecl with Linearize. fun_body = first_insn; }

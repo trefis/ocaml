@@ -42,6 +42,7 @@ val createv: Cmm.machtype -> t array
 val createv_like: t array -> t array
 val clone: t -> t
 val at_location: Cmm.machtype_component -> location -> t
+val same_location: t -> t -> bool
 
 module Set: Set.S with type elt = t
 module Map: Map.S with type key = t
@@ -53,6 +54,7 @@ val set_of_array: t array -> Set.t
 
 val reset: unit -> unit
 val all_registers: unit -> t list
+val all_registers_set: unit -> Set.t
 val num_registers: unit -> int
 val reinit: unit -> unit
 

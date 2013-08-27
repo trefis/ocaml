@@ -90,6 +90,7 @@ let reset() =
   reg_list := []
 
 let all_registers() = !reg_list
+
 let num_registers() = !currstamp
 
 let reinit_reg r =
@@ -161,3 +162,11 @@ let set_is_parameter t ~parameter_index =
 
 let is_parameter t =
   t.is_parameter
+
+let all_registers_set () =
+  ListLabels.fold_left (all_registers ())
+    ~init:Set.empty
+    ~f:(fun set reg -> Set.add reg set)
+
+let same_location t t' =
+  t.loc = t'.loc

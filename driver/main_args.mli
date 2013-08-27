@@ -171,6 +171,7 @@ module type Optcomp_options = sig
   val _dsel : unit -> unit
   val _dcombine : unit -> unit
   val _dlive : unit -> unit
+  val _davailregs : unit -> unit
   val _dspill : unit -> unit
   val _dsplit : unit -> unit
   val _dinterf : unit -> unit
@@ -221,6 +222,7 @@ module type Opttop_options = sig
   val _dsel : unit -> unit
   val _dcombine : unit -> unit
   val _dlive : unit -> unit
+  val _davailregs : unit -> unit
   val _dspill : unit -> unit
   val _dsplit : unit -> unit
   val _dinterf : unit -> unit

@@ -25,6 +25,10 @@ exception Error of error
 let liveness ppf phrase =
   Liveness.fundecl ppf phrase; phrase
 
+let available_regs _ppf phrase =
+  if !debug then Available_regs.function_declaration phrase;
+  phrase
+
 let dump_if ppf flag message phrase =
   if !flag then Printmach.phase message ppf phrase
 
@@ -73,6 +77,8 @@ let compile_fundecl (ppf : formatter) fd_cmm =
   ++ pass_dump_if ppf dump_split "After live range splitting"
   ++ liveness ppf
   ++ regalloc ppf 1
+  ++ available_regs ppf
+  ++ pass_dump_if ppf dump_availregs "Available regs analysis"
   ++ Linearize.fundecl
   ++ pass_dump_linear_if ppf dump_linear "Linearized code"
   ++ Scheduling.fundecl

@@ -376,6 +376,10 @@ let mk_dlive f =
   "-dlive", Arg.Unit f, " (undocumented)"
 ;;
 
+let mk_davailregs f =
+  "-davailregs", Arg.Unit f, " (undocumented)"
+;;
+
 let mk_dspill f =
   "-dspill", Arg.Unit f, " (undocumented)"
 ;;
@@ -576,6 +580,7 @@ module type Optcomp_options = sig
   val _dsel : unit -> unit
   val _dcombine : unit -> unit
   val _dlive : unit -> unit
+  val _davailregs : unit -> unit
   val _dspill : unit -> unit
   val _dsplit : unit -> unit
   val _dinterf : unit -> unit
@@ -626,6 +631,7 @@ module type Opttop_options = sig
   val _dsel : unit -> unit
   val _dcombine : unit -> unit
   val _dlive : unit -> unit
+  val _davailregs : unit -> unit
   val _dspill : unit -> unit
   val _dsplit : unit -> unit
   val _dinterf : unit -> unit
@@ -817,6 +823,7 @@ struct
     mk_dsel F._dsel;
     mk_dcombine F._dcombine;
     mk_dlive F._dlive;
+    mk_davailregs F._davailregs;
     mk_dspill F._dspill;
     mk_dsplit F._dsplit;
     mk_dinterf F._dinterf;
@@ -868,6 +875,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_dsel F._dsel;
     mk_dcombine F._dcombine;
     mk_dlive F._dlive;
+    mk_davailregs F._davailregs;
     mk_dspill F._dspill;
     mk_dsplit F._dsplit;
     mk_dinterf F._dinterf;

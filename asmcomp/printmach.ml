@@ -95,6 +95,7 @@ let test tst ppf arg =
   | Ioddtest -> fprintf ppf "%a & 1 == 1" reg arg.(0)
 
 let print_live = ref false
+let print_available_regs = ref false
 
 let operation op arg ppf res =
   if Array.length res > 0 then fprintf ppf "%a := " regs res;
@@ -141,6 +142,10 @@ let rec instr ppf i =
   if !print_live then begin
     fprintf ppf "@[<1>{%a" regsetaddr i.live;
     if Array.length i.arg > 0 then fprintf ppf "@ +@ %a" regs i.arg;
+    fprintf ppf "}@]@,";
+  end;
+  if !print_available_regs then begin
+    fprintf ppf "@[<1>{%a" regsetaddr i.available_before;
     fprintf ppf "}@]@,";
   end;
   begin match i.desc with
