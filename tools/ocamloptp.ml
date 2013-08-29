@@ -104,6 +104,7 @@ module Options = Main_args.Make_optcomp_options (struct
   let _dsel = option "-dsel"
   let _dcombine = option "-dcombine"
   let _dlive = option "-dlive"
+  let _davailregs = option "-davailregs"
   let _dspill = option "-dspill"
   let _dsplit = option "-dsplit"
   let _dinterf = option "-dinterf"
