@@ -41,7 +41,7 @@ let rec available_regs ~instr ~currently_available =
   let available_after_children =
     (* CR mshinwell: should we remove "destroyed" here? *)
     match instr.Mach.desc with
-    | Mach.Iend | Mach.Ireturn -> currently_available
+    | Mach.Iexit _ | Mach.Iraise | Mach.Iend | Mach.Ireturn -> currently_available
     | Mach.Iop _op -> currently_available
     | Mach.Iifthenelse (_test, if_true, if_false) ->
       (* [inter] should be correct here: a register should only appear in the result
@@ -62,6 +62,8 @@ let rec available_regs ~instr ~currently_available =
         List.fold_left avail_cases ~init:avail_case1 ~f:Reg.Set.inter
       end
     | Mach.Iloop body ->
+      (* CR trefis for mshinwell: why [Reg.all_registers_set] instead of
+         [currently_available] here? *)
       let available_after = ref (Reg.all_registers_set ()) in
       begin try
         while true do
@@ -74,10 +76,12 @@ let rec available_regs ~instr ~currently_available =
       with Exit -> ()
       end;
       !available_after
-    | Mach.Icatch _
-    | Mach.Iexit _
-    | Mach.Itrywith _
-    | Mach.Iraise -> currently_available (* CR mshinwell: fixme *)
+    | Mach.Icatch (_, i1, i2)
+    | Mach.Itrywith (i1, i2) ->
+      (* [inter] works for the same reason as in the [Iifthenelse] case. *)
+      Reg.Set.inter
+        (available_regs ~instr:i1 ~currently_available)
+        (available_regs ~instr:i2 ~currently_available)
   in
   let available_after =
     let without_destroyed =
