@@ -93,10 +93,10 @@ let all_regs_anonymous rv =
 
 let name_regs id rv =
   if Array.length rv = 1 then
-    rv.(0).name <- Ident.name id
+    rv.(0).name <- Ident.unique_name id
   else
     for i = 0 to Array.length rv - 1 do
-      rv.(i).name <- Ident.name id ^ "#" ^ string_of_int i
+      rv.(i).name <- Ident.unique_name id ^ "#" ^ string_of_int i
     done
 
 (* "Join" two instruction sequences, making sure they return their results

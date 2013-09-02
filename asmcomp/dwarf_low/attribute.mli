@@ -36,3 +36,4 @@ val location : t
 val typ' : t
 val encoding : t
 val byte_size : t
+val linkage_name : t

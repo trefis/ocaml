@@ -67,6 +67,9 @@ let create_byte_size ~byte_size =
   assert (byte_size >= 1 && byte_size <= 0xff); (* CR mshinwell: not assert *)
   Attribute.byte_size, Value.as_byte byte_size
 
+let create_linkage_name ~linkage_name =
+  Attribute.linkage_name, Value.as_string linkage_name
+
 let emit (_attr, value) ~emitter =
   Value.emit value ~emitter
 

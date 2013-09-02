@@ -20,12 +20,10 @@
 (*                                                                     *)
 (***********************************************************************)
 
-(* Use liveness information in a linearized function declaration to
-   produce DWARF attributes describing the live ranges of named
-   variables.  A new linearized function declaration is returned that
-   contains labels, referenced from the DWARF attributes, identifying
-   the live ranges.
-*)
+(* Translate available registers information in a linearized function
+   declaration into DWARF attributes.  The return value is the input
+   function declaration augmented with labels necessary to identify
+   the ranges over which named values are available. *)
 
 open Dwarf_low_dot_std
 

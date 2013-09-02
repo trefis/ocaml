@@ -32,6 +32,7 @@ type t =
   | DW_AT_type
   | DW_AT_encoding
   | DW_AT_byte_size
+  | DW_AT_linkage_name  (* DWARF 4 *)
 
 let encode = function
   | DW_AT_low_pc -> 0x11
@@ -45,6 +46,7 @@ let encode = function
   | DW_AT_type -> 0x49
   | DW_AT_encoding -> 0x3e
   | DW_AT_byte_size -> 0x0b
+  | DW_AT_linkage_name -> 0x6e
 
 let form = function
   | DW_AT_low_pc -> Form.addr
@@ -58,6 +60,7 @@ let form = function
   | DW_AT_type -> Form.ref_addr
   | DW_AT_encoding -> Form.data1
   | DW_AT_byte_size -> Form.data1
+  | DW_AT_linkage_name -> Form.string
 
 let low_pc = DW_AT_low_pc
 let high_pc = DW_AT_high_pc
@@ -70,6 +73,7 @@ let location = DW_AT_location
 let typ' = DW_AT_type
 let encoding = DW_AT_encoding
 let byte_size = DW_AT_byte_size
+let linkage_name = DW_AT_linkage_name
 
 let size t =
   Value.size (Value.as_uleb128 (encode t)) + Form.size (form t)

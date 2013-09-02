@@ -192,7 +192,10 @@ module Many_live_ranges = struct
   let name t =
     (* CR mshinwell: the name handling needs thought.  Maybe we should
        attach properly-stamped idents to Regs?  This must be required to
-       fix problems when names are shadowed. *)
+       fix problems when names are shadowed.
+
+       mshinwell: [Reg.t] values now have [Ident.unique_name]s upon them.
+       We need to fix up this old crap though, nonetheless. *)
     let names = List.map t.live_ranges ~f:One_live_range.reg_name in
     let without_dummies =
       List.filter names ~f:(function "R" | "" -> false | _ -> true)
@@ -201,6 +204,24 @@ module Many_live_ranges = struct
     | [name] -> name
     | [] -> "<anon>"
     | multiple -> String.concat "/" multiple
+
+  (* [human_name t] returns the name of the variable associated with the set
+     of available ranges [t] as it would be written in source code or typed
+     into a debugger.  (Viz. [SYMBOL_NATURAL_NAME] in gdb.) *)
+  let human_name t =
+    let name = name t in
+    try
+      (* CR mshinwell: '_' should be factored out across here and ident.ml *)
+      String.sub name 0 (String.rindex name '_')
+    with Not_found -> name
+
+  (* [stamped_name t] returns the name of the variable associated with the set
+     of available ranges [t] qualified with its stamp.  (This corresponds to
+     the output of [Ident.unique_name]; and also to [SYMBOL_LINKAGE_NAME] in
+     gdb.)  These stamped names are used for cross-referencing with .cmt files
+     in the debugger. *)
+  let stamped_name t =
+    name t
 
   let dwarf_attribute_values t ~builtin_ocaml_type_label_value
         ~debug_loc_table ~start_of_function_label =
@@ -225,7 +246,10 @@ module Many_live_ranges = struct
       in
       let type_label_name = builtin_ocaml_type_label_value in
       let attribute_values =
-        [Dwarf_low.Attribute_value.create_name ~source_file_path:(name t);
+        [Dwarf_low.Attribute_value.create_name
+           ~source_file_path:(human_name t);
+         Dwarf_low.Attribute_value.create_linkage_name
+           ~linkage_name:(stamped_name t);
          loclistptr_attribute_value;
          Dwarf_low.Attribute_value.create_type ~label_name:type_label_name;
         ]
