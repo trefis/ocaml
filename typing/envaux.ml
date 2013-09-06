@@ -68,6 +68,46 @@ let rec env_from_summary sum subst =
       Hashtbl.add env_cache (sum, subst) env;
       env
 
+(* CR mshinwell: find out how to do this properly *)
+let rec env_from_summary_best_effort sum subst =
+  try
+    Hashtbl.find env_cache (sum, subst)
+  with Not_found ->
+    let env =
+      match sum with
+        Env_empty ->
+          Env.empty
+      | Env_value(s, id, desc) ->
+          Env.add_value id (Subst.value_description subst desc) (env_from_summary_best_effort s subst)
+      | Env_type(s, id, desc) ->
+          Env.add_type id (Subst.type_declaration subst desc) (env_from_summary_best_effort s subst)
+      | Env_exception(s, id, desc) ->
+          Env.add_exception id (Subst.exception_declaration subst desc) (env_from_summary_best_effort s subst)
+      | Env_module(s, id, desc) ->
+          Env.add_module id (Subst.modtype subst desc) (env_from_summary_best_effort s subst)
+      | Env_modtype(s, id, desc) ->
+          Env.add_modtype id (Subst.modtype_declaration subst desc) (env_from_summary_best_effort s subst)
+      | Env_class(s, id, desc) ->
+          Env.add_class id (Subst.class_declaration subst desc) (env_from_summary_best_effort s subst)
+      | Env_cltype (s, id, desc) ->
+          Env.add_cltype id (Subst.cltype_declaration subst desc) (env_from_summary_best_effort s subst)
+      | Env_open(s, path) ->
+          let env = env_from_summary_best_effort s subst in
+          let path' = Subst.module_path subst path in
+          let mty =
+            try
+              Some (Env.find_module path' env)
+            with Not_found ->
+              None
+          in
+          match mty with
+          | None -> env
+          | Some mty ->
+            Env.open_signature Asttypes.Override path' (extract_sig env mty) env
+    in
+      Hashtbl.add env_cache (sum, subst) env;
+      env
+
 let env_of_only_summary env =
   Env.env_of_only_summary env_from_summary env
 
