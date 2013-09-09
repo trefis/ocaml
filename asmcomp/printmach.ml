@@ -145,7 +145,7 @@ let rec instr ppf i =
     fprintf ppf "}@]@,";
   end;
   if !print_available_regs then begin
-    fprintf ppf "@[<1>{%a" regsetaddr i.available_before;
+    fprintf ppf "\n@[<1>{%a" regsetaddr i.available_before;
     fprintf ppf "}@]@,";
   end;
   begin match i.desc with

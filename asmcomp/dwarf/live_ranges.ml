@@ -47,7 +47,7 @@ module One_live_range = struct
       parameter_or_variable : [ `Parameter of string | `Variable ];
       reg : Reg.t;
       starting_label : Linearize.label;
-      ending_label : Linearize.label;
+      mutable ending_label : Linearize.label option;
       starts_at_beginning_of_function : bool;
     }
 
@@ -56,28 +56,38 @@ module One_live_range = struct
   end
 
   include T
+
   module Set = struct
     include Set.Make (T)
     let fold t ~init ~f = fold (fun elt acc -> f acc elt) t init
     let to_list = elements
   end
 
+  let set_ending_label t lbl =
+    t.ending_label <- Some lbl
+
+  let ending_label_of_t_exn t =
+    match t.ending_label with
+    | None -> assert false
+    | Some l -> l
+
   let unique_id = ref 0  (* CR mshinwell: may not suffice for 32-bit *)
 
-  let create ~parameter_or_variable ~reg ~starts_at_beginning_of_function =
+  let create ?starting_label ?ending_label ~parameter_or_variable ~reg
+    ~starts_at_beginning_of_function () =
     let our_id = !unique_id in
     unique_id := !unique_id + 1;
-    let starting_label = Linearize.new_label () in
-    let ending_label = Linearize.new_label () in
-    (*Printf.eprintf "reg %s: start %d, end %d\n%!"
-      (Reg.name reg)
-      starting_label
-      ending_label; *)
-    { id = our_id;
+    let starting_label =
+      match starting_label with
+      | None -> Linearize.new_label ()
+      | Some l -> l
+    in
+    {
+      id = our_id;
       parameter_or_variable;
       reg;
       starting_label;
-      ending_label;
+      ending_label = ending_label;
       starts_at_beginning_of_function;
     }
 
@@ -85,7 +95,7 @@ module One_live_range = struct
     Linearize.Llabel t.starting_label
 
   let code_for_ending_label t =
-    Linearize.Llabel t.ending_label
+    Linearize.Llabel (ending_label_of_t_exn t)
 
   let parameter_or_variable t =
     t.parameter_or_variable
@@ -122,7 +132,7 @@ module One_live_range = struct
         Printf.sprintf ".L%d" t.starting_label
     in
     let ending_label =
-      Printf.sprintf ".L%d" t.ending_label
+      Printf.sprintf ".L%d" (ending_label_of_t_exn t)
     in
     let location_expression =
       match Reg.location t.reg with
@@ -294,46 +304,34 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
       Reg_set.diff insn.Linearize.available_before
         insn.Linearize.next.Linearize.available_before *)
   in
-  let current_live_ranges, labels_to_insert_before_insn =
+  let lbl_before_opt, current_live_ranges =
     Reg_set.fold must_start_live_ranges_for
-      ~init:(current_live_ranges, [])
-      ~f:(fun (current_live_ranges, labels_to_insert_before_insn) reg ->
+      ~init:(None, current_live_ranges)
+      ~f:(fun (lbl, current_live_ranges) reg ->
             let parameter_or_variable =
               match Reg.is_parameter reg with
               | Some _parameter_index -> `Parameter (Reg.name reg)
               | None -> `Variable
-(*
-              match Reg.is_parameter reg with
-              | Some parameter_index ->
-                let parameter_name =
-                  (* CR mshinwell: slow and unsafe, but will do for now *)
-                  try
-                  let ident =
-                    fst ((Array.of_list fundecl.Linearize.fun_args_and_locations).
-                      (parameter_index))
-                  in
-                  Ident.name ident
-                  with _exn -> Printf.sprintf "<parameter %d>" parameter_index
-                in
-                `Parameter parameter_name
-              | None ->
-                `Variable
-*)
+
+            in
+            let lbl =
+              match lbl with
+              | None -> Linearize.new_label ()
+              | Some l -> l
             in
             let live_range =
-              One_live_range.create ~parameter_or_variable ~reg
-                ~starts_at_beginning_of_function:(prev_insn = None)
+              One_live_range.create ~starting_label:lbl ~parameter_or_variable
+                ~reg ~starts_at_beginning_of_function:(prev_insn = None) ()
             in
             let current_live_ranges =
               Reg_map.add current_live_ranges ~key:reg ~data:live_range
             in
-            (* CR mshinwell: How about just ONE label for all of these?
-               Likewise below. *)
-            let labels_to_insert_before_insn =
-              (One_live_range.code_for_starting_label live_range)
-                :: labels_to_insert_before_insn
-            in
-            current_live_ranges, labels_to_insert_before_insn)
+            Some lbl, current_live_ranges)
+  in
+  let labels_to_insert_before_insn, end_label =
+    match lbl_before_opt with
+    | None -> [], Linearize.new_label ()
+    | Some l -> [Linearize.Llabel l], l
   in
   let current_live_ranges, previous_live_ranges, labels_to_insert_before_insn =
     Reg_set.fold must_finish_live_ranges_for
@@ -350,6 +348,7 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
               let previous_live_ranges =
                 live_range :: previous_live_ranges
               in
+              One_live_range.set_ending_label live_range end_label ;
               let labels_to_insert_before_insn =
                 (One_live_range.code_for_ending_label live_range)
                   :: labels_to_insert_before_insn
@@ -358,6 +357,7 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
                 labels_to_insert_before_insn)
   in
   if List.length labels_to_insert_before_insn > 0 then begin
+    let labels_to_insert_before_insn = List.dedup labels_to_insert_before_insn in
     (* Inserting the code to emit the live range labels is complicated by the
        structure of values of type [Linearize.instruction]. *)
     let first_insn', last_insn' =
@@ -439,7 +439,7 @@ let process_fundecl fundecl =
       ~init:String.Map.empty
       ~f:(fun name_map live_range ->
             let name = One_live_range.reg_name live_range in
-            Printf.printf "adding lr: %s\n%!" name;
+(*             Printf.printf "adding lr: %s\n%!" name; *)
             match String.Map.find name_map name with
             | None -> String.Map.add name_map ~key:name ~data:[live_range]
             | Some live_ranges ->
