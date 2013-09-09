@@ -30,6 +30,10 @@ open Dwarf_low_dot_std
 module Many_live_ranges : sig
   type t
 
+  val compare : t -> t -> int
+
+  val starting_label : start_of_function_label:string -> t -> string
+
   val to_dwarf : t
     -> debug_loc_table:Dwarf_low.Debug_loc_table.t
     -> builtin_ocaml_type_label_value:string

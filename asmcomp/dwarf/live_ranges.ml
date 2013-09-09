@@ -121,16 +121,17 @@ module One_live_range = struct
 
   let unique_name t = Printf.sprintf "%s__%d" (reg_name t) t.id
 
+  let starting_label t ~start_of_function_label =
+    if t.starts_at_beginning_of_function then
+      (* CR mshinwell: it's yucky in this case that we ignore
+          [t.starting_label], which will actually have been emitted.  Clean
+          this up as part of the coalescing-labels work. *)
+      start_of_function_label
+    else
+      Printf.sprintf ".L%d" t.starting_label
+
   let location_list_entry t ~start_of_function_label =
-    let starting_label =  (* CR mshinwell: this is a hack *)
-      if t.starts_at_beginning_of_function then
-        (* CR mshinwell: it's yucky in this case that we ignore
-           [t.starting_label], which will actually have been emitted.  Clean
-           this up as part of the coalescing-labels work. *)
-        start_of_function_label
-      else
-        Printf.sprintf ".L%d" t.starting_label
-    in
+    let starting_label = starting_label t ~start_of_function_label in
     let ending_label =
       Printf.sprintf ".L%d" (ending_label_of_t_exn t)
     in
@@ -172,29 +173,28 @@ end
    restructuring *)
 
 module Many_live_ranges = struct
-  type t = {
-    live_ranges : One_live_range.t list
-  }
+  (* Assumption: we're refering to the same variable in all the ranges *)
 
-  let create live_ranges =
-    match live_ranges with
-    | [] -> { live_ranges = []; }
-    | live_range::_remainder ->
-(* doesn't work
-      let validate live_range' =
-        (* CR mshinwell: note that this doesn't actually make sure the live
-           ranges are for the same variable. *)
-        Pervasives.(=) (One_live_range.parameter_or_variable live_range)
-          (One_live_range.parameter_or_variable live_range')
-      in
-      if not (List.for_all validate live_ranges) then
-        Misc.fatal_error "Many_live_ranges.create: validation failed";
-*)
-      { live_ranges; }
+  type t = One_live_range.t list
+
+  let create live_ranges = List.sort ~cmp:One_live_range.compare live_ranges
+
+  let compare t1 t2 =
+    match t1, t2 with
+    (* weird cases. (can they really happen?) *)
+    | [], _ -> -1
+    | _, [] ->  1
+    (* general case *)
+    | first1 :: _, first2 :: _ ->
+      One_live_range.compare first1 first2
+
+  let starting_label ~start_of_function_label = function
+    | [] -> start_of_function_label
+    | first :: _ -> One_live_range.starting_label ~start_of_function_label first
 
   let dwarf_tag t =
     (* CR mshinwell: needs sorting out too *)
-    match List.dedup (List.map t.live_ranges ~f:One_live_range.dwarf_tag) with
+    match List.dedup (List.map t ~f:One_live_range.dwarf_tag) with
     | [tag] -> tag
     | [] -> Dwarf_low.Tag.variable (* doesn't get used *)
     | _tags -> Dwarf_low.Tag.formal_parameter
@@ -206,14 +206,16 @@ module Many_live_ranges = struct
 
        mshinwell: [Reg.t] values now have [Ident.unique_name]s upon them.
        We need to fix up this old crap though, nonetheless. *)
-    let names = List.map t.live_ranges ~f:One_live_range.reg_name in
+    let names = List.map t ~f:One_live_range.reg_name in
     let without_dummies =
       List.filter names ~f:(function "R" | "" -> false | _ -> true)
     in
     match List.dedup without_dummies with
     | [name] -> name
     | [] -> "<anon>"
-    | multiple -> String.concat "/" multiple
+    | multiple ->
+      (* Is that case realistic considering the previous assumption? *)
+      String.concat "/" multiple
 
   (* [human_name t] returns the name of the variable associated with the set
      of available ranges [t] as it would be written in source code or typed
@@ -233,35 +235,36 @@ module Many_live_ranges = struct
   let stamped_name t =
     name t
 
-  let dwarf_attribute_values t ~builtin_ocaml_type_label_value
-        ~debug_loc_table ~start_of_function_label =
+  let dwarf_attribute_values t
+    ~builtin_ocaml_type_label_value
+    ~debug_loc_table
+    ~start_of_function_label =
     let base_address_selection_entry =
       Dwarf_low.Location_list_entry.create_base_address_selection_entry
         ~base_address_label:start_of_function_label
     in
     let location_list_entries =
-      List.filter_map t.live_ranges
+      List.filter_map t
         ~f:(One_live_range.location_list_entry ~start_of_function_label)
     in
     match location_list_entries with
     | [] -> [], debug_loc_table
-    | location_list_entries ->
+    | _ ->
       let location_list =
         Dwarf_low.Location_list.create
           (base_address_selection_entry :: location_list_entries)
       in
       let debug_loc_table, loclistptr_attribute_value =
-        Dwarf_low.Debug_loc_table.insert debug_loc_table
-          ~location_list
+        Dwarf_low.Debug_loc_table.insert debug_loc_table ~location_list
       in
       let type_label_name = builtin_ocaml_type_label_value in
       let attribute_values =
-        [Dwarf_low.Attribute_value.create_name
-           ~source_file_path:(human_name t);
-         Dwarf_low.Attribute_value.create_linkage_name
-           ~linkage_name:(stamped_name t);
-         loclistptr_attribute_value;
-         Dwarf_low.Attribute_value.create_type ~label_name:type_label_name;
+        let open Dwarf_low in [
+          Attribute_value.create_name ~source_file_path:(human_name t);
+          Attribute_value.create_linkage_name
+            ~linkage_name:(stamped_name t);
+          loclistptr_attribute_value;
+          Attribute_value.create_type ~label_name:type_label_name;
         ]
       in
       attribute_values, debug_loc_table
@@ -269,7 +272,8 @@ module Many_live_ranges = struct
   let to_dwarf t ~debug_loc_table ~builtin_ocaml_type_label_value
         ~start_of_function_label =
     let tag = dwarf_tag t in
-    let attribute_values, debug_loc_table = dwarf_attribute_values t
+    let attribute_values, debug_loc_table =
+      dwarf_attribute_values t
         ~builtin_ocaml_type_label_value
         ~debug_loc_table
         ~start_of_function_label
@@ -278,7 +282,9 @@ module Many_live_ranges = struct
 end
 
 (* CR mshinwell: thought: find out how C++ compilers emit DWARF for local
-   variables that are defined not at the start of a block. *)
+   variables that are defined not at the start of a block.
+   
+   trefis: See [DW_TAG_lexical_block] *)
 
 let rec process_instruction ~insn ~first_insn ~prev_insn
       ~current_live_ranges ~previous_live_ranges ~fundecl =
@@ -294,15 +300,6 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
     | None -> Reg_set.empty
     | Some prev_insn ->
       Reg_set.diff prev_insn.Linearize.available_before insn.Linearize.available_before
-    (* The following appears to be wrong.
-    (* Regs whose live ranges will stop immediately after this insn.
-       Since the PC ranges seem to be inclusive at the boundaries, the address of each
-       such register must be the address of *this* insn. *)
-    match insn.Linearize.next.Linearize.desc with
-    | Linearize.Lend -> insn.Linearize.available_before
-    | _ ->
-      Reg_set.diff insn.Linearize.available_before
-        insn.Linearize.next.Linearize.available_before *)
   in
   let lbl_before_opt, current_live_ranges =
     Reg_set.fold must_start_live_ranges_for
@@ -312,7 +309,6 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
               match Reg.is_parameter reg with
               | Some _parameter_index -> `Parameter (Reg.name reg)
               | None -> `Variable
-
             in
             let lbl =
               match lbl with

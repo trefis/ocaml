@@ -53,6 +53,7 @@ let create ~tags_with_attribute_values =
             in
             depth, (die::dies))
   in
+  Printf.printf "[INFO_SECTION] Needs to insert %d terminators\n%!" depth ;
   let rec create_terminators = function
     | 0 -> []
     | n -> (Debugging_information_entry.create_null ()) :: (create_terminators (n - 1))

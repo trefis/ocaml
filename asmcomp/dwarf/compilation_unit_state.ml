@@ -72,6 +72,42 @@ module Reg_location = struct
   let stack () = `Stack ()
 end
 
+let put_ranges_in_scopes loc_table ~function_name ~starting_label ~ending_label lst =
+  let live_ranges = List.sort ~cmp:Live_ranges.Many_live_ranges.compare lst in
+  let rec aux id level debug_loc_table tags = function
+    | [] ->
+      Printf.printf "MAX_DEPTH(%s) = %d\n%!" function_name level ;
+      debug_loc_table, tags
+    | live_range :: rest ->
+      let name = Printf.sprintf "%d" id in
+      let tag, attribute_values, debug_loc_table =
+        (* CR mshinwell: should maybe return an option instead *)
+        Live_ranges.Many_live_ranges.to_dwarf live_range
+          ~builtin_ocaml_type_label_value
+          ~debug_loc_table
+          ~start_of_function_label:starting_label
+      in
+      let id = id + 1 in
+      match attribute_values with
+      | [] -> aux id level debug_loc_table tags rest
+      | _ ->
+        let lexical_block =
+          let start =
+            Live_ranges.Many_live_ranges.starting_label live_range
+              ~start_of_function_label:starting_label
+          in
+          level, function_name ^ "__lb__" ^ name, Tag.lexical_block, [
+            Attribute_value.create_low_pc ~address_label:start ;
+            Attribute_value.create_high_pc ~address_label:ending_label ;
+          ]
+        in
+        let live_range_tag =
+          level + 1, function_name ^ "__lr__" ^ name, tag, attribute_values
+        in
+        aux id (level + 1) debug_loc_table (live_range_tag :: lexical_block :: tags) rest
+  in
+  aux 0 2 loc_table [] live_ranges
+
 let start_function t ~linearized_fundecl =
   let function_name = linearized_fundecl.Linearize.fun_name in
   (* CR mshinwell: sort this source_file_path stuff out *)
@@ -83,6 +119,11 @@ let start_function t ~linearized_fundecl =
     (* note that [process_fundecl] may modify [linearize_fundecl] *)
     Live_ranges.process_fundecl linearized_fundecl
   in
+  let debug_loc_table, live_range_tags =
+    put_ranges_in_scopes t.debug_loc_table ~function_name ~starting_label
+      ~ending_label live_ranges
+  in
+(*
   let _id, debug_loc_table, live_range_tags =
     List.fold live_ranges
       ~init:(0, t.debug_loc_table, [])
@@ -104,6 +145,7 @@ let start_function t ~linearized_fundecl =
               in
               id, debug_loc_table, live_range_tag::live_range_tags)
   in
+*)
   let subprogram_tag =
     let tag =
       if List.length live_range_tags > 0 then
