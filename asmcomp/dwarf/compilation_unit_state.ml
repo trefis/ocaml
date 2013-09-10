@@ -34,6 +34,7 @@ type t = {
   mutable function_tags :
     (int * string * Tag.t * Dwarf_low.Attribute_value.t list) list;
   mutable debug_loc_table : Debug_loc_table.t;
+  mutable type_names : (string * string) list;
 }
 
 let create ~emitter ~source_file_path ~start_of_code_label ~end_of_code_label =
@@ -44,19 +45,17 @@ let create ~emitter ~source_file_path ~start_of_code_label ~end_of_code_label =
     externally_visible_functions = [];
     function_tags = [];
     debug_loc_table = Debug_loc_table.create ();
+    type_names = [];
   }
 
-let builtin_ocaml_type_label_value = "type_value"
-
-let build_ocaml_type_tags () = [
-  1, builtin_ocaml_type_label_value, Dwarf_low.Tag.base_type, [
-    Dwarf_low.Attribute_value.create_name ~source_file_path:"value";
+let build_ocaml_type_tags ~type_label ~type_name =
+  1, type_label, Dwarf_low.Tag.base_type, [
+    Dwarf_low.Attribute_value.create_name ~source_file_path:type_name;
     Dwarf_low.Attribute_value.create_encoding
       ~encoding:Dwarf_low.Encoding_attribute.signed;
     Dwarf_low.Attribute_value.create_byte_size
       ~byte_size:8;
   ];
-]
 
 module Function = struct
   type t = string  (* function name, ahem *)
@@ -72,22 +71,42 @@ module Reg_location = struct
   let stack () = `Stack ()
 end
 
-let put_ranges_in_scopes loc_table ~function_name ~starting_label ~ending_label lst =
+let next_type_label = ref 0
+
+let put_ranges_in_scopes loc_table ~function_name ~starting_label ~ending_label lst
+      ~source_file_path =
   let live_ranges = List.sort ~cmp:Live_ranges.Many_live_ranges.compare lst in
-  let rec aux id level debug_loc_table tags = function
-    | [] -> debug_loc_table, tags
+  let rec aux id level debug_loc_table tags ~type_labels = function
+    | [] -> debug_loc_table, tags, type_labels
     | live_range :: rest ->
       let name = Printf.sprintf "%d" id in
+      let type_labels' = ref [] in
+      (* CR mshinwell: this is all pretty nasty.  Review once we're sure this is
+         the correct approach. *)
+      let type_creator ~stamped_name =
+        let type_label =
+          let type_label = Printf.sprintf ".ocamltype%d" !next_type_label in
+          next_type_label := !next_type_label + 1;
+          type_label
+        in
+        let type_name =
+          (* CR mshinwell: would be nice to share with the gdb side *)
+          "__ocaml" ^ source_file_path ^ " " ^ stamped_name
+        in
+        type_labels' := (type_label, type_name)::!type_labels';
+        type_label
+      in
       let tag, attribute_values, debug_loc_table =
         (* CR mshinwell: should maybe return an option instead *)
         Live_ranges.Many_live_ranges.to_dwarf live_range
-          ~builtin_ocaml_type_label_value
+          ~type_creator
           ~debug_loc_table
           ~start_of_function_label:starting_label
       in
+      let type_labels = !type_labels' @ type_labels in
       let id = id + 1 in
       match attribute_values with
-      | [] -> aux id level debug_loc_table tags rest
+      | [] -> aux id level debug_loc_table tags rest ~type_labels
       | _ ->
         let lexical_block, range_level =
           (* We want the formal parameters to be in the scope of the function,
@@ -115,46 +134,49 @@ let put_ranges_in_scopes loc_table ~function_name ~starting_label ~ending_label 
           | None -> live_range_tag :: tags
           | Some lexical_block -> live_range_tag :: lexical_block :: tags
         in
-        aux id range_level debug_loc_table acc rest
+        aux id range_level debug_loc_table acc rest ~type_labels
   in
-  aux 0 2 loc_table [] live_ranges
+  aux 0 2 loc_table [] live_ranges ~type_labels:[]
 
 let start_function t ~linearized_fundecl =
   let function_name = linearized_fundecl.Linearize.fun_name in
   (* CR mshinwell: sort this source_file_path stuff out *)
-  if t.source_file_path = None then function_name, linearized_fundecl else
-  let starting_label = sprintf "Llr_begin_%s" function_name in
-  let ending_label = sprintf "Llr_end_%s" function_name in
-  Emitter.emit_label_declaration t.emitter starting_label;
-  let live_ranges, fundecl =
-    (* note that [process_fundecl] may modify [linearize_fundecl] *)
-    Live_ranges.process_fundecl linearized_fundecl
-  in
-  let debug_loc_table, live_range_tags =
-    put_ranges_in_scopes t.debug_loc_table ~function_name ~starting_label
-      ~ending_label live_ranges
-  in
-  let subprogram_tag =
-    let tag =
-      if List.length live_range_tags > 0 then
-        Tag.subprogram
-      else
-        Tag.subprogram_with_no_children
+  match t.source_file_path with
+  | None -> function_name, linearized_fundecl
+  | Some source_file_path ->
+    let starting_label = sprintf "Llr_begin_%s" function_name in
+    let ending_label = sprintf "Llr_end_%s" function_name in
+    Emitter.emit_label_declaration t.emitter starting_label;
+    let live_ranges, fundecl =
+      (* note that [process_fundecl] may modify [linearize_fundecl] *)
+      Live_ranges.process_fundecl linearized_fundecl
     in
-    let module AV = Attribute_value in
-    1, function_name, tag, [
-      AV.create_name ~source_file_path:function_name;
-      AV.create_external ~is_visible_externally:true;
-      AV.create_low_pc ~address_label:starting_label;
-      AV.create_high_pc ~address_label:ending_label;
-    ]
-  in
-  let this_function's_tags = subprogram_tag::(List.rev live_range_tags) in
-  t.externally_visible_functions <-
-    function_name::t.externally_visible_functions;
-  t.debug_loc_table <- debug_loc_table;
-  t.function_tags <- t.function_tags @ this_function's_tags;
-  function_name, fundecl
+    let debug_loc_table, live_range_tags, type_names =
+      put_ranges_in_scopes t.debug_loc_table ~function_name ~starting_label
+        ~ending_label ~source_file_path live_ranges
+    in
+    let subprogram_tag =
+      let tag =
+        if List.length live_range_tags > 0 then
+          Tag.subprogram
+        else
+          Tag.subprogram_with_no_children
+      in
+      let module AV = Attribute_value in
+      1, function_name, tag, [
+        AV.create_name ~source_file_path:function_name;
+        AV.create_external ~is_visible_externally:true;
+        AV.create_low_pc ~address_label:starting_label;
+        AV.create_high_pc ~address_label:ending_label;
+      ]
+    in
+    let this_function's_tags = subprogram_tag::(List.rev live_range_tags) in
+    t.externally_visible_functions <-
+      function_name::t.externally_visible_functions;
+    t.debug_loc_table <- debug_loc_table;
+    t.function_tags <- t.function_tags @ this_function's_tags;
+    t.type_names <- t.type_names @ type_names;
+    function_name, fundecl
 
 (*
 let start_function t ~function_name ~arguments_and_locations =
@@ -265,10 +287,15 @@ let emit_debugging_info_epilogue t =
     | None -> common
     | Some source_file_path -> (AV.create_name ~source_file_path)::common
   in
+  let type_name_tags =
+    List.map t.type_names
+      ~f:(fun (type_label, type_name) ->
+            build_ocaml_type_tags ~type_label ~type_name)
+  in
   let tags_with_attribute_values = [
     0, "compile_unit",
       Tag.compile_unit, compile_unit_attribute_values;
-  ] @ (build_ocaml_type_tags ()) @ t.function_tags
+  ] @ t.function_tags @ type_name_tags
   in
   let debug_info = Debug_info_section.create ~tags_with_attribute_values in
   let debug_abbrev = Debug_info_section.to_abbreviations_table debug_info in

@@ -174,6 +174,9 @@ end
 
 module Many_live_ranges = struct
   (* Assumption: we're refering to the same variable in all the ranges *)
+  (* CR mshinwell: we should tighten this up: the [reg_name] function above
+     should now return stamped names, for example, which isn't made clear
+     here (but is important). *)
 
   type t = One_live_range.t list
 
@@ -215,6 +218,7 @@ module Many_live_ranges = struct
     | [] -> "<anon>"
     | multiple ->
       (* Is that case realistic considering the previous assumption? *)
+      (* CR mshinwell: this needs fixing.  see above *)
       String.concat "/" multiple
 
   (* [human_name t] returns the name of the variable associated with the set
@@ -235,10 +239,8 @@ module Many_live_ranges = struct
   let stamped_name t =
     name t
 
-  let dwarf_attribute_values t
-    ~builtin_ocaml_type_label_value
-    ~debug_loc_table
-    ~start_of_function_label =
+  let dwarf_attribute_values t ~type_creator ~debug_loc_table
+      ~start_of_function_label =
     let base_address_selection_entry =
       Dwarf_low.Location_list_entry.create_base_address_selection_entry
         ~base_address_label:start_of_function_label
@@ -257,7 +259,9 @@ module Many_live_ranges = struct
       let debug_loc_table, loclistptr_attribute_value =
         Dwarf_low.Debug_loc_table.insert debug_loc_table ~location_list
       in
-      let type_label_name = builtin_ocaml_type_label_value in
+      let type_label_name =
+        type_creator ~stamped_name:(stamped_name t)
+      in
       let attribute_values =
         let open Dwarf_low in [
           Attribute_value.create_name ~source_file_path:(human_name t);
@@ -269,12 +273,11 @@ module Many_live_ranges = struct
       in
       attribute_values, debug_loc_table
 
-  let to_dwarf t ~debug_loc_table ~builtin_ocaml_type_label_value
-        ~start_of_function_label =
+  let to_dwarf t ~debug_loc_table ~type_creator ~start_of_function_label =
     let tag = dwarf_tag t in
     let attribute_values, debug_loc_table =
       dwarf_attribute_values t
-        ~builtin_ocaml_type_label_value
+        ~type_creator
         ~debug_loc_table
         ~start_of_function_label
     in
@@ -287,11 +290,6 @@ module Many_live_ranges = struct
       | _ -> true
     )
 end
-
-(* CR mshinwell: thought: find out how C++ compilers emit DWARF for local
-   variables that are defined not at the start of a block.
-   
-   trefis: See [DW_TAG_lexical_block] *)
 
 let rec process_instruction ~insn ~first_insn ~prev_insn
       ~current_live_ranges ~previous_live_ranges ~fundecl =

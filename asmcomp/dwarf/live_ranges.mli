@@ -36,7 +36,7 @@ module Many_live_ranges : sig
 
   val to_dwarf : t
     -> debug_loc_table:Dwarf_low.Debug_loc_table.t
-    -> builtin_ocaml_type_label_value:string
+    -> type_creator:(stamped_name:string -> string)
     -> start_of_function_label:string
     -> Dwarf_low.Tag.t * Dwarf_low.Attribute_value.t list
          * Dwarf_low.Debug_loc_table.t
