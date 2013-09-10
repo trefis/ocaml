@@ -493,15 +493,18 @@ let extract_float = function
 
 (* To find reasonable names for let-bound and lambda-bound idents *)
 
-let sensible_pat_name default p =
+let sensible_pat_name p =
   match p.pat_desc with
   | Tpat_var (id, _)
-  | Tpat_alias (_, id, _) -> id
-  | _ -> Lazy.force default
+  | Tpat_alias (_, id, _) -> Some id
+  | _ -> None
 
 let rec name_pattern default = function
-    [] -> Ident.create default
-  | (p, e) :: rem -> sensible_pat_name (lazy (name_pattern default rem)) p
+  | [] -> Ident.create default
+  | (p, _) :: rem ->
+    match sensible_pat_name p with
+    | Some n -> n
+    | None -> name_pattern default rem
 
 (* Push the default values under the functional abstractions *)
 
@@ -963,7 +966,9 @@ and transl_function loc untuplify_fn repr partial pat_expr_list =
             pat_expr_list in
         let params =
           List.map (fun p ->
-            sensible_pat_name (lazy (Ident.create "param")) p
+            match sensible_pat_name p with
+            | Some n -> n
+            | None -> Ident.create "param"
           ) pl
         in
         ((Tupled, params),
