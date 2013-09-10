@@ -27,9 +27,11 @@ type t = {
 }
 
 let create ~tags_with_attribute_values =
-  let rec create_terminators = function
-    | 0 -> []
-    | n -> (Debugging_information_entry.create_null ()) :: (create_terminators (n - 1))
+  let rec create_terminators acc = function
+    | 0 -> acc
+    | n ->
+      create_terminators (Debugging_information_entry.create_null () :: acc)
+        (n - 1)
   in
   let next_abbreviation_code = ref 1 in
   (* CR mshinwell: the depth thing is nasty -- use a proper tree? *)
@@ -41,7 +43,7 @@ let create ~tags_with_attribute_values =
             let need_null_entry = depth < current_depth in
             let dies =
               if need_null_entry then
-                (create_terminators (current_depth - depth)) @ dies
+                create_terminators dies (current_depth - depth)
               else
                 dies
             in
@@ -58,8 +60,7 @@ let create ~tags_with_attribute_values =
             depth, (die::dies))
   in
   Printf.printf "[INFO_SECTION] Needs to insert %d terminators\n%!" depth ;
-  { dies = (List.rev dies) @ (create_terminators depth);
-  }
+  { dies = List.rev (create_terminators dies depth) }
 
 let dwarf_version = Version.two
 let debug_abbrev_offset =
