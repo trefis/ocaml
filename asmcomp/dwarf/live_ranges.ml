@@ -306,20 +306,24 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
     | Some prev_insn ->
       Reg_set.diff prev_insn.Linearize.available_before insn.Linearize.available_before
   in
+  let label_from_opt = function
+    | _, None ->
+      begin match insn.Linearize.desc with
+      | Linearize.Llabel l -> false, l
+      | _ -> true, Linearize.new_label ()
+      end
+    | b, Some l -> b, l
+  in
   let lbl_before_opt, current_live_ranges =
     Reg_set.fold must_start_live_ranges_for
-      ~init:(None, current_live_ranges)
+      ~init:((false, None), current_live_ranges)
       ~f:(fun (lbl, current_live_ranges) reg ->
             let parameter_or_variable =
               match Reg.is_parameter reg with
               | Some _parameter_index -> `Parameter (Reg.name reg)
               | None -> `Variable
             in
-            let lbl =
-              match lbl with
-              | None -> Linearize.new_label ()
-              | Some l -> l
-            in
+            let is_fresh, lbl = label_from_opt lbl in
             let live_range =
               One_live_range.create ~starting_label:lbl ~parameter_or_variable
                 ~reg ~starts_at_beginning_of_function:(prev_insn = None) ()
@@ -327,19 +331,13 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
             let current_live_ranges =
               Reg_map.add current_live_ranges ~key:reg ~data:live_range
             in
-            Some lbl, current_live_ranges)
+            (is_fresh, Some lbl), current_live_ranges)
   in
-  let labels_to_insert_before_insn, end_label =
-    match lbl_before_opt with
-    | None -> [], Linearize.new_label ()
-    | Some l -> [Linearize.Llabel l], l
-  in
-  let current_live_ranges, previous_live_ranges, labels_to_insert_before_insn =
+  let current_live_ranges, previous_live_ranges, lbl_before_opt =
     Reg_set.fold must_finish_live_ranges_for
-      ~init:(current_live_ranges, previous_live_ranges,
-             labels_to_insert_before_insn)
+      ~init:(current_live_ranges, previous_live_ranges, lbl_before_opt)
       ~f:(fun (current_live_ranges, previous_live_ranges,
-               labels_to_insert_before_insn) reg ->
+               lbl_opt) reg ->
             match Reg_map.find current_live_ranges reg with
             | None -> assert false
             | Some live_range ->
@@ -349,13 +347,15 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
               let previous_live_ranges =
                 live_range :: previous_live_ranges
               in
+              let b, end_label = label_from_opt lbl_opt in
               One_live_range.set_ending_label live_range end_label ;
-              let labels_to_insert_before_insn =
-                (One_live_range.code_for_ending_label live_range)
-                  :: labels_to_insert_before_insn
-              in
-              current_live_ranges, previous_live_ranges,
-                labels_to_insert_before_insn)
+              current_live_ranges, previous_live_ranges, (b, Some end_label))
+  in
+  let labels_to_insert_before_insn =
+    match lbl_before_opt with
+    | _, None
+    | false, _ -> []
+    | true, Some l  -> [Linearize.Llabel l]
   in
   if List.length labels_to_insert_before_insn > 0 then begin
     let labels_to_insert_before_insn = List.dedup labels_to_insert_before_insn in
