@@ -75,9 +75,7 @@ end
 let put_ranges_in_scopes loc_table ~function_name ~starting_label ~ending_label lst =
   let live_ranges = List.sort ~cmp:Live_ranges.Many_live_ranges.compare lst in
   let rec aux id level debug_loc_table tags = function
-    | [] ->
-      Printf.printf "MAX_DEPTH(%s) = %d\n%!" function_name level ;
-      debug_loc_table, tags
+    | [] -> debug_loc_table, tags
     | live_range :: rest ->
       let name = Printf.sprintf "%d" id in
       let tag, attribute_values, debug_loc_table =
@@ -123,29 +121,6 @@ let start_function t ~linearized_fundecl =
     put_ranges_in_scopes t.debug_loc_table ~function_name ~starting_label
       ~ending_label live_ranges
   in
-(*
-  let _id, debug_loc_table, live_range_tags =
-    List.fold live_ranges
-      ~init:(0, t.debug_loc_table, [])
-      ~f:(fun (id, debug_loc_table, live_range_tags) live_range ->
-            let name = Printf.sprintf "%d" id in
-            let tag, attribute_values, debug_loc_table =
-              (* CR mshinwell: should maybe return an option instead *)
-              Live_ranges.Many_live_ranges.to_dwarf live_range
-                ~builtin_ocaml_type_label_value
-                ~debug_loc_table
-                ~start_of_function_label:starting_label
-            in
-            let id = id + 1 in
-            match attribute_values with
-            | [] -> id, debug_loc_table, live_range_tags
-            | _ ->
-              let live_range_tag =
-                2, function_name ^ "__lr__" ^ name, tag, attribute_values
-              in
-              id, debug_loc_table, live_range_tag::live_range_tags)
-  in
-*)
   let subprogram_tag =
     let tag =
       if List.length live_range_tags > 0 then
