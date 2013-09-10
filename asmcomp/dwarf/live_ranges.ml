@@ -336,8 +336,7 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
   let current_live_ranges, previous_live_ranges, lbl_before_opt =
     Reg_set.fold must_finish_live_ranges_for
       ~init:(current_live_ranges, previous_live_ranges, lbl_before_opt)
-      ~f:(fun (current_live_ranges, previous_live_ranges,
-               lbl_opt) reg ->
+      ~f:(fun (current_live_ranges, previous_live_ranges, lbl_opt) reg ->
             match Reg_map.find current_live_ranges reg with
             | None -> assert false
             | Some live_range ->
@@ -351,66 +350,29 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
               One_live_range.set_ending_label live_range end_label ;
               current_live_ranges, previous_live_ranges, (b, Some end_label))
   in
-  let labels_to_insert_before_insn =
-    match lbl_before_opt with
-    | _, None
-    | false, _ -> []
-    | true, Some l  -> [Linearize.Llabel l]
-  in
-  if List.length labels_to_insert_before_insn > 0 then begin
-    let labels_to_insert_before_insn = List.dedup labels_to_insert_before_insn in
+  begin match lbl_before_opt with
+  | _, None | false, _ -> ()
+  | true, Some l  ->
     (* Inserting the code to emit the live range labels is complicated by the
        structure of values of type [Linearize.instruction]. *)
-    let first_insn', last_insn' =
-      List.fold_left labels_to_insert_before_insn
-        ~init:(None, None)
-        ~f:(fun (first_insn, prev_insn) desc ->
-              let insn =
-                { Linearize.
-                  desc;
-                  next = insn;  (* dummy value, will be fixed below *)
-                  arg = [| |];
-                  res = [| |];
-                  dbg = insn.Linearize.dbg;
-                  live = insn.Linearize.live;
-                  available_before = insn.Linearize.available_before;
-                }
-              in
-              begin match prev_insn with
-              | None -> ()
-              | Some prev_insn -> prev_insn.Linearize.next <- insn
-              end;
-              let first_insn =
-                match first_insn with
-                | None -> Some insn
-                | Some first_insn -> Some first_insn
-              in
-              first_insn, Some insn)
+    let insn' =
+      let open Linearize in {
+        insn with
+          desc = Llabel l ;
+          next = insn ; (* dummy value, will be fixed below *)
+          arg  = [| |] ;
+          res  = [| |] ;
+      }
     in
-    let first_insn' =
-      match first_insn' with
-      | None -> assert false
-      | Some first_insn' -> first_insn'
-    in
-    let last_insn' =
-      match last_insn' with
-      | None -> assert false
-      | Some last_insn' -> last_insn'
-    in
-    (* [first_insn'] .. [last_insn'] is now a correctly-linked sequence of
-       instructions with the exception that [last_insn'] has an invalid
-       [next] pointer.  We fix that first and then splice the sequence into
-       the existing list of instructions. *)
-    last_insn'.Linearize.next <- insn;
     match prev_insn with
     | None ->
-      (* We need:  [first_insn'] .. [last_insn'] -> [insn]
-         and we need to return [first_insn'] as the new first instruction. *)
-      first_insn := first_insn'
+      (* If there is no previous instruction, then [insn] was the first one, so
+         we want [insn'] as the new first instruction. *)
+      first_insn := insn'
     | Some prev_insn ->
-      (* We need:  [prev_insn] -> [first_insn'] .. [last_insn'] -> [insn]. *)
+      (* If there is one, we want to insert [insn'] in between it and [insn]. *)
       assert (prev_insn.Linearize.next == insn);
-      prev_insn.Linearize.next <- first_insn'
+      prev_insn.Linearize.next <- insn'
   end;
   match insn.Linearize.desc with
   | Linearize.Lend -> !first_insn, previous_live_ranges
