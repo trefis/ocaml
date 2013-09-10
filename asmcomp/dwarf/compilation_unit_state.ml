@@ -89,20 +89,33 @@ let put_ranges_in_scopes loc_table ~function_name ~starting_label ~ending_label 
       match attribute_values with
       | [] -> aux id level debug_loc_table tags rest
       | _ ->
-        let lexical_block =
-          let start =
-            Live_ranges.Many_live_ranges.starting_label live_range
-              ~start_of_function_label:starting_label
-          in
-          level, function_name ^ "__lb__" ^ name, Tag.lexical_block, [
-            Attribute_value.create_low_pc ~address_label:start ;
-            Attribute_value.create_high_pc ~address_label:ending_label ;
-          ]
+        let lexical_block, range_level =
+          (* We want the formal parameters to be in the scope of the function,
+           * not in nested scopes. *)
+          if Live_ranges.Many_live_ranges.introduce_param live_range then
+            None, level
+          else
+            let start =
+              Live_ranges.Many_live_ranges.starting_label live_range
+                ~start_of_function_label:starting_label
+            in
+            let block =
+              Some (level, function_name ^ "__lb__" ^ name, Tag.lexical_block, [
+                Attribute_value.create_low_pc ~address_label:start ;
+                Attribute_value.create_high_pc ~address_label:ending_label ;
+              ])
+            in
+            block, level + 1
         in
         let live_range_tag =
-          level + 1, function_name ^ "__lr__" ^ name, tag, attribute_values
+          range_level, function_name ^ "__lr__" ^ name, tag, attribute_values
         in
-        aux id (level + 1) debug_loc_table (live_range_tag :: lexical_block :: tags) rest
+        let acc =
+          match lexical_block with
+          | None -> live_range_tag :: tags
+          | Some lexical_block -> live_range_tag :: lexical_block :: tags
+        in
+        aux id range_level debug_loc_table acc rest
   in
   aux 0 2 loc_table [] live_ranges
 

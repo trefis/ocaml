@@ -40,6 +40,8 @@ module Many_live_ranges : sig
     -> start_of_function_label:string
     -> Dwarf_low.Tag.t * Dwarf_low.Attribute_value.t list
          * Dwarf_low.Debug_loc_table.t
+
+  val introduce_param : t -> bool
 end
 
 (* [process_fundecl fundecl] may modify [fundecl] in-place by inserting label

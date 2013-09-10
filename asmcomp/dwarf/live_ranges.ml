@@ -279,6 +279,13 @@ module Many_live_ranges = struct
         ~start_of_function_label
     in
     tag, attribute_values, debug_loc_table
+
+  let introduce_param ranges =
+    List.exists ranges ~f:(fun range ->
+      match range.One_live_range.parameter_or_variable with
+      | `Variable -> false
+      | _ -> true
+    )
 end
 
 (* CR mshinwell: thought: find out how C++ compilers emit DWARF for local
