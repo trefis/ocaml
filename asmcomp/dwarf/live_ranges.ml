@@ -143,8 +143,18 @@ module One_live_range = struct
            ---we could just name them for this function if we could do that *)
         begin match reg_name t with
         | "R" | "" -> None
-        | _ ->
-          Some (Dwarf_low.Location_expression.in_register reg_number)
+        | reg_name ->
+          if String.length reg_name >= 3
+            && reg_name.[0] = 'R'
+            && reg_name.[1] = '-'
+            && (try
+                  ignore (int_of_string (String.sub reg_name 2 (String.length reg_name - 2)));
+                  true
+                with Failure _ -> false)
+          then
+            None
+          else
+            Some (Dwarf_low.Location_expression.in_register reg_number)
         end
       | Reg.Stack (Reg.Local stack_slot_index) ->
         Some (Dwarf_low.Location_expression.at_offset_from_stack_pointer

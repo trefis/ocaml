@@ -152,7 +152,9 @@ let set_of_array v =
          in add_all 0
 
 let name t =
-  t.name
+  match t.is_parameter with
+  | None -> t.name
+  | Some index -> Printf.sprintf "%s-%d" t.name index
 
 let location t =
   t.loc
