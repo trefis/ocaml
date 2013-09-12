@@ -59,7 +59,7 @@ let create ~tags_with_attribute_values =
             in
             depth, (die::dies))
   in
-  Printf.printf "[INFO_SECTION] Needs to insert %d terminators\n%!" depth ;
+(*  Printf.printf "[INFO_SECTION] Needs to insert %d terminators\n%!" depth ;*)
   { dies = List.rev (create_terminators dies depth) }
 
 let dwarf_version = Version.two

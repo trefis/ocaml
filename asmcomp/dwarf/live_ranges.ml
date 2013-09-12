@@ -140,7 +140,13 @@ module One_live_range = struct
       | Reg.Reg reg_number ->
         (* CR mshinwell: this needs fixing, ESPECIALLY "R".  and below.
            find out why there seems to be some problem with cloning [loc_args]
-           ---we could just name them for this function if we could do that *)
+           ---we could just name them for this function if we could do that
+
+           mshinwell: actually, now all we need to do is to work out how to avoid a
+           name clash on "R", then always return [None] for it here.  We artifically
+           extend the live ranges of the regs into which the "R" regs are moved, to
+           the start of the function.
+        *)
         begin match reg_name t with
         | "R" | "" -> None
         | reg_name ->
@@ -166,9 +172,11 @@ module One_live_range = struct
     match location_expression with
     | None -> None
     | Some location_expression ->
+(*
       Printf.printf "reg '%s' (lr name %s): %s -> %s\n%!" (Reg.name t.reg)
         (reg_name t)
         starting_label ending_label;
+*)
       let location_list_entry =
         Dwarf_low.Location_list_entry.create_location_list_entry
           ~start_of_code_label:start_of_function_label
@@ -320,10 +328,10 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
     Reg_set.fold must_start_live_ranges_for
       ~init:(None, current_live_ranges)
       ~f:(fun (lbl, current_live_ranges) reg ->
-            let parameter_or_variable =
+            let parameter_or_variable, starts_at_beginning_of_function =
               match Reg.is_parameter reg with
-              | Some _parameter_index -> `Parameter (Reg.name reg)
-              | None -> `Variable
+              | Some _parameter_index -> `Parameter (Reg.name reg), true
+              | None -> `Variable, false
             in
             let lbl =
               match lbl with
@@ -332,7 +340,7 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
             in
             let live_range =
               One_live_range.create ~starting_label:lbl ~parameter_or_variable
-                ~reg ~starts_at_beginning_of_function:(prev_insn = None) ()
+                ~reg ~starts_at_beginning_of_function ()
             in
             let current_live_ranges =
               Reg_map.add current_live_ranges ~key:reg ~data:live_range
@@ -436,7 +444,9 @@ let rec process_instruction ~insn ~first_insn ~prev_insn
       ~fundecl
 
 let process_fundecl fundecl =
+(*
   Printf.printf "STARTING FUNCTION: %s\n%!" fundecl.Linearize.fun_name;
+*)
   let first_insn, live_ranges =
     process_instruction ~insn:fundecl.Linearize.fun_body
       ~first_insn:(ref fundecl.Linearize.fun_body)
@@ -454,7 +464,10 @@ let process_fundecl fundecl =
             match String.Map.find name_map name with
             | None -> String.Map.add name_map ~key:name ~data:[live_range]
             | Some live_ranges ->
+              (* CR mshinwell: does something need thinking about here? *)
+(*
               Printf.printf "more than one lr for '%s'\n%!" name;
+*)
               let data = live_range::live_ranges in
               String.Map.add (* replace *) name_map ~key:name ~data)
   in
@@ -462,5 +475,7 @@ let process_fundecl fundecl =
     List.map (List.map (String.Map.to_alist name_map) ~f:snd)
       ~f:Many_live_ranges.create
   in
+(*
   Printf.printf "FINISHING FUNCTION: %s\n%!" fundecl.Linearize.fun_name;
+*)
   live_ranges, { fundecl with Linearize. fun_body = first_insn; }
