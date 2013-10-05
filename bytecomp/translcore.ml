@@ -345,7 +345,7 @@ let gc_after prim_name lprim =
           prim_native_float = false ;
         }
       in
-      Lprim (heap_check, [Lconst (Const_base (Const_string prim_name))])
+      Lprim (heap_check, [Lconst (Const_base (Const_string (prim_name, None)))])
     in
     let tmp_val = Ident.create "prim_ret_val" in
     Llet (Strict, tmp_val, lprim, Lsequence (gc_call, Lvar tmp_val))
