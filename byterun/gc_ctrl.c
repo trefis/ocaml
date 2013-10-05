@@ -31,6 +31,7 @@
 #ifdef DEBUG
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #endif
 
 #ifndef NATIVE_CODE
@@ -56,6 +57,8 @@ extern uintnat caml_allocation_policy;     /*        see freelist.c */
 #define Next(hp) ((hp) + Bhsize_hp (hp))
 
 #ifdef DEBUG
+
+extern bigstring * c_calls_log ;
 
 /* Check that [v]'s header looks good.  [v] must be a block in the heap. */
 static void check_head (value v)
@@ -262,11 +265,27 @@ CAMLprim caml_total_heap_check (value prim_name)
   if (!getenv("CAML_CHECK_HEAP"))
       return Val_unit;
 
-  if (getenv("CAML_REPORT_CCALLS"))
-      printf("[TOTAL_HEAP_CHECK] after '%s'\n", String_val(prim_name));
+  char* pname = String_val(prim_name);
+  size_t nlen = strlen(pname);
 
-  caml_minor_collection ();
-  heap_stats (0) ;
+  if (getenv("CAML_JUST_LOG_CCALLS")) {
+    if (c_calls_log == NULL)
+      init_c_calls_log();
+
+    if (c_calls_log->size + nlen > c_calls_log->max_len)
+        grow_c_calls_log();
+
+    strcpy(c_calls_log->names + c_calls_log->size, pname);
+    c_calls_log->names[c_calls_log->size + nlen] = '\n';
+
+    c_calls_log->size += nlen + 1;
+  } else {
+    if (getenv("CAML_REPORT_CCALLS"))
+        printf("[TOTAL_HEAP_CHECK] after '%s'\n", String_val(prim_name));
+
+    caml_minor_collection ();
+    heap_stats (0) ;
+  }
 
   return Val_unit;
 }

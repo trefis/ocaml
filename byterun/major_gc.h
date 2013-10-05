@@ -56,5 +56,21 @@ intnat caml_major_collection_slice (intnat);
 void major_collection (void);
 void caml_finish_major_cycle (void);
 
+/* defined in major_gc.c
+ * used in gc_ctrl.c , major_gc.c */
+typedef struct {
+    long size;
+    long max_len;
+    char* names;
+} bigstring;
+
+extern bigstring * c_calls_log;
+
+#ifdef DEBUG
+
+void init_c_calls_log (void) ;
+void grow_c_calls_log (void) ;
+
+#endif /* DEBUG */
 
 #endif /* CAML_MAJOR_GC_H */

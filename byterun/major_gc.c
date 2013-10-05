@@ -27,6 +27,11 @@
 #include "roots.h"
 #include "weak.h"
 
+#ifdef DEBUG
+#include <string.h>
+#include <stdio.h>
+#endif
+
 uintnat caml_percent_free;
 uintnat caml_major_heap_increment;
 CAMLexport char *caml_heap_start;
@@ -44,6 +49,8 @@ uintnat caml_fl_size_at_phase_change = 0;
 
 extern char *caml_fl_merge;  /* Defined in freelist.c. */
 
+bigstring * c_calls_log = NULL;
+
 static char *markhp, *chunk, *limit;
 
 int caml_gc_subphase;     /* Subphase_{main,weak1,weak2,final} */
@@ -51,6 +58,22 @@ static value *weak_prev;
 
 #ifdef DEBUG
 static unsigned long major_gc_counter = 0;
+
+void init_c_calls_log (void)
+{
+    c_calls_log = malloc(sizeof *c_calls_log);
+    c_calls_log->names = malloc(1024 * sizeof(char));
+    c_calls_log->size = 0;
+    c_calls_log->max_len = 1024;
+    memset(c_calls_log->names, 0, 1024);
+}
+
+void grow_c_calls_log (void)
+{
+    c_calls_log->names = realloc(c_calls_log->names, c_calls_log->max_len + 1024);
+    memset(c_calls_log->names + c_calls_log->max_len, 0, 1024);
+    c_calls_log->max_len += 1024;
+}
 #endif
 
 static void realloc_gray_vals (void)
@@ -115,6 +138,13 @@ static void start_cycle (void)
 #ifdef DEBUG
   ++ major_gc_counter;
   caml_heap_check ();
+
+  if (c_calls_log == NULL)
+      init_c_calls_log();
+  else {
+      memset(c_calls_log->names, 0, c_calls_log->size);
+      c_calls_log->size = 0;
+  }
 #endif
 }
 
