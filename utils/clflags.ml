@@ -83,6 +83,9 @@ let dump_linear = ref false             (* -dlinear *)
 let keep_startup_file = ref false       (* -dstartup *)
 let dump_combine = ref false            (* -dcombine *)
 
+let wrap_prims = ref false              (* -wrap-prim *)
+let list_wrapped = ref false            (* -list-wrapped *)
+
 let native_code = ref false             (* set to true under ocamlopt *)
 let inline_threshold = ref 10
 let force_slash = ref false             (* for ocamldep *)

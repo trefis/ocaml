@@ -28,6 +28,11 @@
 #include "stacks.h"
 #endif
 
+#ifdef DEBUG
+#include <stdlib.h>
+#include <stdio.h>
+#endif
+
 #ifndef NATIVE_CODE
 extern uintnat caml_max_stack_size;    /* defined in stacks.c */
 #endif
@@ -250,6 +255,25 @@ static value heap_stats (int returnstats)
 void caml_heap_check (void)
 {
   heap_stats (0);
+}
+
+CAMLprim caml_total_heap_check (value prim_name)
+{
+  if (!getenv("CAML_CHECK_HEAP"))
+      return Val_unit;
+
+  if (getenv("CAML_REPORT_CCALLS"))
+      printf("[TOTAL_HEAP_CHECK] after '%s'\n", String_val(prim_name));
+
+  caml_minor_collection ();
+  heap_stats (0) ;
+
+  return Val_unit;
+}
+#else
+CAMLprim value caml_total_heap_check (value prim_name)
+{
+    return Val_unit;
 }
 #endif
 

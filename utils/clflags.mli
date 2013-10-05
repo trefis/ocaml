@@ -77,6 +77,8 @@ val dump_scheduling : bool ref
 val dump_linear : bool ref
 val keep_startup_file : bool ref
 val dump_combine : bool ref
+val wrap_prims : bool ref
+val list_wrapped : bool ref
 val native_code : bool ref
 val inline_threshold : int ref
 val dont_write_files : bool ref

@@ -115,6 +115,9 @@ module Options = Main_args.Make_optcomp_options (struct
   let _dlinear = option "-dlinear"
   let _dstartup = option "-dstartup"
 
+  let _wrap_prims = option "-wrap-prims"
+  let _list_wrapped = option "-list-wrapped"
+
   let anonymous = process_file
 end);;
 

@@ -325,6 +325,32 @@ let find_primitive loc prim_name =
     | "%apply" -> Pdirapply loc
     | name -> Hashtbl.find primitives_table name
 
+(* When linking against a debug runtime and the -wrap-prims flag is set : add a
+ * call to [caml_heap_check] after each primitive direct call. *)
+
+let gc_after prim_name lprim =
+  if not !Clflags.wrap_prims then lprim else (
+    if !Clflags.runtime_variant <> "d" then
+      (* TODO? Check that before reaching this point *)
+      fatal_error "-wrap-prims set without debug runtime (-runtime-variant d)" ;
+    if !Clflags.list_wrapped then
+      Printf.printf "Wrapping call to '%s'\n%!" prim_name ;
+    let gc_call =
+      let heap_check =
+        Pccall {
+          prim_name = "caml_total_heap_check" ;
+          prim_arity = 1 ; (* CAMLprim value caml_total_heap_check (value prim_name) *)
+          prim_alloc = true ; (* gc_ctrl.c:208: "CAMLlocal ..." *)
+          prim_native_name = "caml_total_heap_check" ;
+          prim_native_float = false ;
+        }
+      in
+      Lprim (heap_check, [Lconst (Const_base (Const_string prim_name))])
+    in
+    let tmp_val = Ident.create "prim_ret_val" in
+    Llet (Strict, tmp_val, lprim, Lsequence (gc_call, Lvar tmp_val))
+  )
+
 let transl_prim loc prim args =
   let prim_name = prim.prim_name in
   try
@@ -410,8 +436,13 @@ let transl_primitive loc p =
       let rec make_params n =
         if n <= 0 then [] else Ident.create "prim" :: make_params (n-1) in
       let params = make_params p.prim_arity in
-      Lfunction(Curried, params,
-                Lprim(prim, List.map (fun id -> Lvar id) params))
+      let lprim  = Lprim(prim, List.map (fun id -> Lvar id) params) in
+      let lwrapped =
+        match prim with
+        | Pccall _ -> gc_after p.prim_name lprim
+        | _ -> lprim
+      in
+      Lfunction(Curried, params, lwrapped)
 
 (* To check the well-formedness of r.h.s. of "let rec" definitions *)
 
@@ -686,8 +717,15 @@ and transl_exp0 e =
             | (Plazyforce, [a]) ->
                 wrap (Matching.inline_lazy_force a e.exp_loc)
             | (Plazyforce, _) -> assert false
-            |_ -> let p = Lprim(prim, argl) in
-               if primitive_is_ccall prim then wrap p else wrap0 p
+            |_ -> 
+               let name = p.prim_name in
+               let p = Lprim(prim, argl) in
+               if primitive_is_ccall prim then
+                 let wrapped = wrap p in
+                 match prim with
+                 | Pccall _ -> gc_after name wrapped
+                 | _ -> wrapped
+               else wrap0 p
             end
       end
   | Texp_apply(funct, oargs) ->

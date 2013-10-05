@@ -184,6 +184,9 @@ module type Optcomp_options = sig
   val _dlinear :  unit -> unit
   val _dstartup :  unit -> unit
 
+  val _wrap_prims : unit -> unit
+  val _list_wrapped : unit -> unit
+
   val anonymous : string -> unit
 end;;
 

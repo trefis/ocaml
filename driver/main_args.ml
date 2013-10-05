@@ -341,6 +341,14 @@ let mk_use_prims f =
   "-use-prims", Arg.String f, "<file>  (undocumented)"
 ;;
 
+let mk_wrap_prims f =
+  "-wrap-prims", Arg.Unit f, " (wrap all C calls)"
+;;
+
+let mk_list_wrapped f =
+  "-list-wrapped", Arg.Unit f,
+  " List (at compile time) the name of the C calls begin wrapped"
+
 let mk_dparsetree f =
   "-dparsetree", Arg.Unit f, " (undocumented)"
 ;;
@@ -598,6 +606,9 @@ module type Optcomp_options = sig
   val _dlinear :  unit -> unit
   val _dstartup :  unit -> unit
 
+  val _wrap_prims : unit -> unit
+  val _list_wrapped : unit -> unit
+
   val anonymous : string -> unit
 end;;
 
@@ -842,6 +853,9 @@ struct
     mk_dscheduling F._dscheduling;
     mk_dlinear F._dlinear;
     mk_dstartup F._dstartup;
+
+    mk_wrap_prims F._wrap_prims;
+    mk_list_wrapped F._list_wrapped;
 
     mk__ F.anonymous;
   ]

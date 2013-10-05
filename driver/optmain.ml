@@ -144,6 +144,9 @@ module Options = Main_args.Make_optcomp_options (struct
   let _dlinear = set dump_linear
   let _dstartup = set keep_startup_file
 
+  let _wrap_prims () = set wrap_prims ()
+  let _list_wrapped () = set list_wrapped ()
+
   let anonymous = anonymous
 end);;
 
