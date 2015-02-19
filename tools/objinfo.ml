@@ -117,6 +117,8 @@ let print_cmx_infos (ui, crc) =
   Format.fprintf Format.std_formatter "  %a@." Printclambda.approx ui.ui_approx;
   let pr_funs _ fns =
     List.iter (fun arity -> printf " %d" arity) fns in
+  printf "Constant closures:\n";
+  List.iter (fun (symbol, _) -> print_line symbol) ui.ui_const_closures;
   printf "Currying functions:%a\n" pr_funs ui.ui_curry_fun;
   printf "Apply functions:%a\n" pr_funs ui.ui_apply_fun;
   printf "Send functions:%a\n" pr_funs ui.ui_send_fun;
