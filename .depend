@@ -617,6 +617,7 @@ asmcomp/clambda.cmi : bytecomp/lambda.cmi typing/ident.cmi \
     bytecomp/debuginfo.cmi parsing/asttypes.cmi
 asmcomp/cmmgen.cmi : asmcomp/cmx_format.cmi asmcomp/cmm.cmi \
     asmcomp/clambda.cmi
+<<<<<<< HEAD
 asmcomp/cmm.cmi : bytecomp/lambda.cmi typing/ident.cmi \
     bytecomp/debuginfo.cmi
 asmcomp/cmx_format.cmi : asmcomp/flambdaexport.cmi asmcomp/clambda.cmi
@@ -626,6 +627,15 @@ asmcomp/comballoc.cmi : asmcomp/mach.cmi
 asmcomp/compilenv.cmi : asmcomp/symbol.cmi typing/ident.cmi \
     asmcomp/flambdaexport.cmi asmcomp/flambda.cmi asmcomp/cmx_format.cmi \
     asmcomp/clambda.cmi asmcomp/abstract_identifiers.cmi
+=======
+asmcomp/cmm.cmi : bytecomp/lambda.cmi typing/ident.cmi asmcomp/debuginfo.cmi
+asmcomp/cmx_format.cmi : asmcomp/cmm.cmi asmcomp/clambda.cmi
+asmcomp/codegen.cmi : asmcomp/cmm.cmi
+asmcomp/coloring.cmi :
+asmcomp/comballoc.cmi : asmcomp/mach.cmi
+asmcomp/compilenv.cmi : typing/ident.cmi asmcomp/cmx_format.cmi \
+    asmcomp/cmm.cmi asmcomp/clambda.cmi
+>>>>>>> ffa1237... make depend
 asmcomp/CSEgen.cmi : asmcomp/mach.cmi
 asmcomp/deadcode.cmi : asmcomp/mach.cmi
 asmcomp/emitaux.cmi : bytecomp/debuginfo.cmi
