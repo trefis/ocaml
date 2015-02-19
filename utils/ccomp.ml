@@ -111,7 +111,7 @@ let call_linker mode output_name files extra =
         files
         extra
     else
-      Printf.sprintf "%s -o %s %s %s %s %s %s %s"
+      Printf.sprintf "%s -Wl,--gc-sections -o %s %s %s %s %s %s %s"
         (match !Clflags.c_compiler, mode with
         | Some cc, _ -> cc
         | None, Exe -> Config.mkexe

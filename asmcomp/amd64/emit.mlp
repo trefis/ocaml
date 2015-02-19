@@ -61,6 +61,9 @@ let emit_symbol s =
     if macosx then emit_string "_";
     Emitaux.emit_symbol '$' s
 
+let emit_text_section_for_symbol s =
+  `	.section .text.{emit_symbol s},\"ax\",@progbits\n`
+
 let emit_call s =
   if !Clflags.dlcode && not macosx && not mingw64 && not cygwin
   then `call	{emit_symbol s}@PLT`
@@ -647,7 +650,7 @@ let emit_instr fallthrough i =
         for i = 0 to Array.length jumptbl - 1 do
           `	.long	{emit_label jumptbl.(i)} - {emit_label lbl}\n`
         done;
-        `	.text\n`
+        emit_text_section_for_symbol !function_name
     | Lsetuptrap lbl ->
         `	call	{emit_label lbl}\n`
     | Lpushtrap ->
@@ -712,7 +715,7 @@ let fundecl fundecl =
   call_gc_sites := [];
   bound_error_sites := [];
   bound_error_call := 0;
-  `	.text\n`;
+  emit_text_section_for_symbol !function_name;
   emit_align 16;
   if macosx
   && not !Clflags.output_c_object

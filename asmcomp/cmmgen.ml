@@ -2275,6 +2275,8 @@ and emit_boxed_int64_constant n cont =
 
 (* Emit constant closures *)
 
+let foobarbaz () = ()
+
 let emit_constant_closure symb fundecls cont =
   match fundecls with
     [] -> assert false
@@ -2306,7 +2308,8 @@ let emit_constant_closure symb fundecls cont =
         Csymbol_address f1.label ::
         emit_others 4 remainder
        in
-       if !Clflags.make_package then tail else Cglobal_symbol symb :: tail)
+       if !Clflags.make_package || !Clflags.for_package <> None then tail else
+         Cglobal_symbol symb :: tail)
 
 (* Emit all structured constants *)
 
@@ -2325,7 +2328,7 @@ let emit_all_constants cont =
       (fun (symb, fundecls) ->
          let phrase = Cdata (emit_constant_closure symb fundecls []) in
          if !Clflags.make_package || !Clflags.for_package <> None then c := phrase :: !c ;
-         phrase)
+         symb, phrase)
       !constant_closures
   in
   if not (!Clflags.make_package || !Clflags.for_package <> None) then
