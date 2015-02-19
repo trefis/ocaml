@@ -30,7 +30,7 @@ type unit_infos =
               (string * Digest.t option) list; (* Interfaces imported *)
     mutable ui_imports_cmx:(string * Digest.t option) list; (* Infos imported *)
     mutable ui_approx: Clambda.value_approximation; (* Approx of the structure*)
-    mutable ui_const_closures : Cmm.phrase list;
+    mutable ui_const_closures : (string * Cmm.phrase) list;
     mutable ui_curry_fun: int list;             (* Currying functions needed *)
     mutable ui_apply_fun: int list;             (* Apply functions needed *)
     mutable ui_send_fun: int list;              (* Send functions needed *)

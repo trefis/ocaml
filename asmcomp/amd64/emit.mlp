@@ -108,6 +108,9 @@ let rel_plt s =
   in
   sym (if use_plt then emit_symbol s ^ "@PLT" else emit_symbol s)
 
+let emit_text_section_for_symbol s =
+  D.section [".text." ^ emit_symbol s] [ "ax" ] [ "@progbits" ]
+
 let emit_call s = I.call (rel_plt s)
 
 let emit_jump s = I.jmp (rel_plt s)
@@ -707,7 +710,7 @@ let emit_instr fallthrough i =
         D.long (ConstSub (ConstLabel(emit_label jumptbl.(i)),
                          ConstLabel lbl))
       done;
-      D.text ()
+      emit_text_section_for_symbol !function_name
   | Lsetuptrap lbl ->
       I.call (label lbl)
   | Lpushtrap ->
@@ -769,7 +772,7 @@ let fundecl fundecl =
   call_gc_sites := [];
   bound_error_sites := [];
   bound_error_call := 0;
-  D.text ();
+  emit_text_section_for_symbol !function_name;
   D.align 16;
   add_def_symbol fundecl.fun_name;
   if system = S_macosx
