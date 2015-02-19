@@ -75,6 +75,7 @@ let current_unit =
     ui_imports_cmi = [];
     ui_imports_cmx = [];
     ui_approx = Value_unknown;
+    ui_const_closures = [] ;
     ui_curry_fun = [];
     ui_apply_fun = [];
     ui_send_fun = [];
@@ -288,6 +289,11 @@ let approx_for_global comp_unit =
     exported
 
 let approx_env () = !merged_environment
+
+(* Record constant closures *)
+
+let set_constant_closures lst =
+  current_unit.ui_const_closures <- lst
 
 (* Record that a currying function or application function is needed *)
 

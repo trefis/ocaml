@@ -73,6 +73,9 @@ val imported_closure
    : Set_of_closures_id.t
   -> Expr_id.t Flambda.function_declarations
 
+val set_constant_closures : Cmm.phrase list -> unit
+        (* Record constant closures *)
+
 val need_curry_fun: int -> unit
 val need_apply_fun: int -> unit
 val need_send_fun: int -> unit

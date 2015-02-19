@@ -2336,6 +2336,7 @@ let emit_constant_closure symb fundecls clos_vars cont =
             emit_others (pos + 4) rem in
       Cint(black_closure_header (fundecls_size fundecls
                                  + List.length clos_vars)) ::
+      (let tail = 
       cdefine_symbol symb @
       cdefine_symbol (closure_symbol f1) @
       if f1.arity = 1 then
@@ -2347,6 +2348,8 @@ let emit_constant_closure symb fundecls clos_vars cont =
         Cint(Nativeint.of_int (f1.arity lsl 1 + 1)) ::
         Csymbol_address f1.label ::
         emit_others 4 remainder
+       in
+       if !Clflags.make_package then tail else Cglobal_symbol symb :: tail)
 
 (* Emit all structured constants *)
 
@@ -2358,10 +2361,16 @@ let emit_all_constants cont =
          c:= Cdata(cst):: !c)
     (Compilenv.structured_constants());
   Compilenv.clear_structured_constants ();
-  List.iter
-    (fun (symb, fundecls, clos_vars) ->
-       c := Cdata(emit_constant_closure [symb,true] fundecls clos_vars []) :: !c)
-    !constant_closures;
+  let const_closures =
+    List.map
+      (fun (symb, fundecls) ->
+         let phrase = Cdata (emit_constant_closure symb fundecls []) in
+         if !Clflags.make_package || !Clflags.for_package <> None then c := phrase :: !c ;
+         phrase)
+      !constant_closures
+  in
+  if not (!Clflags.make_package || !Clflags.for_package <> None) then
+    Compilenv.set_constant_closures const_closures ;
   constant_closures := [];
   !c
 

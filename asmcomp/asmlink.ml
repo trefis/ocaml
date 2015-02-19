@@ -201,7 +201,10 @@ let make_startup_file ppf units_list =
   let compile_phrase p = Asmgen.compile_phrase ppf p in
   Location.input_name := "caml_startup"; (* set name of "current" input *)
   Compilenv.reset "_startup"; (* set the name of the "current" compunit *)
-  Emit.begin_assembly ();
+  Emit.begin_assembly();
+  (* CR trefis: That's probably not the right way to do things. *)
+  List.iter (fun (info,_,_) -> List.iter compile_phrase info.ui_const_closures)
+    units_list;
   let name_list =
     List.flatten (List.map (fun (info,_,_) -> info.ui_defines) units_list) in
   compile_phrase (Cmmgen.entry_point name_list);
