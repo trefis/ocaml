@@ -16,7 +16,7 @@ include config/Makefile
 include stdlib/StdlibModules
 
 CAMLC=boot/ocamlrun boot/ocamlc -nostdlib -I boot
-CAMLOPT=boot/ocamlrun ./ocamlopt -nostdlib -I stdlib -I otherlibs/dynlink
+CAMLOPT=boot/ocamlrun ./ocamlopt -dstartup -verbose -nostdlib -I stdlib -I otherlibs/dynlink
 COMPFLAGS=-strict-sequence -w +33..39+48 -warn-error A -bin-annot \
           -safe-string $(INCLUDES)
 LINKFLAGS=
@@ -24,7 +24,7 @@ LINKFLAGS=
 CAMLYACC=boot/ocamlyacc
 YACCFLAGS=-v
 CAMLLEX=boot/ocamlrun boot/ocamllex
-CAMLDEP=boot/ocamlrun tools/ocamldep
+CAMLDEP=boot/ocamlrun /j/office/app/ocaml/builds/4.02.1a+j1-cent6_20141021_124818BST/bin/ocamldep
 DEPFLAGS=$(INCLUDES)
 CAMLRUN=byterun/ocamlrun
 SHELL=/bin/sh
