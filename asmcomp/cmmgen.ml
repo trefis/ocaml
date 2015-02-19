@@ -2275,8 +2275,6 @@ and emit_boxed_int64_constant n cont =
 
 (* Emit constant closures *)
 
-let foobarbaz () = ()
-
 let emit_constant_closure symb fundecls cont =
   match fundecls with
     [] -> assert false
@@ -2324,12 +2322,12 @@ let emit_all_constants cont =
          c:= Cdata(cst):: !c)
     (Compilenv.structured_constants());
   let const_closures =
-    List.map
-      (fun (symb, fundecls) ->
-         let phrase = Cdata (emit_constant_closure symb fundecls []) in
-         if !Clflags.make_package || !Clflags.for_package <> None then c := phrase :: !c ;
-         symb, phrase)
-      !constant_closures
+    List.map (fun (symb, fundecls) ->
+      let data = emit_constant_closure symb fundecls [] in
+      if !Clflags.make_package || !Clflags.for_package <> None then
+        c := Cdata data :: !c ;
+      symb, data
+    ) !constant_closures
   in
   if not (!Clflags.make_package || !Clflags.for_package <> None) then
     Compilenv.set_constant_closures const_closures ;
