@@ -204,24 +204,9 @@ let make_startup_file ppf units_list =
   Emit.begin_assembly();
   (* CR trefis: This is probably not the right way to do things. *)
   List.iter (fun (info,_,_) ->
-    List.iter (fun (sym, phrase) ->
-      match phrase with
-      | Cmm.Cdata l ->
-      let phrase =
-        if
-          String.length sym > 22 &&
-          (String.sub sym 0 22) <> "camlCmmgen__foobarbaz_"
-        then Cmm.Cdata l else
-          Cmm.Cdata (List.map (fun x ->
-            match x with
-            | Cmm.Csymbol_address _ -> Cmm.Cint 0n
-            | _ -> x
-          ) l)
-      in
-      compile_phrase phrase
-      | _ -> failwith "FLOURP"
-    ) info.ui_const_closures)
-    units_list;
+    List.iter (fun (_sym, data) -> compile_phrase (Cmm.Cdata data))
+      info.ui_const_closures
+  ) units_list;
   let name_list =
     List.flatten (List.map (fun (info,_,_) -> info.ui_defines) units_list) in
   compile_phrase (Cmmgen.entry_point name_list);
