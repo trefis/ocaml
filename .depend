@@ -588,12 +588,12 @@ asmcomp/closure.cmi : bytecomp/lambda.cmi asmcomp/clambda.cmi
 asmcomp/cmmgen.cmi : asmcomp/cmx_format.cmi asmcomp/cmm.cmi \
     asmcomp/clambda.cmi
 asmcomp/cmm.cmi : bytecomp/lambda.cmi typing/ident.cmi asmcomp/debuginfo.cmi
-asmcomp/cmx_format.cmi : asmcomp/clambda.cmi
+asmcomp/cmx_format.cmi : asmcomp/cmm.cmi asmcomp/clambda.cmi
 asmcomp/codegen.cmi : asmcomp/cmm.cmi
 asmcomp/coloring.cmi :
 asmcomp/comballoc.cmi : asmcomp/mach.cmi
 asmcomp/compilenv.cmi : typing/ident.cmi asmcomp/cmx_format.cmi \
-    asmcomp/clambda.cmi
+    asmcomp/cmm.cmi asmcomp/clambda.cmi
 asmcomp/CSEgen.cmi : asmcomp/mach.cmi
 asmcomp/deadcode.cmi : asmcomp/mach.cmi
 asmcomp/debuginfo.cmi : parsing/location.cmi bytecomp/lambda.cmi
