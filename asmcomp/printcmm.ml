@@ -163,7 +163,7 @@ let rec expr ppf = function
              sequence e1 Ident.print id sequence e2
 
 and sequence ppf = function
-  | Csequence(e1, e2) -> fprintf ppf "%a@ %a" sequence e1 sequence e2
+  | Csequence(e1, e2) -> fprintf ppf "(SEQ %a@ %a)" sequence e1 sequence e2
   | e -> expression ppf e
 
 and expression ppf e = fprintf ppf "%a" expr e

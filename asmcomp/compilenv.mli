@@ -48,6 +48,9 @@ val record_global_approx_toplevel: unit -> unit
 val set_constant_closures : (string * Cmm.data_item list) list -> unit
         (* Record constant closures *)
 
+val record_dependencies : string -> (string * int) list -> unit
+        (* Record CLOSURE dependencies of given symbol for the unit being compiled *)
+
 
 val need_curry_fun: int -> unit
 val need_apply_fun: int -> unit
