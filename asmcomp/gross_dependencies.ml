@@ -5,7 +5,7 @@ let rec of_expression = function
   | Cconst_int _
   | Cconst_natint _
   | Cconst_float _ -> []
-  | Cconst_symbol _sym -> []
+  | Cconst_symbol sym -> [ `Direct_call sym ]
   | Cconst_pointer _ -> [] (* CR trefis: TODO? *)
   | Cconst_natpointer _ -> [] (* CR trefis: TODO? *)
   | Cconst_blockheader _ -> [] (* CR trefis: TODO? *)
@@ -23,11 +23,11 @@ let rec of_expression = function
 
 
   | Cop (Cadda, [ Cconst_symbol sym ; Cconst_int offset ]) ->
-      [ sym, offset ]
+      [ `Field_access (sym, offset) ]
 
   | Cop (Cstore _, (Cconst_symbol sym) :: _)
   | Cop (Cload _ , (Cconst_symbol sym) :: _) ->
-      [ sym, 0 ]
+      [ `Field_access (sym, 0) ]
 
   | Cop (_, lst) ->
     (* CR trefis: TODO: we also want to look at the actual operation.
@@ -63,20 +63,33 @@ let of_fundecl fdecl =
     else
     (* Yum *)
     let current_unit_name = "caml" ^ Compilenv.current_unit_name () in
+    let internal_closures_names =
+      List.map fst (Compilenv.current_unit_infos ()).Cmx_format.ui_const_closures
+    in
     let _, dependencies =
-      List.fold_left (fun (local_fields, real_dependencies) (unit_name, offset) ->
-        if unit_name = current_unit_name then
-          if IntSet.mem offset local_fields then
-            (* We already set that field, so this access must be a real
-              dependency. *)
-            (local_fields, (unit_name, offset) :: real_dependencies)
+      List.fold_left (fun (local_fields, real_dependencies) dep ->
+        match dep with
+        | `Field_access (unit_name, offset) ->
+          if unit_name = current_unit_name then
+            if IntSet.mem offset local_fields then
+              (* We already set that field, so this access must be a real
+                dependency. *)
+              (local_fields, dep :: real_dependencies)
+            else
+              (* We haven't seen that field yet, this means that we are merely
+                initializing the structure. There is no real dependency here (i.e.
+                that field is not "used"). *)
+              (IntSet.add offset local_fields, real_dependencies)
           else
-            (* We haven't seen that field yet, this means that we are merely
-              initializing the structure. There is no real dependency here (i.e.
-              that field is not "used"). *)
-            (IntSet.add offset local_fields, real_dependencies)
-        else
-          (local_fields, (unit_name, offset) :: real_dependencies)
+            (local_fields, dep :: real_dependencies)
+        | `Direct_call sym ->
+            (* That case is more obvious. The only places where internal
+               closures are referenced are when we store them.
+               If they are needed, a field access is emited. *)
+            if List.mem sym internal_closures_names then
+              (local_fields, real_dependencies)
+            else
+              (local_fields, dep :: real_dependencies)
       ) (IntSet.empty, []) dependencies
     in
     dependencies
