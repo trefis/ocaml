@@ -195,6 +195,18 @@ let scan_file obj_name tolink = match read_file obj_name with
              reqd)
         infos.lib_units tolink
 
+let compile_constant_closures ppf units =
+  let iter_constant_closures f =
+    List.iter (fun (info, _, _) -> List.iter f info.ui_const_closures) units
+  in
+  (*
+  let fun_to_close = Hashtbl.create 16 (* lolilol *) in
+  iter_constant_closures
+    (fun (sym, data))
+  *)
+  iter_constant_closures
+    (fun (_sym, data) -> Asmgen.compile_phrase ppf (Cmm.Cdata data))
+
 (* Second pass: generate the startup file and link it with everything else *)
 
 let make_startup_file ppf units_list =
@@ -202,14 +214,10 @@ let make_startup_file ppf units_list =
   Location.input_name := "caml_startup"; (* set name of "current" input *)
   Compilenv.reset "_startup"; (* set the name of the "current" compunit *)
   Emit.begin_assembly();
-  (* CR trefis: This is probably not the right way to do things. *)
-  List.iter (fun (info,_,_) ->
-    List.iter (fun (_sym, data) -> compile_phrase (Cmm.Cdata data))
-      info.ui_const_closures
-  ) units_list;
   let name_list =
     List.flatten (List.map (fun (info,_,_) -> info.ui_defines) units_list) in
   compile_phrase (Cmmgen.entry_point name_list);
+  compile_constant_closures ppf units_list ;
   let units = List.map (fun (info,_,_) -> info) units_list in
   List.iter compile_phrase (Cmmgen.generic_functions false units);
   Array.iteri
