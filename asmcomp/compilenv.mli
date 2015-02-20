@@ -76,7 +76,8 @@ val imported_closure
 val set_constant_closures : (string * Cmm.data_item list) list -> unit
         (* Record constant closures *)
 
-val record_dependencies : string -> (string * int) list -> unit
+val record_dependencies : string -> [ `Field_access of string * int |
+                                      `Direct_call of string ] list -> unit
         (* Record CLOSURE dependencies of given symbol for the unit being compiled *)
 
 

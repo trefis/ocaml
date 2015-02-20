@@ -122,7 +122,10 @@ let print_cmx_infos (ui, crc) =
   printf "Gross dependencies (per symbol):\n";
   List.iter (fun (sym, deps) ->
     print_line sym;
-    List.iter (fun (d, o) -> print_line (Printf.sprintf "    %d(%s)" o d)) deps
+    List.iter (function
+      | `Field_access (d, o) -> print_line (Printf.sprintf "    %d(%s)" o d)
+      | `Direct_call str -> print_line ("    -> " ^ str)
+    ) deps
   ) ui.ui_dependencies;
   printf "Currying functions:%a\n" pr_funs ui.ui_curry_fun;
   printf "Apply functions:%a\n" pr_funs ui.ui_apply_fun;
