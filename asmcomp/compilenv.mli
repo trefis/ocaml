@@ -73,7 +73,7 @@ val imported_closure
    : Set_of_closures_id.t
   -> Expr_id.t Flambda.function_declarations
 
-val set_constant_closures : (string * Cmm.data_item list) list -> unit
+val set_constant_closures : (string * string list * Cmm.data_item list) list -> unit
         (* Record constant closures *)
 
 val record_dependencies : string -> [ `Field_access of string * int |

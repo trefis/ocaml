@@ -2365,9 +2365,10 @@ let emit_all_constants cont =
   let const_closures =
     List.map (fun (symb, fundecls) ->
       let data = emit_constant_closure symb fundecls [] in
+      let fun_names = List.map (fun f -> f.label) fundecls in
       if !Clflags.make_package || !Clflags.for_package <> None then
         c := Cdata data :: !c ;
-      symb, data
+      symb, fun_names, data
     ) !constant_closures
   in
   if not (!Clflags.make_package || !Clflags.for_package <> None) then

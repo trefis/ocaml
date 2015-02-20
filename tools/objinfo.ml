@@ -118,7 +118,9 @@ let print_cmx_infos (ui, crc) =
   let pr_funs _ fns =
     List.iter (fun arity -> printf " %d" arity) fns in
   printf "Constant closures:\n";
-  List.iter (fun (symbol, _) -> print_line symbol) ui.ui_const_closures;
+  List.iter (fun (symbol, funs, _) ->
+    print_line (Printf.sprintf "%s (%s)" symbol (String.concat ", " funs))
+  ) ui.ui_const_closures;
   printf "Gross dependencies (per symbol):\n";
   List.iter (fun (sym, deps) ->
     print_line sym;
