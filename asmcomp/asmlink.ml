@@ -200,13 +200,41 @@ let compile_constant_closures ppf units =
   let iter_constant_closures f =
     List.iter (fun (info, _, _) -> List.iter f info.ui_const_closures) units
   in
-  (*
-  let fun_to_close = Hashtbl.create 16 (* lolilol *) in
+  let fun_to_clos = Hashtbl.create 16 (* lolilol *) in
   iter_constant_closures
-    (fun (sym, data))
-  *)
+    (fun (sym, included_funs, data) ->
+       List.iter (fun fun_name -> Hashtbl.add fun_to_clos fun_name sym)
+         included_funs) ;
+  let fields_to_clos =
+    List.map (fun (info, _, _) ->
+      match info.ui_approx with
+      | Clambda.Value_tuple approx ->
+          let fields =
+            Array.map (function
+              | Clambda.Value_closure (f, _) ->
+                  (* CR trefis: Do we want to recurse on the rhs there? *)
+                  begin try Some (Hashtbl.find fun_to_clos f.Clambda.fun_label)
+                  with Not_found -> None
+                  end
+              | _ ->
+                  None
+            )
+          in
+          "caml" ^ info.ui_name, fields
+      | _ -> assert false
+    ) units
+  in
+  let dependency_graph = Hashtbl.create 16 in
+  List.iter (fun (info, _, _) ->
+    List.iter (fun (fun_name, dependencies) ->
+      Hashtbl.add dependency_graph fun_name dependencies
+    ) info.ui_dependencies
+  ) units ;
+  let _accessed_closures =
+    ignore fields_to_clos
+  in
   iter_constant_closures
-    (fun (_sym, data) -> Asmgen.compile_phrase ppf (Cmm.Cdata data))
+    (fun (_sym, _, data) -> Asmgen.compile_phrase ppf (Cmm.Cdata data))
 
 (* Second pass: generate the startup file and link it with everything else *)
 

@@ -64,7 +64,8 @@ let of_fundecl fdecl =
     (* Yum *)
     let current_unit_name = "caml" ^ Compilenv.current_unit_name () in
     let internal_closures_names =
-      List.map fst (Compilenv.current_unit_infos ()).Cmx_format.ui_const_closures
+      List.map (fun (n,_,_) -> n)
+        (Compilenv.current_unit_infos ()).Cmx_format.ui_const_closures
     in
     let _, dependencies =
       List.fold_left (fun (local_fields, real_dependencies) dep ->
