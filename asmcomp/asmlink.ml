@@ -219,17 +219,33 @@ let compile_constant_closures ppf units =
                   None
             )
           in
+          (* CR trefis: Use [Compilenv.make_symbol ~unit:info.ui_name None] *)
           "caml" ^ info.ui_name, fields
       | _ -> assert false
     ) units
   in
   let dependency_graph = Hashtbl.create 16 in
-  List.iter (fun (info, _, _) ->
+  let add_dependencies info =
     List.iter (fun (fun_name, dependencies) ->
       Hashtbl.add dependency_graph fun_name dependencies
     ) info.ui_dependencies
-  ) units ;
+  in
+  List.iter (fun (info, _, _) -> add_dependencies info) units ;
+  add_dependencies (Compilenv.current_unit_infos ()) ;
   let _accessed_closures =
+    let rec aux fname =
+      if not (Hashtbl.mem dependency_graph fname) then
+        (* We already accessed that function, all its dependencies are known,
+           we're done. *)
+        ()
+      else
+      let deps = Hashtbl.find dependency_graph fname in
+      Hashtbl.remove dependency_graph fname ;
+      (* remove the current node from the graph, we already know all the things
+         it points to ([deps]), and we want to avoid cycles. *)
+      ignore deps
+    in
+    aux "caml_program" ;
     ignore fields_to_clos
   in
   iter_constant_closures
@@ -244,7 +260,8 @@ let make_startup_file ppf units_list =
   Emit.begin_assembly();
   let name_list =
     List.flatten (List.map (fun (info,_,_) -> info.ui_defines) units_list) in
-  compile_phrase (Cmmgen.entry_point name_list);
+  let entry_point = Cmmgen.entry_point name_list in
+  compile_phrase entry_point ;
   compile_constant_closures ppf units_list ;
   let units = List.map (fun (info,_,_) -> info) units_list in
   List.iter compile_phrase (Cmmgen.generic_functions false units);
