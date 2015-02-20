@@ -127,6 +127,7 @@ ASMCOMP=\
   asmcomp/flambdasym.cmo \
   asmcomp/clambdagen.cmo \
   asmcomp/strmatch.cmo asmcomp/cmmgen.cmo \
+  asmcomp/gross_dependencies.cmo \
   asmcomp/printmach.cmo asmcomp/selectgen.cmo asmcomp/selection.cmo \
   asmcomp/comballoc.cmo \
   asmcomp/CSEgen.cmo asmcomp/CSE.cmo \

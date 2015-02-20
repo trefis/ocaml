@@ -75,7 +75,8 @@ let current_unit =
     ui_imports_cmi = [];
     ui_imports_cmx = [];
     ui_approx = Value_unknown;
-    ui_const_closures = [] ;
+    ui_const_closures = [];
+    ui_dependencies = [];
     ui_curry_fun = [];
     ui_apply_fun = [];
     ui_send_fun = [];
@@ -120,6 +121,8 @@ let reset ?packname name =
   current_unit.ui_imports_cmx <- [];
   current_unit.ui_curry_fun <- [];
   current_unit.ui_apply_fun <- [];
+  current_unit.ui_const_closures <- [];
+  current_unit.ui_dependencies <- [];
   current_unit.ui_send_fun <- [];
   current_unit.ui_force_link <- false;
   Hashtbl.clear exported_constants;
@@ -294,6 +297,11 @@ let approx_env () = !merged_environment
 
 let set_constant_closures lst =
   current_unit.ui_const_closures <- lst
+
+(* Record dependencies *)
+
+let record_dependencies symbol lst =
+  current_unit.ui_dependencies <- (symbol, lst) :: current_unit.ui_dependencies
 
 (* Record that a currying function or application function is needed *)
 

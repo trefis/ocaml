@@ -94,11 +94,11 @@ let compile_fundecl (ppf : formatter) fd_cmm =
   ++ Emit.fundecl
 
 let compile_phrase ppf p =
+  Gross_dependencies.of_phrase p ;
   if !dump_cmm then fprintf ppf "%a@." Printcmm.phrase p;
   match p with
   | Cfunction fd -> compile_fundecl ppf fd
   | Cdata dl -> Emit.data dl
-
 
 (* For the native toplevel: generates generic functions unless
    they are already available in the process *)
