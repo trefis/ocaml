@@ -119,6 +119,11 @@ let print_cmx_infos (ui, crc) =
     List.iter (fun arity -> printf " %d" arity) fns in
   printf "Constant closures:\n";
   List.iter (fun (symbol, _) -> print_line symbol) ui.ui_const_closures;
+  printf "Gross dependencies (per symbol):\n";
+  List.iter (fun (sym, deps) ->
+    print_line sym;
+    List.iter (fun d -> print_line ("    " ^ d)) deps
+  ) ui.ui_dependencies;
   printf "Currying functions:%a\n" pr_funs ui.ui_curry_fun;
   printf "Apply functions:%a\n" pr_funs ui.ui_apply_fun;
   printf "Send functions:%a\n" pr_funs ui.ui_send_fun;
