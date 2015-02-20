@@ -61,7 +61,7 @@ let of_fundecl fdecl =
     if fnlen < 7 || String.sub fname (fnlen - 7) 7 <> "__entry" then
       dependencies
     else
-    (* Yum *)
+    (* CR trefis: Use [Compileenv.make_symbol None] *)
     let current_unit_name = "caml" ^ Compilenv.current_unit_name () in
     let internal_closures_names =
       List.map (fun (n,_,_) -> n)
