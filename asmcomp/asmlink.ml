@@ -211,14 +211,14 @@ let compile_constant_closures ppf units =
     ) included_funs
   ) ;
   let fields_to_clos = Hashtbl.create 16 in
-  let approxless_units = Hashtbl.create 16 in
+  let keep_all_in_unit = Hashtbl.create 16 in
   let () =
     if !Clflags.remove_unused then
     List.iter (fun (info, _, _) ->
       match info.ui_approx with
       | Clambda.Value_unknown ->
           Format.fprintf ppf "No approx for caml%s" info.ui_name ;
-          Hashtbl.add approxless_units ("caml" ^ info.ui_name) ()
+          Hashtbl.add keep_all_in_unit ("caml" ^ info.ui_name) true
       | Clambda.Value_tuple approx ->
           let fields =
             Array.map (function
@@ -232,7 +232,8 @@ let compile_constant_closures ppf units =
             ) approx
           in
           (* CR trefis: Use [Compilenv.make_symbol ~unit:info.ui_name None] *)
-          Hashtbl.add fields_to_clos ("caml" ^ info.ui_name) fields
+          Hashtbl.add fields_to_clos ("caml" ^ info.ui_name) fields ;
+          Hashtbl.add keep_all_in_unit ("caml" ^ info.ui_name) false
       | _ -> assert false
     ) units
   in
@@ -273,10 +274,16 @@ let compile_constant_closures ppf units =
          it points to ([deps]), and we want to avoid cycles. *)
       List.iter (function
         | `Direct_call sym ->
-            if not (Hashtbl.mem known_closures sym) then aux sym else
-            let included_funs = Hashtbl.find known_closures sym in
-            Hashtbl.add accessed_closures sym () ;
-            List.iter aux included_funs
+            if Hashtbl.mem known_closures sym then
+              let included_funs = Hashtbl.find known_closures sym in
+              Hashtbl.add accessed_closures sym () ;
+              List.iter aux included_funs
+            else if Hashtbl.mem keep_all_in_unit sym then
+              (* CR trefis: iter all the fields in the unit?.. if we knew about
+                 them.*)
+              Hashtbl.replace keep_all_in_unit sym true
+            else
+              aux sym
         | `Field_access (unit, field) ->
             match
               try (Hashtbl.find fields_to_clos unit).(field)
@@ -305,23 +312,17 @@ let compile_constant_closures ppf units =
         data
       else
         let unit_of_sym = List.hd (Misc.split sym '_') in
-        if Hashtbl.mem approxless_units unit_of_sym then
-          let () =
-            Format.fprintf ppf "%s is UNKNOWN (%s) -> kept\n"
-              sym (String.concat "," included_funs)
-          in
-          data
-        else
-          let () = incr counter in
-          let i = 0xDEAD_BEAF + (!counter lsl 34) in
-          let () =
-            Format.fprintf ppf "%s [%x] is UNUSED (%s)\n" sym
-              i (String.concat "," included_funs)
-          in
-          List.map (function
-            | Cmm.Csymbol_address _ -> Cmm.Cint (Nativeint.of_int i)
-            | data_item -> data_item
-          ) data
+        if Hashtbl.find keep_all_in_unit unit_of_sym then data else
+        let () = incr counter in
+        let i = 0xDEAD_BEAF + (!counter lsl 34) in
+        let () =
+          Format.fprintf ppf "%s [%x] is UNUSED (%s)\n" sym
+            i (String.concat "," included_funs)
+        in
+        List.map (function
+          | Cmm.Csymbol_address _ -> Cmm.Cint (Nativeint.of_int i)
+          | data_item -> data_item
+        ) data
     in
     Asmgen.compile_phrase ppf (Cmm.Cdata data)
   )
