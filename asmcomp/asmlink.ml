@@ -199,6 +199,10 @@ let compile_constant_closures ppf units =
   let iter_constant_closures f =
     List.iter (fun (info, _, _) -> List.iter f info.ui_const_closures) units
   in
+  let known_closures = Hashtbl.create 16 in
+  iter_constant_closures (fun (sym, included_funs, _) ->
+    Hashtbl.add known_closures sym included_funs
+  ) ;
   let fun_to_clos = Hashtbl.create 16 (* lolilol *) in
   iter_constant_closures (fun (sym, included_funs, data) ->
     List.iter (fun fun_name ->
@@ -206,12 +210,14 @@ let compile_constant_closures ppf units =
     ) included_funs
   ) ;
   let fields_to_clos = Hashtbl.create 16 in
+  let approxless_units = Hashtbl.create 16 in
   let () =
     if !Clflags.remove_unused then
     List.iter (fun (info, _, _) ->
       match info.ui_approx with
       | Clambda.Value_unknown ->
-          Format.fprintf ppf "No approx for caml%s" info.ui_name
+          Format.fprintf ppf "No approx for caml%s" info.ui_name ;
+          Hashtbl.add approxless_units ("caml" ^ info.ui_name) ()
       | Clambda.Value_tuple approx ->
           let fields =
             Array.map (function
@@ -247,16 +253,29 @@ let compile_constant_closures ppf units =
            we're done. *)
         ()
       else
-      let () =
-        Format.fprintf Format.std_formatter "Recording dependencies of %s\n"
-          fname
-      in
       let deps = Hashtbl.find dependency_graph fname in
+      let () =
+        Format.fprintf ppf "Recording dependencies of %s (%s)\n"
+          fname (String.concat ", " (List.map (function
+            | `Direct_call s -> s
+            | `Field_access (u, f) ->
+                match try (Hashtbl.find fields_to_clos u).(f)
+                  with Invalid_argument "index out of bounds"
+                     | Not_found -> None
+                with
+                | None -> Printf.sprintf "%s[%d] UNKNOWN" u f
+                | Some (sym, _) -> Printf.sprintf "%s[%d] (-> %s)" u f sym
+          ) deps))
+      in
       Hashtbl.remove dependency_graph fname ;
       (* remove the current node from the graph, we already know all the things
          it points to ([deps]), and we want to avoid cycles. *)
       List.iter (function
-        | `Direct_call str -> aux str
+        | `Direct_call sym ->
+            if not (Hashtbl.mem known_closures sym) then aux sym else
+            let included_funs = Hashtbl.find known_closures sym in
+            Hashtbl.add accessed_closures sym () ;
+            List.iter aux included_funs
         | `Field_access (unit, field) ->
             match
               try (Hashtbl.find fields_to_clos unit).(field)
@@ -273,24 +292,35 @@ let compile_constant_closures ppf units =
     in
     if !Clflags.remove_unused then aux "caml_program";
   in
+  let counter = ref 0 in
   iter_constant_closures (fun (sym, included_funs, data) ->
     let data =
       if not !Clflags.remove_unused then data else
       if Hashtbl.mem accessed_closures sym then
         let () =
-          Format.fprintf Format.std_formatter "%s is USED (%s)\n" sym
+          Format.fprintf ppf "%s is USED (%s)\n" sym
             (String.concat "," included_funs)
         in
         data
       else
-        let () =
-          Format.fprintf Format.std_formatter "%s is UNUSED (%s)\n" sym
-            (String.concat "," included_funs)
-        in
-        List.map (function
-          | Cmm.Csymbol_address _ -> Cmm.Cint 0n
-          | data_item -> data_item
-        ) data
+        let unit_of_sym = List.hd (Misc.split sym '_') in
+        if Hashtbl.mem approxless_units unit_of_sym then
+          let () =
+            Format.fprintf ppf "%s is UNKNOWN (%s) -> kept\n"
+              sym (String.concat "," included_funs)
+          in
+          data
+        else
+          let () = incr counter in
+          let i = 0xDEAD_BEAF + (!counter lsl 34) in
+          let () =
+            Format.fprintf ppf "%s [%x] is UNUSED (%s)\n" sym
+              i (String.concat "," included_funs)
+          in
+          List.map (function
+            | Cmm.Csymbol_address _ -> Cmm.Cint (Nativeint.of_int i)
+            | data_item -> data_item
+          ) data
     in
     Asmgen.compile_phrase ppf (Cmm.Cdata data)
   )
