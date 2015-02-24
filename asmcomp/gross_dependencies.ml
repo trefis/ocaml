@@ -10,6 +10,28 @@ let rec of_expression = function
   | Cconst_natpointer _ -> [] (* CR trefis: TODO? *)
   | Cconst_blockheader _ -> [] (* CR trefis: TODO? *)
 
+  | Clet (id1, Cconst_symbol sym,
+          Cop (Cstore _, [Cconst_symbol prefix ; Cvar id2]))
+    when Ident.same id1 id2 ->
+      let prelen = String.length prefix in
+      if String.length sym > prelen && String.sub sym 0 prelen = prefix then
+        (* Ignore! *)
+        []
+      else
+        [ `Direct_call sym ; `Field_access (prefix, 0) ]
+
+  | Clet (id1, Cconst_symbol sym,
+          Cop (Cstore _,
+               [ Cop (Cadda, [ Cconst_symbol prefix ; Cconst_int offset]) ;
+                 Cvar id2 ]))
+    when Ident.same id1 id2 ->
+      let prelen = String.length prefix in
+      if String.length sym > prelen && String.sub sym 0 prelen = prefix then
+        (* Ignore! *)
+        []
+      else
+        [ `Direct_call sym ; `Field_access (prefix, offset) ]
+
   | Ctrywith (e1, _, e2)
   | Ccatch (_,_, e1, e2)
   | Csequence (e1,e2)
@@ -55,48 +77,16 @@ end)
 
 let of_fundecl fdecl =
   let fname = fdecl.fun_name in
-  let fnlen = String.length fname in
   let dependencies = of_expression fdecl.fun_body in
-  let dependencies =
-    if fnlen < 7 || String.sub fname (fnlen - 7) 7 <> "__entry" then
-      dependencies
-    else
-    (* CR trefis: Use [Compileenv.make_symbol None] *)
-    let current_unit_name = "caml" ^ Compilenv.current_unit_name () in
-    let internal_closures_names =
-      List.map (fun (n,_,_) -> n)
-        (Compilenv.current_unit_infos ()).Cmx_format.ui_const_closures
-    in
-    let _, dependencies =
-      List.fold_left (fun (local_fields, real_dependencies) dep ->
-        match dep with
-        | `Field_access (unit_name, offset) ->
-          if unit_name = current_unit_name then
-            if IntSet.mem offset local_fields then
-              (* We already set that field, so this access must be a real
-                dependency. *)
-              (local_fields, dep :: real_dependencies)
-            else
-              (* We haven't seen that field yet, this means that we are merely
-                initializing the structure. There is no real dependency here (i.e.
-                that field is not "used"). *)
-              (IntSet.add offset local_fields, real_dependencies)
-          else
-            (local_fields, dep :: real_dependencies)
-        | `Direct_call sym ->
-            (* That case is more obvious. The only places where internal
-               closures are referenced are when we store them.
-               If they are needed, a field access is emited. *)
-            if List.mem sym internal_closures_names then
-              (local_fields, real_dependencies)
-            else
-              (local_fields, dep :: real_dependencies)
-      ) (IntSet.empty, []) dependencies
-    in
-    dependencies
-  in
   Compilenv.record_dependencies fname dependencies
 
+(*
+let of_data_items items =
+  List.iter (function
+    | Csymbol_address sym -> `Dir
+  ) items
+*)
+
 let of_phrase = function
-  | Cdata _ -> () (* CR trefis: FIXME? *)
+  | Cdata data_items -> () (* CR trefis: FIXME? *)
   | Cfunction fdecl -> of_fundecl fdecl
