@@ -110,6 +110,7 @@ module Options = Main_args.Make_optcomp_options (struct
   let _ppx s = first_ppx := s :: !first_ppx
   let _principal = set principal
   let _rectypes = set recursive_types
+  let _remove_unused = set remove_unused
   let _runtime_variant s = runtime_variant := s
   let _safe_string = clear unsafe_string
   let _short_paths = clear real_paths
@@ -162,6 +163,10 @@ let main () =
     readenv ppf Before_args;
     Arg.parse (Arch.command_line_options @ Options.list) anonymous usage;
     readenv ppf Before_link;
+    if !remove_unused then
+      if !make_package || !for_package <> None then
+        fatal "-remove-unused cannot be called in conjuction with -pack or \
+               -for-pack" ;
     if
       List.length (List.filter (fun x -> !x)
                      [make_package; make_archive; shared;

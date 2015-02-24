@@ -248,6 +248,10 @@ let mk_rectypes f =
   "-rectypes", Arg.Unit f, " Allow arbitrary recursive types"
 ;;
 
+let mk_remove_unused f =
+  "-remove-unused", Arg.Unit f, " Remove unused functions"
+;;
+
 let mk_runtime_variant f =
   "-runtime-variant", Arg.String f,
   "<str>  Use the <str> variant of the run-time system"
@@ -566,6 +570,7 @@ end;;
 module type Optcommon_options = sig
   val _compact : unit -> unit
   val _inline : int -> unit
+  val _remove_unused : unit -> unit
 
   val _dclambda : unit -> unit
   val _dcmm : unit -> unit
@@ -789,6 +794,7 @@ struct
     mk_ppx F._ppx;
     mk_principal F._principal;
     mk_rectypes F._rectypes;
+    mk_remove_unused F._remove_unused;
     mk_runtime_variant F._runtime_variant;
     mk_S F._S;
     mk_safe_string F._safe_string;

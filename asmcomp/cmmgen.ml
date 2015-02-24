@@ -2306,7 +2306,7 @@ let emit_constant_closure symb fundecls cont =
         Csymbol_address f1.label ::
         emit_others 4 remainder
        in
-       if !Clflags.make_package || !Clflags.for_package <> None then tail else
+       if not !Clflags.remove_unused then tail else
          Cglobal_symbol symb :: tail)
 
 (* Emit all structured constants *)
@@ -2325,12 +2325,12 @@ let emit_all_constants cont =
     List.map (fun (symb, fundecls) ->
       let data = emit_constant_closure symb fundecls [] in
       let fun_names = List.map (fun f -> f.label) fundecls in
-      if !Clflags.make_package || !Clflags.for_package <> None then
+      if not !Clflags.remove_unused then
         c := Cdata data :: !c ;
       symb, fun_names, data
     ) !constant_closures
   in
-  if not (!Clflags.make_package || !Clflags.for_package <> None) then
+  if !Clflags.remove_unused then
     Compilenv.set_constant_closures const_closures ;
   constant_closures := [];
   !c
