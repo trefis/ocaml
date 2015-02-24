@@ -15,7 +15,8 @@ let rec of_expression = function
     when Ident.same id1 id2 ->
       let prelen = String.length prefix in
       if String.length sym > prelen && String.sub sym 0 prelen = prefix then
-        (* Ignore! *)
+        (* Typical initialization pattern, ignore *)
+        let () = Printf.printf "IGNORING %s, USED IN INIT\n" sym in
         []
       else
         [ `Direct_call sym ; `Field_access (prefix, 0) ]
@@ -27,7 +28,8 @@ let rec of_expression = function
     when Ident.same id1 id2 ->
       let prelen = String.length prefix in
       if String.length sym > prelen && String.sub sym 0 prelen = prefix then
-        (* Ignore! *)
+        (* Typical initialization pattern, ignore *)
+        let () = Printf.printf "IGNORING %s, USED IN INIT\n" sym in
         []
       else
         [ `Direct_call sym ; `Field_access (prefix, offset / 8) ]
@@ -74,6 +76,17 @@ end)
 let of_fundecl fdecl =
   let fname = fdecl.fun_name in
   let dependencies = of_expression fdecl.fun_body in
+  let compare a b =
+    match a, b with
+    | `Direct_call s1, `Direct_call s2 -> String.compare s1 s2
+    | `Direct_call _, _ -> -1
+    | _, `Direct_call _ -> 1
+    | `Field_access (unit1, off1), `Field_access (unit2, off2) ->
+        match String.compare unit1 unit2 with
+        | 0 -> compare (off1 : int) off2
+        | n -> n
+  in
+  let dependencies = List.sort_uniq compare dependencies in
   Compilenv.record_dependencies fname dependencies
 
 (*
