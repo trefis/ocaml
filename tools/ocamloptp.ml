@@ -126,6 +126,7 @@ module Options = Main_args.Make_optcomp_options (struct
   let _dscheduling = option "-dscheduling"
   let _dlinear = option "-dlinear"
   let _dstartup = option "-dstartup"
+  let _dunused = option "-dunused"
   let _opaque = option "-opaque"
 
   let anonymous = process_file

@@ -311,7 +311,12 @@ let compile_constant_closures ppf units =
         data
       else
         let unit_of_sym = List.hd (Misc.split sym '_') in
-        if Hashtbl.find keep_all_in_unit unit_of_sym then data else
+        if
+          not (Hashtbl.mem keep_all_in_unit unit_of_sym) ||
+          Hashtbl.find keep_all_in_unit unit_of_sym
+        then
+          data
+        else
         (*
         let () = incr counter in
         let i = 0xDEAD_BEAF + (!counter lsl 34) in

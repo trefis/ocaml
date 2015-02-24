@@ -84,6 +84,7 @@ val dump_scheduling : bool ref
 val dump_linear : bool ref
 val keep_startup_file : bool ref
 val dump_combine : bool ref
+val dump_unused : bool ref
 val native_code : bool ref
 val inline_threshold : int ref
 val inlining_stats : bool ref
