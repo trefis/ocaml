@@ -207,6 +207,7 @@ let compile_constant_closures ppf units =
   ) ;
   let fields_to_clos = Hashtbl.create 16 in
   let () =
+    if !Clflags.remove_unused then
     List.iter (fun (info, _, _) ->
       match info.ui_approx with
       | Clambda.Value_unknown -> ()
@@ -233,8 +234,10 @@ let compile_constant_closures ppf units =
       Hashtbl.add dependency_graph fun_name dependencies
     ) info.ui_dependencies
   in
-  List.iter (fun (info, _, _) -> add_dependencies info) units ;
-  add_dependencies (Compilenv.current_unit_infos ()) ;
+  if !Clflags.remove_unused then (
+    List.iter (fun (info, _, _) -> add_dependencies info) units;
+    add_dependencies (Compilenv.current_unit_infos ())
+  );
   let accessed_closures = Hashtbl.create 16 in
   let () =
     let rec aux fname =
@@ -263,20 +266,26 @@ let compile_constant_closures ppf units =
 
       ) deps
     in
-    aux "caml_program" ;
-    ignore fields_to_clos
+    if !Clflags.remove_unused then aux "caml_program";
   in
   iter_constant_closures (fun (sym, included_funs, data) ->
     let data =
-      if not (Hashtbl.mem accessed_closures sym) then data else
-      let () =
-        Format.fprintf ppf "%s is unused (%s)\n" sym
-          (String.concat "," included_funs)
-      in
-      List.map (function
-        | Cmm.Csymbol_address _ -> Cmm.Cint 0n
-        | data_item -> data_item
-      ) data
+      if not !Clflags.remove_unused then data else
+      if Hashtbl.mem accessed_closures sym then
+        let () =
+          Format.fprintf Format.std_formatter "%s is USED (%s)\n" sym
+            (String.concat "," included_funs)
+        in
+        data
+      else
+        let () =
+          Format.fprintf Format.std_formatter "%s is UNUSED (%s)\n" sym
+            (String.concat "," included_funs)
+        in
+        List.map (function
+          | Cmm.Csymbol_address _ -> Cmm.Cint 0n
+          | data_item -> data_item
+        ) data
     in
     Asmgen.compile_phrase ppf (Cmm.Cdata data)
   )
