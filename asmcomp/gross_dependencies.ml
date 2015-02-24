@@ -30,7 +30,7 @@ let rec of_expression = function
         (* Ignore! *)
         []
       else
-        [ `Direct_call sym ; `Field_access (prefix, offset) ]
+        [ `Direct_call sym ; `Field_access (prefix, offset / 8) ]
 
   | Ctrywith (e1, _, e2)
   | Ccatch (_,_, e1, e2)
@@ -45,17 +45,13 @@ let rec of_expression = function
 
 
   | Cop (Cadda, [ Cconst_symbol sym ; Cconst_int offset ]) ->
-      [ `Field_access (sym, offset) ]
+      [ `Field_access (sym, offset / 8) ]
 
   | Cop (Cstore _, (Cconst_symbol sym) :: _)
   | Cop (Cload _ , (Cconst_symbol sym) :: _) ->
       [ `Field_access (sym, 0) ]
 
   | Cop (_, lst) ->
-    (* CR trefis: TODO: we also want to look at the actual operation.
-        If we have e.g.[Cop (Cadda, [ Cconst_symbol "camlFoo" ; Cconst_int 8 ])]
-        and the second field of [Foo] is also a function. 
-    *)
     List.concat (List.map of_expression lst)
 
   | Cifthenelse (e1, e2, e3) ->
