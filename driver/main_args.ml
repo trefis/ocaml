@@ -451,6 +451,9 @@ let mk_dstartup f =
   "-dstartup", Arg.Unit f, " (undocumented)"
 ;;
 
+let mk_dunused f =
+  "-dunused", Arg.Unit f, " (undocumented)"
+
 let mk_opaque f =
   "-opaque", Arg.Unit f,
   " Does not generate cross-module optimization information\n\
@@ -587,6 +590,7 @@ module type Optcommon_options = sig
   val _dscheduling :  unit -> unit
   val _dlinear :  unit -> unit
   val _dstartup :  unit -> unit
+  val _dunused : unit -> unit
 end;;
 
 module type Optcomp_options = sig
@@ -836,6 +840,7 @@ struct
     mk_dscheduling F._dscheduling;
     mk_dlinear F._dlinear;
     mk_dstartup F._dstartup;
+    mk_dunused F._dunused;
     mk_opaque F._opaque;
   ]
 end;;
@@ -894,6 +899,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_dscheduling F._dscheduling;
     mk_dlinear F._dlinear;
     mk_dstartup F._dstartup;
+    mk_dunused F._dunused;
   ]
 end;;
 

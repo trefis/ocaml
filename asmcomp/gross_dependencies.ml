@@ -1,6 +1,6 @@
 open Cmm
 
-let rec of_expression = function
+let rec of_expression ppf = function
   | Cvar _
   | Cconst_int _
   | Cconst_natint _
@@ -16,7 +16,10 @@ let rec of_expression = function
       let prelen = String.length prefix in
       if String.length sym > prelen && String.sub sym 0 prelen = prefix then
         (* Typical initialization pattern, ignore *)
-        let () = Printf.printf "IGNORING %s, USED IN INIT\n" sym in
+        let () =
+          if !Clflags.dump_unused then
+          Format.fprintf ppf "IGNORING %s, USED IN INIT\n" sym
+        in
         []
       else
         [ `Direct_call sym ; `Field_access (prefix, 0) ]
@@ -29,7 +32,10 @@ let rec of_expression = function
       let prelen = String.length prefix in
       if String.length sym > prelen && String.sub sym 0 prelen = prefix then
         (* Typical initialization pattern, ignore *)
-        let () = Printf.printf "IGNORING %s, USED IN INIT\n" sym in
+        let () =
+          if !Clflags.dump_unused then
+            Format.fprintf ppf "IGNORING %s, USED IN INIT\n" sym
+        in
         []
       else
         [ `Direct_call sym ; `Field_access (prefix, offset / 8) ]
@@ -37,13 +43,13 @@ let rec of_expression = function
   | Ctrywith (e1, _, e2)
   | Ccatch (_,_, e1, e2)
   | Csequence (e1,e2)
-  | Clet (_, e1, e2) -> of_expression e1 @ of_expression e2
+  | Clet (_, e1, e2) -> of_expression ppf e1 @ of_expression ppf e2
 
   | Cloop e
-  | Cassign (_, e) -> of_expression e
+  | Cassign (_, e) -> of_expression ppf e
 
   | Cexit (_, lst)
-  | Ctuple lst -> List.concat (List.map of_expression lst)
+  | Ctuple lst -> List.concat (List.map (of_expression ppf) lst)
 
 
   | Cop (Cadda, [ Cconst_symbol sym ; Cconst_int offset ]) ->
@@ -54,15 +60,15 @@ let rec of_expression = function
       [ `Field_access (sym, 0) ]
 
   | Cop (_, lst) ->
-    List.concat (List.map of_expression lst)
+    List.concat (List.map (of_expression ppf) lst)
 
   | Cifthenelse (e1, e2, e3) ->
-      of_expression e1 @ of_expression e2 @ of_expression e3
+      of_expression ppf e1 @ of_expression ppf e2 @ of_expression ppf e3
 
   | Cswitch (e1, _, es) ->
       List.concat (
-        of_expression e1 ::
-        Array.fold_left (fun lst e -> of_expression e :: lst) [] es
+        of_expression ppf e1 ::
+        Array.fold_left (fun lst e -> of_expression ppf e :: lst) [] es
       )
 
 module IntSet = Set.Make (struct
@@ -73,9 +79,9 @@ end)
 (* We need to handle "__entry" functions specially, as they reference all the
    closures created for functions of that module. *)
 
-let of_fundecl fdecl =
+let of_fundecl ppf fdecl =
   let fname = fdecl.fun_name in
-  let dependencies = of_expression fdecl.fun_body in
+  let dependencies = of_expression ppf fdecl.fun_body in
   let compare a b =
     match a, b with
     | `Direct_call s1, `Direct_call s2 -> String.compare s1 s2
@@ -96,6 +102,6 @@ let of_data_items items =
   ) items
 *)
 
-let of_phrase = function
+let of_phrase ppf = function
   | Cdata data_items -> () (* CR trefis: FIXME? *)
-  | Cfunction fdecl -> of_fundecl fdecl
+  | Cfunction fdecl -> of_fundecl ppf fdecl
