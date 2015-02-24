@@ -210,7 +210,8 @@ let compile_constant_closures ppf units =
     if !Clflags.remove_unused then
     List.iter (fun (info, _, _) ->
       match info.ui_approx with
-      | Clambda.Value_unknown -> ()
+      | Clambda.Value_unknown ->
+          Format.fprintf ppf "No approx for caml%s" info.ui_name
       | Clambda.Value_tuple approx ->
           let fields =
             Array.map (function
@@ -246,6 +247,10 @@ let compile_constant_closures ppf units =
            we're done. *)
         ()
       else
+      let () =
+        Format.fprintf Format.std_formatter "Recording dependencies of %s\n"
+          fname
+      in
       let deps = Hashtbl.find dependency_graph fname in
       Hashtbl.remove dependency_graph fname ;
       (* remove the current node from the graph, we already know all the things
