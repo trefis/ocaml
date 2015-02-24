@@ -300,7 +300,7 @@ let compile_constant_closures ppf units =
     in
     if !Clflags.remove_unused then aux "caml_program";
   in
-  let counter = ref 0 in
+(*   let counter = ref 0 in *)
   iter_constant_closures (fun (sym, included_funs, data) ->
     let data =
       if not !Clflags.remove_unused then data else
@@ -313,14 +313,16 @@ let compile_constant_closures ppf units =
       else
         let unit_of_sym = List.hd (Misc.split sym '_') in
         if Hashtbl.find keep_all_in_unit unit_of_sym then data else
+        (*
         let () = incr counter in
         let i = 0xDEAD_BEAF + (!counter lsl 34) in
+          *)
         let () =
           Format.fprintf ppf "%s [%x] is UNUSED (%s)\n" sym
-            i (String.concat "," included_funs)
+            (* i *) 0 (String.concat "," included_funs)
         in
         List.map (function
-          | Cmm.Csymbol_address _ -> Cmm.Cint (Nativeint.of_int i)
+          | Cmm.Csymbol_address _ -> Cmm.Cint (Nativeint.of_int (* i *) 0)
           | data_item -> data_item
         ) data
     in
