@@ -201,13 +201,16 @@ let compile_constant_closures ppf units =
     List.iter (fun (info, _, _) -> List.iter f info.ui_const_closures) units
   in
   let fun_to_clos = Hashtbl.create 16 (* lolilol *) in
-  iter_constant_closures
-    (fun (sym, included_funs, data) ->
-       List.iter (fun fun_name -> Hashtbl.add fun_to_clos fun_name sym)
-         included_funs) ;
-  let fields_to_clos =
-    List.map (fun (info, _, _) ->
+  iter_constant_closures (fun (sym, included_funs, data) ->
+    List.iter (fun fun_name ->
+      Hashtbl.add fun_to_clos fun_name (sym, included_funs)
+    ) included_funs
+  ) ;
+  let fields_to_clos = Hashtbl.create 16 in
+  let () =
+    List.iter (fun (info, _, _) ->
       match info.ui_approx with
+      | Clambda.Value_unknown -> ()
       | Clambda.Value_tuple approx ->
           let fields =
             Array.map (function
@@ -218,10 +221,10 @@ let compile_constant_closures ppf units =
                   end
               | _ ->
                   None
-            )
+            ) approx
           in
           (* CR trefis: Use [Compilenv.make_symbol ~unit:info.ui_name None] *)
-          "caml" ^ info.ui_name, fields
+          Hashtbl.add fields_to_clos ("caml" ^ info.ui_name) fields
       | _ -> assert false
     ) units
   in
@@ -233,7 +236,8 @@ let compile_constant_closures ppf units =
   in
   List.iter (fun (info, _, _) -> add_dependencies info) units ;
   add_dependencies (Compilenv.current_unit_infos ()) ;
-  let _accessed_closures =
+  let accessed_closures = Hashtbl.create 16 in
+  let () =
     let rec aux fname =
       if not (Hashtbl.mem dependency_graph fname) then
         (* We already accessed that function, all its dependencies are known,
@@ -244,13 +248,39 @@ let compile_constant_closures ppf units =
       Hashtbl.remove dependency_graph fname ;
       (* remove the current node from the graph, we already know all the things
          it points to ([deps]), and we want to avoid cycles. *)
-      ignore deps
+      List.iter (function
+        | `Direct_call str -> aux str
+        | `Field_access (unit, field) ->
+            match
+              try (Hashtbl.find fields_to_clos unit).(field)
+              with
+              | Invalid_argument "index out of bounds"
+              | Not_found -> None
+            with
+            | None -> ()
+            | Some (clos_sym, included_funs) ->
+                Hashtbl.add accessed_closures clos_sym () ;
+                List.iter aux included_funs
+
+      ) deps
     in
     aux "caml_program" ;
     ignore fields_to_clos
   in
-  iter_constant_closures
-    (fun (_sym, _, data) -> Asmgen.compile_phrase ppf (Cmm.Cdata data))
+  iter_constant_closures (fun (sym, included_funs, data) ->
+    let data =
+      if not (Hashtbl.mem accessed_closures sym) then data else
+      let () =
+        Format.fprintf ppf "%s is unused (%s)\n" sym
+          (String.concat "," included_funs)
+      in
+      List.map (function
+        | Cmm.Csymbol_address _ -> Cmm.Cint 0n
+        | data_item -> data_item
+      ) data
+    in
+    Asmgen.compile_phrase ppf (Cmm.Cdata data)
+  )
 
 (* Second pass: generate the startup file and link it with everything else *)
 
