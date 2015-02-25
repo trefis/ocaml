@@ -109,7 +109,10 @@ let rel_plt s =
   sym (if use_plt then emit_symbol s ^ "@PLT" else emit_symbol s)
 
 let emit_text_section_for_symbol s =
-  D.section [".text." ^ emit_symbol s] [ "ax" ] [ "@progbits" ]
+  if !Clflags.remove_unused then
+    D.section [".text." ^ emit_symbol s] [ "ax" ] [ "@progbits" ]
+  else
+    D.text ()
 
 let emit_call s = I.call (rel_plt s)
 
