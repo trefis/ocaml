@@ -111,7 +111,7 @@ let call_linker mode output_name files extra =
         files
         extra
     else
-      Printf.sprintf "%s%s -o %s %s %s %s %s %s %s"
+      Printf.sprintf "%s%s%s -o %s %s %s %s %s %s %s"
         (match !Clflags.c_compiler, mode with
         | Some cc, _ -> cc
         | None, Exe -> Config.mkexe
@@ -120,6 +120,7 @@ let call_linker mode output_name files extra =
         | None, Partial -> assert false
         )
         (if !Clflags.remove_unused then " -Wl,--gc-sections" else "")
+        (if !Clflags.dump_clambda then "-Wl,--print-gc-sections" else "")
         (Filename.quote output_name)
         (if !Clflags.gprofile then Config.cc_profile else "")
         ""  (*(Clflags.std_include_flag "-I")*)
