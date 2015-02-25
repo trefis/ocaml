@@ -911,7 +911,7 @@ asmcomp/flambda_inline_env.cmx : utils/misc.cmx asmcomp/flambdasubst.cmx \
     asmcomp/flambdaapprox.cmx utils/clflags.cmx \
     asmcomp/abstract_identifiers.cmx asmcomp/flambda_inline_env.cmi
 asmcomp/flambdainline.cmo : utils/warnings.cmi asmcomp/printflambda.cmi \
-    utils/misc.cmi parsing/location.cmi bytecomp/lambda.cmi typing/ident.cmi \
+    utils/misc.cmi parsing/location.cmi typing/ident.cmi \
     asmcomp/flambdautils.cmi asmcomp/flambdasubst.cmi \
     asmcomp/flambdasimplify.cmi asmcomp/flambdaiter.cmi \
     asmcomp/flambdaeffects.cmi asmcomp/flambdacost.cmi \
@@ -920,7 +920,7 @@ asmcomp/flambdainline.cmo : utils/warnings.cmi asmcomp/printflambda.cmi \
     asmcomp/compilenv.cmi asmcomp/abstract_identifiers.cmi \
     asmcomp/flambdainline.cmi
 asmcomp/flambdainline.cmx : utils/warnings.cmx asmcomp/printflambda.cmx \
-    utils/misc.cmx parsing/location.cmx bytecomp/lambda.cmx typing/ident.cmx \
+    utils/misc.cmx parsing/location.cmx typing/ident.cmx \
     asmcomp/flambdautils.cmx asmcomp/flambdasubst.cmx \
     asmcomp/flambdasimplify.cmx asmcomp/flambdaiter.cmx \
     asmcomp/flambdaeffects.cmx asmcomp/flambdacost.cmx \
