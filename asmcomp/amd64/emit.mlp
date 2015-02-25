@@ -62,7 +62,10 @@ let emit_symbol s =
     Emitaux.emit_symbol '$' s
 
 let emit_text_section_for_symbol s =
-  `	.section .text.{emit_symbol s},\"ax\",@progbits\n`
+  if !Clflags.remove_unused then
+    `	.section .text.{emit_symbol s},\"ax\",@progbits\n`
+  else
+    `	.text\n`
 
 let emit_call s =
   if !Clflags.dlcode && not macosx && not mingw64 && not cygwin
