@@ -306,6 +306,7 @@ let compile_constant_closures ppf units =
       if not !Clflags.remove_unused then data else
       if Hashtbl.mem accessed_closures sym then
         let () =
+          if !Clflags.dump_unused then
           Format.fprintf ppf "%s is USED (%s)\n" sym
             (String.concat "," included_funs)
         in
@@ -323,6 +324,7 @@ let compile_constant_closures ppf units =
         let i = 0xDEAD_BEAF + (!counter lsl 34) in
           *)
         let () =
+          if !Clflags.dump_unused then
           Format.fprintf ppf "%s [%x] is UNUSED (%s)\n" sym
             (* i *) 0 (String.concat "," included_funs)
         in
