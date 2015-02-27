@@ -634,7 +634,7 @@ asmcomp/flambda.cmi : asmcomp/symbol.cmi bytecomp/lambda.cmi \
     utils/ext_types.cmi bytecomp/debuginfo.cmi parsing/asttypes.cmi \
     asmcomp/abstract_identifiers.cmi
 asmcomp/flambda_inline_env.cmi : asmcomp/flambdasubst.cmi \
-    asmcomp/flambdaapprox.cmi asmcomp/flambda_inlining_stats_types.cmo \
+    asmcomp/flambdaapprox.cmi asmcomp/flambda_inlining_stats_types.cmi \
     asmcomp/flambda_inlining_stats.cmi asmcomp/abstract_identifiers.cmi
 asmcomp/flambda_inline_result.cmi : asmcomp/flambdacost.cmi \
     asmcomp/flambdaapprox.cmi utils/ext_types.cmi \
@@ -644,8 +644,9 @@ asmcomp/flambda_inlining_decision.cmi : asmcomp/flambdaapprox.cmi \
     asmcomp/flambda.cmi bytecomp/debuginfo.cmi \
     asmcomp/abstract_identifiers.cmi
 asmcomp/flambda_inlining_stats.cmi : \
-    asmcomp/flambda_inlining_stats_types.cmo bytecomp/debuginfo.cmi \
+    asmcomp/flambda_inlining_stats_types.cmi bytecomp/debuginfo.cmi \
     asmcomp/abstract_identifiers.cmi
+asmcomp/flambda_inlining_stats_types.cmi :
 asmcomp/flambda_ref_to_variables.cmi : asmcomp/flambda.cmi \
     asmcomp/abstract_identifiers.cmi
 asmcomp/flambdaapprox.cmi : asmcomp/symbol.cmi typing/ident.cmi \
@@ -882,15 +883,17 @@ asmcomp/flambda_inlining_decision.cmx : asmcomp/flambdautils.cmx \
     asmcomp/flambda_inline_env.cmx asmcomp/flambda.cmi \
     asmcomp/abstract_identifiers.cmx asmcomp/flambda_inlining_decision.cmi
 asmcomp/flambda_inlining_stats.cmo : \
-    asmcomp/flambda_inlining_stats_types.cmo bytecomp/debuginfo.cmi \
+    asmcomp/flambda_inlining_stats_types.cmi bytecomp/debuginfo.cmi \
     utils/clflags.cmi asmcomp/abstract_identifiers.cmi \
     asmcomp/flambda_inlining_stats.cmi
 asmcomp/flambda_inlining_stats.cmx : \
     asmcomp/flambda_inlining_stats_types.cmx bytecomp/debuginfo.cmx \
     utils/clflags.cmx asmcomp/abstract_identifiers.cmx \
     asmcomp/flambda_inlining_stats.cmi
-asmcomp/flambda_inlining_stats_types.cmo : asmcomp/flambdacost.cmi
-asmcomp/flambda_inlining_stats_types.cmx : asmcomp/flambdacost.cmx
+asmcomp/flambda_inlining_stats_types.cmo : asmcomp/flambdacost.cmi \
+    asmcomp/flambda_inlining_stats_types.cmi
+asmcomp/flambda_inlining_stats_types.cmx : asmcomp/flambdacost.cmx \
+    asmcomp/flambda_inlining_stats_types.cmi
 asmcomp/flambda_ref_to_variables.cmo : bytecomp/lambda.cmi \
     asmcomp/flambdaiter.cmi asmcomp/flambda.cmi asmcomp/compilenv.cmi \
     parsing/asttypes.cmi asmcomp/abstract_identifiers.cmi \
