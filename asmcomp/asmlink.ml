@@ -281,7 +281,7 @@ let compile_constant_closures ppf units =
             else if Hashtbl.mem keep_all_in_unit sym then
               (* CR trefis: iter all the fields in the unit?.. if we knew about
                  them.*)
-              let () = Format.fprintf ppf "%s accessed directly, keeping all\n" sym in
+              let () = Format.fprintf ppf "%s accessed directly (by %s), keeping all\n" sym fname in
               Hashtbl.replace keep_all_in_unit sym true
             else
               aux sym
