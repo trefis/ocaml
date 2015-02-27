@@ -1,44 +1,31 @@
 open Cmm
 
+let unit_symbol = ref ""
+
+let is_local_store id = function
+  | Cop (Cstore _, [Cconst_symbol sym ; Cvar id'])
+  | Cop (Cstore _, [ Cop (Cadda, [ Cconst_symbol sym ; Cconst_int _ ]) ;
+                     Cvar id' ]) ->
+      Ident.same id id' && sym = !unit_symbol
+  | _ -> false
+
 let rec of_expression ppf = function
   | Cvar _
   | Cconst_int _
   | Cconst_natint _
-  | Cconst_float _ -> []
+  | Cconst_float _
+  | Cconst_pointer _
+  | Cconst_natpointer _
+  | Cconst_blockheader _ -> []
+
   | Cconst_symbol sym -> [ `Direct_call sym ]
-  | Cconst_pointer _ -> [] (* CR trefis: TODO? *)
-  | Cconst_natpointer _ -> [] (* CR trefis: TODO? *)
-  | Cconst_blockheader _ -> [] (* CR trefis: TODO? *)
 
-  | Clet (id1, Cconst_symbol sym,
-          Cop (Cstore _, [Cconst_symbol prefix ; Cvar id2]))
-    when Ident.same id1 id2 ->
-      let prelen = String.length prefix in
-      if String.length sym > prelen && String.sub sym 0 prelen = prefix then
-        (* Typical initialization pattern, ignore *)
-        let () =
-          if !Clflags.dump_unused then
-          Format.fprintf ppf "IGNORING %s, USED IN INIT\n" sym
-        in
-        []
-      else
-        [ `Direct_call sym ; `Field_access (prefix, 0) ]
-
-  | Clet (id1, Cconst_symbol sym,
-          Cop (Cstore _,
-               [ Cop (Cadda, [ Cconst_symbol prefix ; Cconst_int offset]) ;
-                 Cvar id2 ]))
-    when Ident.same id1 id2 ->
-      let prelen = String.length prefix in
-      if String.length sym > prelen && String.sub sym 0 prelen = prefix then
-        (* Typical initialization pattern, ignore *)
-        let () =
-          if !Clflags.dump_unused then
-            Format.fprintf ppf "IGNORING %s, USED IN INIT\n" sym
-        in
-        []
-      else
-        [ `Direct_call sym ; `Field_access (prefix, offset / 8) ]
+  | Clet (id, Cconst_symbol sym, subtree)
+    when is_local_store id subtree ->
+      (* Typical initialization pattern, ignore *)
+      if !Clflags.dump_unused then
+        Format.fprintf ppf "IGNORING %s, USED IN %s__entry\n" sym !unit_symbol;
+      []
 
   | Ctrywith (e1, _, e2)
   | Ccatch (_,_, e1, e2)
@@ -76,11 +63,11 @@ module IntSet = Set.Make (struct
   let compare (x:int) (y:int) = compare x y
 end)
 
-(* We need to handle "__entry" functions specially, as they reference all the
-   closures created for functions of that module. *)
-
 let of_fundecl ppf fdecl =
+  unit_symbol := Compilenv.make_symbol None ;
   let fname = fdecl.fun_name in
+  (* We need to handle "__entry" functions specially, as they reference all the
+     closures created for functions of that module. *)
   let dependencies = of_expression ppf fdecl.fun_body in
   let compare a b =
     match a, b with
