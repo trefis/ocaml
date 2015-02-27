@@ -217,7 +217,7 @@ let compile_constant_closures ppf units =
     List.iter (fun (info, _, _) ->
       match info.ui_approx with
       | Clambda.Value_unknown ->
-          Format.fprintf ppf "No approx for caml%s" info.ui_name ;
+          Format.fprintf ppf "No approx for caml%s\n" info.ui_name ;
           Hashtbl.add keep_all_in_unit ("caml" ^ info.ui_name) true
       | Clambda.Value_tuple approx ->
           let fields =
@@ -233,6 +233,7 @@ let compile_constant_closures ppf units =
           in
           (* CR trefis: Use [Compilenv.make_symbol ~unit:info.ui_name None] *)
           Hashtbl.add fields_to_clos ("caml" ^ info.ui_name) fields ;
+          Format.fprintf ppf "WE KNOW ABOUT UNIT: %s\n" ("caml" ^ info.ui_name) ;
           Hashtbl.add keep_all_in_unit ("caml" ^ info.ui_name) false
       | _ -> assert false
     ) units
@@ -281,6 +282,7 @@ let compile_constant_closures ppf units =
             else if Hashtbl.mem keep_all_in_unit sym then
               (* CR trefis: iter all the fields in the unit?.. if we knew about
                  them.*)
+              let () = Format.fprintf ppf "%s accessed directly, keeping all\n" sym in
               Hashtbl.replace keep_all_in_unit sym true
             else
               aux sym
@@ -312,13 +314,34 @@ let compile_constant_closures ppf units =
         in
         data
       else
-        let unit_of_sym = List.hd (Misc.split sym '_') in
-        if
-          not (Hashtbl.mem keep_all_in_unit unit_of_sym) ||
-          Hashtbl.find keep_all_in_unit unit_of_sym
-        then
+        let unit_of_sym =
+          let slen = String.length sym in
+          try
+            Hashtbl.iter (fun key _ ->
+              let klen = String.length key in
+              if klen <= slen && String.sub sym 0 klen = key then
+                failwith key
+            ) keep_all_in_unit ;
+            None
+          with
+          | Failure unit_name -> Some unit_name
+        in
+        match unit_of_sym with
+        | None ->
+          let () =
+            if !Clflags.dump_unused then
+              Format.fprintf ppf "%s is KEPT (%s) [couldnt determine unit]\n" sym
+              (String.concat "," included_funs) 
+          in
           data
-        else
+        | Some unit_of_sym when Hashtbl.find keep_all_in_unit unit_of_sym ->
+          let () =
+            if !Clflags.dump_unused then
+              Format.fprintf ppf "%s is KEPT (%s) [%s]\n" sym
+              (String.concat "," included_funs) unit_of_sym
+          in
+          data
+        | _ ->
         (*
         let () = incr counter in
         let i = 0xDEAD_BEAF + (!counter lsl 34) in
