@@ -634,8 +634,8 @@ asmcomp/flambda.cmi : asmcomp/symbol.cmi bytecomp/lambda.cmi \
     utils/ext_types.cmi bytecomp/debuginfo.cmi parsing/asttypes.cmi \
     asmcomp/abstract_identifiers.cmi
 asmcomp/flambda_inline_env.cmi : asmcomp/flambdasubst.cmi \
-    asmcomp/flambdaapprox.cmi asmcomp/flambda_inlining_stats.cmi \
-    asmcomp/abstract_identifiers.cmi
+    asmcomp/flambdaapprox.cmi asmcomp/flambda_inlining_stats_types.cmo \
+    asmcomp/flambda_inlining_stats.cmi asmcomp/abstract_identifiers.cmi
 asmcomp/flambda_inline_result.cmi : asmcomp/flambdacost.cmi \
     asmcomp/flambdaapprox.cmi utils/ext_types.cmi \
     asmcomp/abstract_identifiers.cmi
