@@ -2312,6 +2312,12 @@ and emit_boxed_int64_constant n cont =
 (* Emit constant closures *)
 
 let emit_constant_closure symb fundecls clos_vars cont =
+  let symb =
+    if not !Clflags.remove_unused then symb else 
+    match symb with
+    | [] -> []
+    | (sym, _) :: rest -> (sym, true) :: rest
+  in
   let global_symb = List.exists snd symb in
   let closure_symbol f = [f.label ^ "_closure", global_symb] in
   match fundecls with
@@ -2336,7 +2342,6 @@ let emit_constant_closure symb fundecls clos_vars cont =
             emit_others (pos + 4) rem in
       Cint(black_closure_header (fundecls_size fundecls
                                  + List.length clos_vars)) ::
-      (let tail = 
       cdefine_symbol symb @
       cdefine_symbol (closure_symbol f1) @
       if f1.arity = 1 then
@@ -2348,9 +2353,6 @@ let emit_constant_closure symb fundecls clos_vars cont =
         Cint(Nativeint.of_int (f1.arity lsl 1 + 1)) ::
         Csymbol_address f1.label ::
         emit_others 4 remainder
-       in
-       if not !Clflags.remove_unused then tail else
-         Cglobal_symbol symb :: tail)
 
 (* Emit all structured constants *)
 
@@ -2363,8 +2365,8 @@ let emit_all_constants cont =
     (Compilenv.structured_constants());
   Compilenv.clear_structured_constants ();
   let const_closures =
-    List.map (fun (symb, fundecls) ->
-      let data = emit_constant_closure symb fundecls [] in
+    List.map (fun (symb, fundecls, clos_vars) ->
+      let data = emit_constant_closure [symb, true] fundecls clos_vars [] in
       let fun_names = List.map (fun f -> f.label) fundecls in
       if not !Clflags.remove_unused then
         c := Cdata data :: !c ;

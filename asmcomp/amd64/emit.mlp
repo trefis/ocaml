@@ -110,7 +110,7 @@ let rel_plt s =
 
 let emit_text_section_for_symbol s =
   if !Clflags.remove_unused then
-    D.section [".text." ^ emit_symbol s] [ "ax" ] [ "@progbits" ]
+    D.section [".text." ^ emit_symbol s] (Some "ax") [ "@progbits" ]
   else
     D.text ()
 
