@@ -114,6 +114,32 @@ and type_desc =
   | Tpackage of Path.t * Longident.t list * type_expr list
   (* Type of a first-class module (a.k.a package). *)
 
+(** [  `X | `Y ]       (row_closed = true)
+    [< `X | `Y ]       (row_closed = true)
+    [> `X | `Y ]       (row_closed = false)
+    [< `X | `Y > `X ]  (row_closed = true)
+
+    type t = [> `X ] as 'a      (row_more = Tvar a)
+    type t = private [> `X ]    (row_more = Tconstr (t#row, [], ref Mnil)
+
+    And for:
+
+        let f = function `X -> `X -> | `Y -> `X
+
+    the type of "f" will be a [Tarrow] whose lhs will (basically) be:
+
+        Tvariant { row_fields = [("X", _)];
+                   row_more   =
+                     Tvariant { row_fields = [("Y", _)];
+                                row_more   =
+                                  Tvariant { row_fields = [];
+                                             row_more   = _;
+                                             _ };
+                                _ };
+                   _
+                 }
+
+*)
 and row_desc =
     { row_fields: (label * row_field) list;
       row_more: type_expr;
