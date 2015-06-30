@@ -10,12 +10,7 @@
 (*                                                                     *)
 (***********************************************************************)
 
-(** Abstract syntax tree after typing *)
-
-(** By comparison with {!Parsetree}:
-    - Every {!Longindent.t} is accompanied by a resolved {!Path.t}.
-
-*)
+(* Abstract syntax tree after typing *)
 
 open Misc
 open Asttypes
@@ -24,26 +19,9 @@ open Types
 (* Value expressions for the core language *)
 
 type partial = Partial | Total
-
-(** [optional] is used to pass knowledge of optional arguments up to
-    [Translcore.transl_apply].
-    When introduced in 2000, this enabled a more efficient code generation for
-    optional arguments. However, today the information is redundant as labels
-    are passed to [transl_apply] too. Could be cleaned up. *)
 type optional = Required | Optional
 
-(** {2 Extension points} *)
-
 type attribute = Parsetree.attribute
-       (* [@id ARG]
-          [@@id ARG]
-
-          Metadata containers passed around within the AST.
-          The compiler ignores unknown attributes.
-
-          See {!Parsetree} for more details.
-       *)
-
 type attributes = attribute list
 
 type pattern =
@@ -62,42 +40,19 @@ and pat_extra =
 
 and pattern_desc =
     Tpat_any
-        (* _ *)
   | Tpat_var of Ident.t * string loc
-        (* x *)
   | Tpat_alias of pattern * Ident.t * string loc
-        (* P as 'a *)
   | Tpat_constant of constant
-        (* 1, 'a', "true", 1.0, 1l, 1L, 1n *)
   | Tpat_tuple of pattern list
-        (* (P1, ..., Pn)
-
-           Invariant: n >= 2
-        *)
   | Tpat_construct of
       Longident.t loc * constructor_description * pattern list
-        (* C                None
-           C P              Some P
-           C (P1, ..., Pn)  Some (Ppat_tuple [P1; ...; Pn])
-         *)
   | Tpat_variant of label * pattern option * row_desc ref
-        (* `A             (None)
-           `A P           (Some P)
-         *)
   | Tpat_record of
       (Longident.t loc * label_description * pattern) list *
         closed_flag
-        (* { l1=P1; ...; ln=Pn }     (flag = Closed)
-           { l1=P1; ...; ln=Pn; _}   (flag = Open)
-
-           Invariant: n > 0
-         *)
   | Tpat_array of pattern list
-        (* [| P1; ...; Pn |] *)
   | Tpat_or of pattern * pattern * row_desc option
-        (* P1 | P2 *)
   | Tpat_lazy of pattern
-        (* lazy P *)
 
 and expression =
   { exp_desc: expression_desc;
@@ -117,51 +72,15 @@ and exp_extra =
 
 and expression_desc =
     Texp_ident of Path.t * Longident.t loc * Types.value_description
-        (* x
-           M.x
-         *)
   | Texp_constant of constant
-        (* 1, 'a', "true", 1.0, 1l, 1L, 1n *)
   | Texp_let of rec_flag * value_binding list * expression
-        (* let P1 = E1 and ... and Pn = EN in E       (flag = Nonrecursive)
-           let rec P1 = E1 and ... and Pn = EN in E   (flag = Recursive)
-         *)
   | Texp_function of arg_label * case list * partial
-        (* function P1 -> E1 | ... | Pn -> En
-           partial =
-             Partial if the pattern match is partial
-             Total otherwise.
-        *)
   | Texp_apply of expression * (arg_label * expression option * optional) list
-        (* E0 ~l1:E1 ... ~ln:En
-           li can be empty (non labeled argument) or start with '?'
-           (optional argument).
-
-           if optional = Optional, the label must start with "?".
-
-           The expression can be None if the expression is abstracted over
-           this argument. It currently appears when a label is applied.
-
-           For example:
-           let f x ~y = x + y in
-           f ~y:3
-
-           The resulting typedtree for the application is:
-           Texp_apply (Texp_ident "f/1037",
-                       [("", None); ("bar", Texp_constant Const_int 3)])
-
-           Note: As opposed to the parsetree, if an optional label is used in
-           the non optional form, the label argument still starts with "?".
-         *)
   | Texp_match of expression * case list * case list * partial
   | Texp_try of expression * case list
   | Texp_tuple of expression list
   | Texp_construct of
       Longident.t loc * constructor_description * expression list
-        (* C                []
-           C E              [E]
-           C (E1, ..., En)  [E1;...;En]
-        *)
   | Texp_variant of label * expression option
   | Texp_record of
       (Longident.t loc * label_description * expression) list *
@@ -263,12 +182,9 @@ and module_expr =
     mod_attributes: attribute list;
    }
 
-(** Annotations for [Tmod_constraint]. *)
 and module_type_constraint =
-  | Tmodtype_implicit
-  (* The module type constraint has been synthesized during typecheking. *)
-  | Tmodtype_explicit of module_type
-  (* The module type was in the source file. *)
+  Tmodtype_implicit
+| Tmodtype_explicit of module_type
 
 and module_expr_desc =
     Tmod_ident of Path.t * Longident.t loc
@@ -277,9 +193,6 @@ and module_expr_desc =
   | Tmod_apply of module_expr * module_expr * module_coercion
   | Tmod_constraint of
       module_expr * Types.module_type * module_type_constraint * module_coercion
-    (* ME          (constraint = Tmodtype_implicit)
-       (ME : MT)   (constraint = Tmodtype_explicit MT)
-    *)
   | Tmod_unpack of expression * Types.module_type
 
 and structure = {
