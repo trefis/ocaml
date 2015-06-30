@@ -54,27 +54,31 @@ open Asttypes
 
   Note on mutability: TBD.
  *)
-
 type type_expr =
   { mutable desc: type_desc;
     mutable level: int;
     mutable id: int }
 
 and type_desc =
+  | Tvar of string option
   (** [Tvar (Some "a")] ==> ['a] or ['_a]
       [Tvar None]       ==> [_] *)
-  | Tvar of string option
+
+  | Tarrow of arg_label * type_expr * type_expr * commutable
   (** [Tarrow (Nolabel,      e1, e2, c)] ==> [e1    -> e2]
       [Tarrow (Labelled "l", e1, e2, c)] ==> [l:e1  -> e2]
       [Tarrow (Optional "l", e1, e2, c)] ==> [?l:e1 -> e2]
-    See [commutable] for the last argument. *)
-  | Tarrow of arg_label * type_expr * type_expr * commutable
-  (** [Ttuple [t1;...;tn]] ==> [(t1 * ... * tn)] *)
+
+      See [commutable] for the last argument. *)
+
   | Ttuple of type_expr list
+  (** [Ttuple [t1;...;tn]] ==> [(t1 * ... * tn)] *)
+
+  | Tconstr of Path.t * type_expr list * abbrev_memo ref
   (** [Tconstr (`A.B.t', [t1;...;tn], _)] ==> [(t1,...,tn) A.B.t]
       The last parameter keep tracks of known expansions, see [abbrev_memo]. *)
-  | Tconstr of Path.t * type_expr list * abbrev_memo ref
 
+  | Tobject of type_expr * (Path.t * type_expr list) option ref
   (** [Tobject (`f1:t1;...;fn: tn', `None')] ==> [< f1: t1; ...; fn: tn >]
       f1, fn are represented as a linked list of types using Tfield and Tnil
       constructors.
@@ -82,26 +86,33 @@ and type_desc =
       [Tobject (_, `Some (`A.ct', [t1;...;tn]')] ==> [(t1, ..., tn) A.ct].
       where A.ct is the type of some class.
   *)
-  | Tobject of type_expr * (Path.t * type_expr list) option ref
-  (** [Tfield ("foo", Fpresent, t, ts)] ==> [<...; foo : t; ts>] *)
+
   | Tfield of string * field_kind * type_expr * type_expr
-  (** [Tnil] ==> [<...; >] *)
+  (** [Tfield ("foo", Fpresent, t, ts)] ==> [<...; foo : t; ts>] *)
+
   | Tnil
-  (** Indirection used by unification engine. *)
+  (** [Tnil] ==> [<...; >] *)
+
   | Tlink of type_expr
+  (** Indirection used by unification engine. *)
+
+  | Tsubst of type_expr         (* for copying *)
   (** [Tsubst] seems to be used to store information during
       instantiation or copy of a type.
       This constructor should not be used outside of these cases. *)
-  | Tsubst of type_expr         (* for copying *)
-  (** Representation of polymorphic variant *)
+
   | Tvariant of row_desc
+  (** Representation of polymorphic variant *)
+
   | Tunivar of string option
+
+  | Tpoly of type_expr * type_expr list
   (** [Tpoly (ty,tyl)] ==> ['a1... 'an. ty],
       where 'a1 ... 'an are names given to types in tyl
       and occurences of those types in ty. *)
-  | Tpoly of type_expr * type_expr list
-  (* Type of a first-class module (a.k.a package). *)
+
   | Tpackage of Path.t * Longident.t list * type_expr list
+  (* Type of a first-class module (a.k.a package). *)
 
 and row_desc =
     { row_fields: (label * row_field) list;
@@ -135,15 +146,16 @@ and row_field =
     removing abbreviations.
 *)
 and abbrev_memo =
-  (** No known abbrevation *)
-  | Mnil
-  (** Found one abbreviation.
-    A valid abbreviation should be at least as visible and
-    reachable by the same path.
-    The first expression is the abbreviation and the second the expansion. *)
+  | Mnil (** No known abbrevation *)
+
   | Mcons of private_flag * Path.t * type_expr * type_expr * abbrev_memo
-  (** Abbreviations can be found after this indirection *)
+  (** Found one abbreviation.
+      A valid abbreviation should be at least as visible and reachable by the
+      same path.
+      The first expression is the abbreviation and the second the expansion. *)
+
   | Mlink of abbrev_memo ref
+  (** Abbreviations can be found after this indirection *)
 
 and field_kind =
     Fvar of field_kind option ref
