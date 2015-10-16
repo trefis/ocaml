@@ -66,7 +66,7 @@ type error =
   | Invalid_interval
   | Invalid_for_loop_index
   | No_value_clauses
-  | Exception_pattern_below_toplevel
+  | Mixed_exception_and_value_patterns
   | Inlined_record_escape
   | Unrefuted_pattern of pattern
 
@@ -1332,7 +1332,7 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~explode ~env
       k { p with pat_extra =
         (Tpat_type (path, lid), loc, sp.ppat_attributes) :: p.pat_extra }
   | Ppat_exception _ ->
-      raise (Error (loc, !env, Exception_pattern_below_toplevel))
+      raise (Error (loc, !env, Mixed_exception_and_value_patterns))
   | Ppat_extension ext ->
       raise (Error_forward (Typetexp.error_of_extension ext))
 
@@ -2057,14 +2057,27 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
       end_def ();
       if is_nonexpansive arg then generalize arg.exp_type
       else generalize_expansive env arg.exp_type;
-      let rec split_cases vc ec = function
-        | [] -> List.rev vc, List.rev ec
-        | {pc_lhs = {ppat_desc=Ppat_exception p}} as c :: rest ->
-            split_cases vc ({c with pc_lhs = p} :: ec) rest
-        | c :: rest ->
-            split_cases (c :: vc) ec rest
+      let split_cases case_list =
+        let rec get_exn_pattern pat =
+          match pat.ppat_desc with
+          | Ppat_exception p -> p
+          | Ppat_or (p, p') ->
+              let ppat_desc = Ppat_or (get_exn_pattern p, get_exn_pattern p') in
+              { pat with ppat_desc }
+          | _ -> raise Not_found
+        in
+        let rec split_cases vc ec = function
+          | [] -> List.rev vc, List.rev ec
+          | { pc_lhs ; _ } as c :: rest ->
+            try
+              let p' = get_exn_pattern pc_lhs in
+              split_cases vc ({ c with pc_lhs = p' } :: ec) rest
+            with Not_found ->
+              split_cases (c :: vc) ec rest
+        in
+        split_cases [] [] case_list
       in
-      let val_caselist, exn_caselist = split_cases [] [] caselist in
+      let val_caselist, exn_caselist = split_cases caselist in
       if val_caselist = [] && exn_caselist <> [] then
         raise (Error (loc, env, No_value_clauses));
       (* Note: val_caselist = [] and exn_caselist = [], i.e. a fully
@@ -4195,9 +4208,10 @@ let report_error env ppf = function
   | No_value_clauses ->
       fprintf ppf
         "None of the patterns in this 'match' expression match values."
-  | Exception_pattern_below_toplevel ->
+  | Mixed_exception_and_value_patterns ->
       fprintf ppf
-        "@[Exception patterns must be at the top level of a match case.@]"
+        "@[Exception patterns cannot be mixed with value patterns in the same \
+         match case.@]"
   | Inlined_record_escape ->
       fprintf ppf
         "@[This form is not allowed as the type of the inlined record could \
