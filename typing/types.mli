@@ -15,10 +15,7 @@
 (** [Types] defines the representation of types and declarations (that is, the
   content of module signatures).
 
-  Those are all that is needed to express the content of cmi files.
-
-  Notably, typing of term expressions is left to another file, [Typedtree], as
-  terms doesn't appear at the signature level.
+    CMI files are made of marshalled types.
 *)
 
 (** Asttypes exposes basic definitions shared both by Parsetree and Types. *)
@@ -27,30 +24,30 @@ open Asttypes
 (** Type expressions for the core language.
 
   The [type_desc] variant defines all the possible type expressions one can
-  find in Ocaml. [type_expr] wraps this with some annotations.
+  find in OCaml. [type_expr] wraps this with some annotations.
 
   The [level] field tracks the level of polymorphism associated to a type,
   guiding the generalization algorithm.
   Put shortly, when referring to a type in a given environment, both the type
   and the environment have a level. If the type has an higher level, then it
   can be considered fully polymorphic (type variables will be printed as ['a]),
-  otherwise it'll be weakly polymorphic, or non generalizable (type variables
+  otherwise it'll be weakly polymorphic, or non generalized (type variables
   printed as ['_a]).
   See [http://okmij.org/ftp/ML/generalization.html] for more information.
 
   Note about [type_declaration]: one should not make the confusion between
   [type_expr] and [type_declaration].
 
-  [type_declaration] refers specifically to the [type] construct in ocaml
+  [type_declaration] refers specifically to the [type] construct in OCaml
   language, where you create and name a new type or type alias.
 
-  [type_expr] is used when you refers to existing types, e.g. when annotating
+  [type_expr] is used when you refer to existing types, e.g. when annotating
   the expected type of a value.
 
-  Also, as the type system of ocaml is generative, a [type_declaration] can
-  have the side-effect of introducing a new type, different from all other
-  known types. On the opposite, [type_expr] is a pure construct which allows
-  referring to existing types.
+  Also, as the type system of OCaml is generative, a [type_declaration] can
+  have the side-effect of introducing a new type constructor,
+  different from all other known types.
+  Whereas [type_expr] is a pure construct which allows referring to existing types.
 
   Note on mutability: TBD.
  *)
@@ -97,14 +94,17 @@ and type_desc =
   (** Indirection used by unification engine. *)
 
   | Tsubst of type_expr         (* for copying *)
-  (** [Tsubst] seems to be used to store information during
-      instantiation or copy of a type.
-      This constructor should not be used outside of these cases. *)
+  (** [Tsubst] is used temporarily to store information in low-level
+      functions manipulating representation of types, such as
+      instantiation or copy.
+      This constructor should not appear outside of these cases. *)
 
   | Tvariant of row_desc
-  (** Representation of polymorphic variant *)
+  (** Representation of polymorphic variants, see [row_desc]. *)
 
   | Tunivar of string option
+  (** Occurrence of a type variable introduced by a
+      forall quantifier / [Tpoly]. *)
 
   | Tpoly of type_expr * type_expr list
   (** [Tpoly (ty,tyl)] ==> ['a1... 'an. ty],
@@ -112,7 +112,7 @@ and type_desc =
       and occurences of those types in ty. *)
 
   | Tpackage of Path.t * Longident.t list * type_expr list
-  (* Type of a first-class module (a.k.a package). *)
+  (** Type of a first-class module (a.k.a package). *)
 
 (** [  `X | `Y ]       (row_closed = true)
     [< `X | `Y ]       (row_closed = true)
@@ -190,23 +190,24 @@ and field_kind =
 
 (** [commutable] is a flag appended to every arrow type.
 
-    It's purpose is to carry information about what is known about the order of
-    applied arguments.
+    When typing an application, if the type of the functional is
+    known, its type is instantiated with [Cok] arrows, otherwise as
+    [Clink (ref Cunknown)].
 
-    When typing an application (e.g [f x]), it is needed to infer the type of
-    the function being applied. However in presence of labels there is no
-    longer a strict order imposed on arguments.
+    When the type is not known, the application will be used to infer
+    the actual type.  This is fragile in presence of labels where
+    there is no principal type.
 
-    As such, when applying a labelled argument we keep track of the fact that
-    the exact order is not known. When unifying with the correct actual
-    function type, the order is recovered.
+    Two incompatible applications relying on [Cunknown] arrows will
+    trigger an error.
 
-    When typing an abstraction, the correct order is always known
-    (e.g [fun ~a ~b -> ...] always produce [Cok] arguments).
-    Conversely, generalising a type containing [Cunknown] arguments is not a
-    good sign, and means that the order of arguments gets arbitrarily fixed.
-    There is no principal typing in presence of unordered, potentially optional
-    arguments. (FIXME is this the correct interpretation?)
+    let f g =
+      g ~a:() ~b:();
+      g ~b:() ~a:();
+
+    Error: This function is applied to arguments
+    in an order different from other calls.
+    This is only allowed when the real type is known.
 *)
 and commutable =
     Cok
