@@ -102,7 +102,10 @@ and pattern_desc =
   | Tpat_array of pattern list
         (* [| P1; ...; Pn |] *)
   | Tpat_or of pattern * pattern * row_desc option
-        (* P1 | P2 *)
+        (* P1 | P2
+  
+           [row_desc = Some _] when translating [Ppat_type _], [None] otherwise.
+         *)
   | Tpat_lazy of pattern
         (* lazy P *)
 
