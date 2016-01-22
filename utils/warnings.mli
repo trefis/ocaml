@@ -72,6 +72,8 @@ type t =
   | Ambiguous_pattern of string list        (* 57 *)
   | No_cmx_file of string                   (* 58 *)
   | Assignment_to_non_mutable_value         (* 59 *)
+  | If_might_terminate_too_early            (* 60 *)
+  | If_branch_might_be_longer_than_expected (* 61 *)
 ;;
 
 val parse_options : bool -> string -> unit;;

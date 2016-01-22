@@ -77,6 +77,8 @@ type t =
   | Ambiguous_pattern of string list        (* 57 *)
   | No_cmx_file of string                   (* 58 *)
   | Assignment_to_non_mutable_value         (* 59 *)
+  | If_might_terminate_too_early            (* 60 *)
+  | If_branch_might_be_longer_than_expected (* 61 *)
 ;;
 
 (* If you remove a warning, leave a hole in the numbering.  NEVER change
@@ -145,9 +147,11 @@ let number = function
   | Ambiguous_pattern _ -> 57
   | No_cmx_file _ -> 58
   | Assignment_to_non_mutable_value -> 59
+  | If_might_terminate_too_early -> 60
+  | If_branch_might_be_longer_than_expected -> 61
 ;;
 
-let last_warning_number = 59
+let last_warning_number = 61
 ;;
 
 (* Must be the max number returned by the [number] function. *)
@@ -262,7 +266,7 @@ let parse_options errflag s =
   current := {error; active}
 
 (* If you change these, don't forget to change them in man/ocamlc.m *)
-let defaults_w = "+a-4-6-7-9-27-29-32..39-41..42-44-45-48-50";;
+let defaults_w = "+a-4-6-7-9-27-29-32..39-41..42-44-45-48-50-60-61";;
 let defaults_warn_error = "-a+31";;
 
 let () = parse_options false defaults_w;;
@@ -449,6 +453,12 @@ let message = function
         "no cmx file was found in path for module %s, \
          and its interface was not compiled with -opaque" name
   | Assignment_to_non_mutable_value -> "Assignment to non-mutable value"
+  | If_might_terminate_too_early ->
+      "unparenthised if before a semicolon, the branch might end earlier than \
+       expected"
+  | If_branch_might_be_longer_than_expected ->
+      "the first part of that if branch is delimited but the branch actually \
+       spans a wider zone."
 ;;
 
 let nerrors = ref 0;;
@@ -546,6 +556,8 @@ let descriptions =
    57, "Ambiguous binding by pattern.";
    58, "Missing cmx file";
    59, "Assignment to non-mutable value";
+   60, "If might terminate too early";
+   61, "If branch might be longer than expected"
   ]
 ;;
 

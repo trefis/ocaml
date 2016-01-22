@@ -400,6 +400,56 @@ module Expr = struct
       to_check.in_parens
     in
     { expr; start_with_parens; in_parens = false }
+
+  module Warn = struct
+    let is_if t =
+      match t.expr.pexp_desc with
+      | Pexp_ifthenelse _ -> true
+      | _ -> false
+
+    (* Warns about if branches which might be shorter than expected.
+       For example:
+                                            (parsed as)
+
+           if foo then                  (if foo then bar); baz
+             bar;
+             baz
+
+           if foo then                  (if foo then lol else bar); baz
+             lol
+           else
+             bar;
+             baz
+    *)
+    let if_in_sequence t =
+      if Warnings.is_active Warnings.If_might_terminate_too_early &&
+         is_if t && not t.in_parens &&
+         not t.start_with_parens (* cf [if_] for an explanation of that check *)
+      then
+        Location.prerr_warning t.expr.pexp_loc
+          Warnings.If_might_terminate_too_early
+
+
+    (* Warns about if branches which might be longer than expected.
+       For instance:
+                                            (parsed as)
+
+           if foo then                  if foo then (return ())
+             return ()                  else begin
+           else (                          (foo (); return (bar ()))
+             foo ();                       >>= fun () -> printf "all done lol"
+             return (bar ())            end
+           )
+           >>= fun () ->
+           printf "all done lol"
+    *)
+    let branch_partially_parenthized t =
+      if Warnings.is_active Warnings.If_branch_might_be_longer_than_expected
+      && t.start_with_parens && not (is_if t)
+      then
+        Location.prerr_warning t.expr.pexp_loc
+          Warnings.If_branch_might_be_longer_than_expected
+  end
 end
 
 type let_binding =
@@ -1316,7 +1366,10 @@ and_class_type_declaration:
 seq_expr:
   | expr        %prec below_SEMI  { Expr.proj $1 }
   | expr SEMI                     { reloc_exp (Expr.proj $1) }
-  | expr SEMI seq_expr            { mkexp(Pexp_sequence(Expr.proj $1, $3)) }
+  | expr SEMI seq_expr
+      { let lhs = $1 in
+        Expr.Warn.if_in_sequence lhs;
+        mkexp(Pexp_sequence (Expr.proj lhs, $3)) }
 ;
 labeled_simple_pattern:
     QUESTION LPAREN label_let_pattern opt_default RPAREN
@@ -1391,9 +1444,11 @@ expr:
       { Expr.inj @@ mkexp(Pexp_variant($1, Some (Expr.proj $2))) }
   | IF ext_attributes seq_expr THEN expr ELSE expr
       { let else_ = $7 in
+        Expr.Warn.branch_partially_parenthized else_;
         Expr.if_ ~attrs:$2 $3 ~then_:$5 ~else_ }
   | IF ext_attributes seq_expr THEN expr
       { let then_ = $5 in
+        Expr.Warn.branch_partially_parenthized then_;
         Expr.if_ ~attrs:$2 $3 ~then_ }
   | WHILE ext_attributes seq_expr DO seq_expr DONE
       { Expr.inj @@ mkexp_attrs (Pexp_while($3, $5)) $2 }
