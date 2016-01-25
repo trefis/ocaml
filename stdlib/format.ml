@@ -242,7 +242,7 @@ let peek_queue = function
 let take_queue = function
   | { body = Cons { head = x; tail = tl; }; _ } as q ->
     q.body <- tl;
-    if tl = Nil then q.insert <- Nil; (* Maintain the invariant. *)
+    (if tl = Nil then q.insert <- Nil); (* Maintain the invariant. *)
     x
   | { body = Nil; insert = _; } -> raise Empty_queue
 ;;
@@ -554,7 +554,7 @@ let set_size state ty =
    If b is true set_size is called. *)
 let scan_push state b tok =
   pp_enqueue state tok;
-  if b then set_size state true;
+  (if b then set_size state true);
   state.pp_scan_stack <-
     Scan_elem (state.pp_right_total, tok) :: state.pp_scan_stack
 ;;
@@ -609,12 +609,13 @@ let pp_open_tag state tag_name =
 
 (* Close a tag, popping it from the tag stack. *)
 let pp_close_tag state () =
-  if state.pp_mark_tags then
+  if state.pp_mark_tags then (
     pp_enqueue state {
       elem_size = size_of_int 0;
       token = Pp_close_tag;
       length = 0;
-    };
+    }
+  );
   if state.pp_print_tags then
   begin
     match state.pp_tag_stack with
@@ -675,7 +676,7 @@ let pp_flush_queue state b =
   done;
   state.pp_right_total <- pp_infinity;
   advance_left state;
-  if b then pp_output_newline state;
+  (if b then pp_output_newline state);
   pp_rinit state
 ;;
 

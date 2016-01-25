@@ -306,7 +306,7 @@ let bprint_char_set buf char_set =
       let before, after = Char.(chr (code c - 1), chr (code c + 1)) in
       is_in_char_set set c
       && not (is_in_char_set set before && is_in_char_set set after) in
-    if is_alone ']' then buffer_add_char buf ']';
+    (if is_alone ']' then buffer_add_char buf ']');
     print_out set 1;
     if is_alone '-' then buffer_add_char buf '-';
   and print_out set i =
@@ -1079,13 +1079,13 @@ and type_format_gen :
 
   | Format_arg (pad_opt, sub_fmtty, fmt_rest),
     Format_arg_ty (sub_fmtty', fmtty_rest) ->
-    if Fmtty_EBB sub_fmtty <> Fmtty_EBB sub_fmtty' then raise Type_mismatch;
+    (if Fmtty_EBB sub_fmtty <> Fmtty_EBB sub_fmtty' then raise Type_mismatch);
     let Fmt_fmtty_EBB (fmt', fmtty') = type_format_gen fmt_rest fmtty_rest in
     Fmt_fmtty_EBB (Format_arg (pad_opt, sub_fmtty', fmt'), fmtty')
   | Format_subst (pad_opt, sub_fmtty, fmt_rest),
     Format_subst_ty (sub_fmtty1, _sub_fmtty2, fmtty_rest) ->
-    if Fmtty_EBB (erase_rel sub_fmtty) <> Fmtty_EBB (erase_rel sub_fmtty1) then
-      raise Type_mismatch;
+    (if Fmtty_EBB (erase_rel sub_fmtty) <> Fmtty_EBB (erase_rel sub_fmtty1) then
+       raise Type_mismatch);
     let Fmt_fmtty_EBB (fmt', fmtty') =
       type_format_gen fmt_rest (erase_rel fmtty_rest)
     in
@@ -1239,17 +1239,17 @@ fun sub_fmtty fmt fmtty -> match sub_fmtty, fmtty with
 
   | Format_arg_ty (sub2_fmtty, sub_fmtty_rest),
     Format_arg_ty (sub2_fmtty', fmtty_rest) ->
-    if Fmtty_EBB sub2_fmtty <> Fmtty_EBB sub2_fmtty' then raise Type_mismatch;
+    (if Fmtty_EBB sub2_fmtty <> Fmtty_EBB sub2_fmtty' then raise Type_mismatch);
     let Fmtty_fmt_EBB (sub_fmtty_rest', fmt') =
       type_ignored_format_substitution sub_fmtty_rest fmt fmtty_rest in
     Fmtty_fmt_EBB (Format_arg_ty (sub2_fmtty', sub_fmtty_rest'), fmt')
   | Format_subst_ty (sub1_fmtty,  sub2_fmtty,  sub_fmtty_rest),
     Format_subst_ty (sub1_fmtty', sub2_fmtty', fmtty_rest) ->
     (* TODO define Fmtty_rel_EBB to remove those erase_rel *)
-    if Fmtty_EBB (erase_rel sub1_fmtty) <> Fmtty_EBB (erase_rel sub1_fmtty')
-    then raise Type_mismatch;
-    if Fmtty_EBB (erase_rel sub2_fmtty) <> Fmtty_EBB (erase_rel sub2_fmtty')
-    then raise Type_mismatch;
+    (if Fmtty_EBB (erase_rel sub1_fmtty) <> Fmtty_EBB (erase_rel sub1_fmtty')
+     then raise Type_mismatch);
+    (if Fmtty_EBB (erase_rel sub2_fmtty) <> Fmtty_EBB (erase_rel sub2_fmtty')
+     then raise Type_mismatch);
     let sub_fmtty' = trans (symm sub1_fmtty') sub2_fmtty' in
     let _, f2, _, f4 = fmtty_rel_det sub_fmtty' in
     let Refl = f2 Refl in
@@ -1949,7 +1949,7 @@ let open_box_of_string str =
         try int_of_string (String.sub str nstart (nend - nstart))
         with Failure _ -> invalid_box () in
     let exp_end = parse_spaces nend in
-    if exp_end <> len then invalid_box ();
+    (if exp_end <> len then invalid_box ());
     let box_type = match box_name with
       | "" | "b" -> Pp_box
       | "h"      -> Pp_hbox
@@ -2093,7 +2093,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
 
   and parse_ign : type e f . int -> int -> int -> (_, _, e, f) fmt_ebb =
   fun pct_ind str_ind end_ind ->
-    if str_ind = end_ind then unexpected_end_of_format end_ind;
+    begin if str_ind = end_ind then unexpected_end_of_format end_ind end;
     match str.[str_ind] with
       | '_' -> parse_flags pct_ind (str_ind+1) end_ind true
       | _ -> parse_flags pct_ind str_ind end_ind false
@@ -2106,14 +2106,15 @@ let fmt_ebb_of_string ?legacy_behavior str =
     and sharp = ref false in
     let set_flag str_ind flag =
       (* in legacy mode, duplicate flags are accepted *)
-      if !flag && not legacy_behavior then
+      if !flag && not legacy_behavior then (
         failwith_message
           "invalid format %S: at character number %d, duplicate flag %C"
-          str str_ind str.[str_ind];
+          str str_ind str.[str_ind]
+      );
       flag := true;
     in
     let rec read_flags str_ind =
-      if str_ind = end_ind then unexpected_end_of_format end_ind;
+      (if str_ind = end_ind then unexpected_end_of_format end_ind);
       begin match str.[str_ind] with
       | '0' -> set_flag str_ind zero;  read_flags (str_ind + 1)
       | '-' -> set_flag str_ind minus; read_flags (str_ind + 1)
@@ -2132,7 +2133,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
       int -> int -> int -> bool -> bool -> bool -> bool -> bool -> bool ->
         (_, _, e, f) fmt_ebb =
   fun pct_ind str_ind end_ind zero minus plus sharp space ign ->
-    if str_ind = end_ind then unexpected_end_of_format end_ind;
+    (if str_ind = end_ind then unexpected_end_of_format end_ind);
     let padty = match zero, minus with
       | false, false -> Right
       | false, true  -> Left
@@ -2151,8 +2152,8 @@ let fmt_ebb_of_string ?legacy_behavior str =
     | _ ->
       begin match padty with
       | Left  ->
-        if not legacy_behavior then
-          invalid_format_without (str_ind - 1) '-' "padding";
+        (if not legacy_behavior then
+           invalid_format_without (str_ind - 1) '-' "padding");
         parse_after_padding pct_ind str_ind end_ind minus plus sharp space ign
           No_padding
       | Zeros ->
@@ -2171,7 +2172,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
       int -> int -> int -> bool -> bool -> bool -> bool -> bool ->
         (x, _) padding -> (_, _, e, f) fmt_ebb =
   fun pct_ind str_ind end_ind minus plus sharp space ign pad ->
-    if str_ind = end_ind then unexpected_end_of_format end_ind;
+    (if str_ind = end_ind then unexpected_end_of_format end_ind);
     match str.[str_ind] with
     | '.' ->
       parse_precision pct_ind (str_ind + 1) end_ind minus plus sharp space ign
@@ -2185,7 +2186,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
       int -> int -> int -> bool -> bool -> bool -> bool -> bool ->
         (x, _) padding -> (_, _, e, f) fmt_ebb =
   fun pct_ind str_ind end_ind minus plus sharp space ign pad ->
-    if str_ind = end_ind then unexpected_end_of_format end_ind;
+    (if str_ind = end_ind then unexpected_end_of_format end_ind);
     let parse_literal minus str_ind =
       let new_ind, prec = parse_positive str_ind end_ind 0 in
       parse_after_precision pct_ind new_ind end_ind minus plus sharp space ign
@@ -2220,7 +2221,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
       int -> int -> int -> bool -> bool -> bool -> bool -> bool ->
         (x, y) padding -> (z, t) precision -> (_, _, e, f) fmt_ebb =
   fun pct_ind str_ind end_ind minus plus sharp space ign pad prec ->
-    if str_ind = end_ind then unexpected_end_of_format end_ind;
+    (if str_ind = end_ind then unexpected_end_of_format end_ind);
     let parse_conv (type u) (type v) (padprec : (u, v) padding) =
       parse_conversion pct_ind (str_ind + 1) end_ind plus sharp space ign pad
         prec padprec str.[str_ind] in
@@ -2508,18 +2509,18 @@ let fmt_ebb_of_string ?legacy_behavior str =
        Such checks need to be disabled in legacy mode, as the legacy
        parser silently ignored incompatible flags. *)
     if not legacy_behavior then begin
-    if not !plus_used && plus then
-      incompatible_flag pct_ind str_ind symb "'+'";
-    if not !sharp_used && sharp then
-      incompatible_flag pct_ind str_ind symb "'#'";
-    if not !space_used && space then
-      incompatible_flag pct_ind str_ind symb "' '";
-    if not !pad_used  && Padding_EBB pad <> Padding_EBB No_padding then
-      incompatible_flag pct_ind str_ind symb "`padding'";
-    if not !prec_used && Precision_EBB prec <> Precision_EBB No_precision then
-      incompatible_flag pct_ind str_ind (if ign then '_' else symb)
-        "`precision'";
-    if ign && plus then incompatible_flag pct_ind str_ind '_' "'+'";
+      (if not !plus_used && plus then
+        incompatible_flag pct_ind str_ind symb "'+'");
+      (if not !sharp_used && sharp then
+        incompatible_flag pct_ind str_ind symb "'#'");
+      (if not !space_used && space then
+        incompatible_flag pct_ind str_ind symb "' '");
+      (if not !pad_used  && Padding_EBB pad <> Padding_EBB No_padding then
+        incompatible_flag pct_ind str_ind symb "`padding'");
+      (if not !prec_used && Precision_EBB prec <> Precision_EBB No_precision then
+        incompatible_flag pct_ind str_ind (if ign then '_' else symb)
+          "`precision'");
+      (if ign && plus then incompatible_flag pct_ind str_ind '_' "'+'");
     end;
     (* this last test must not be disabled in legacy mode,
        as ignoring it would typically result in a different typing
@@ -2593,11 +2594,11 @@ let fmt_ebb_of_string ?legacy_behavior str =
   and parse_tag : type e f . bool -> int -> int -> (_, _, e, f) fmt_ebb =
   fun is_open_tag str_ind end_ind ->
     try
-      if str_ind = end_ind then raise Not_found;
+      (if str_ind = end_ind then raise Not_found);
       match str.[str_ind] with
       | '<' ->
         let ind = String.index_from str (str_ind + 1) '>' in
-        if ind >= end_ind then raise Not_found;
+        (if ind >= end_ind then raise Not_found);
         let sub_str = String.sub str str_ind (ind - str_ind + 1) in
         let Fmt_EBB fmt_rest = parse (ind + 1) end_ind in
         let Fmt_EBB sub_fmt = parse str_ind (ind + 1) in
@@ -2620,7 +2621,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
   fun str_ind end_ind ->
     let next_ind, formatting_lit =
       try
-        if str_ind = end_ind || str.[str_ind] <> '<' then raise Not_found;
+        (if str_ind = end_ind || str.[str_ind] <> '<' then raise Not_found);
         let str_ind_1 = parse_spaces (str_ind + 1) end_ind in
         match str.[str_ind_1] with
         | '0' .. '9' | '-' -> (
@@ -2633,7 +2634,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
               | '0' .. '9' | '-' ->
                 let str_ind_4, offset = parse_integer str_ind_3 end_ind in
                 let str_ind_5 = parse_spaces str_ind_4 end_ind in
-                if str.[str_ind_5] <> '>' then raise Not_found;
+                (if str.[str_ind_5] <> '>' then raise Not_found);
                 let s = String.sub str (str_ind-2) (str_ind_5-str_ind+3) in
                 str_ind_5 + 1, Break (s, width, offset)
               | _ -> raise Not_found
@@ -2655,7 +2656,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
         | '0' .. '9' | '-' ->
           let str_ind_2, size = parse_integer str_ind_1 end_ind in
           let str_ind_3 = parse_spaces str_ind_2 end_ind in
-          if str.[str_ind_3] <> '>' then raise Not_found;
+          (if str.[str_ind_3] <> '>' then raise Not_found);
           let s = String.sub str (str_ind - 2) (str_ind_3 - str_ind + 3) in
           Some (str_ind_3 + 1, Magic_size (s, size))
         | _ -> None
@@ -2671,7 +2672,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
 
   (* Parse and construct a char set. *)
   and parse_char_set str_ind end_ind =
-    if str_ind = end_ind then unexpected_end_of_format end_ind;
+    (if str_ind = end_ind then unexpected_end_of_format end_ind);
 
     let char_set = create_char_set () in
     let add_char c =
@@ -2691,13 +2692,13 @@ let fmt_ebb_of_string ?legacy_behavior str =
 
     (* Parse the first character of a char set. *)
     let rec parse_char_set_start str_ind end_ind =
-      if str_ind = end_ind then unexpected_end_of_format end_ind;
+      (if str_ind = end_ind then unexpected_end_of_format end_ind);
       let c = str.[str_ind] in
       parse_char_set_after_char (str_ind + 1) end_ind c;
 
     (* Parse the content of a char set until the first ']'. *)
     and parse_char_set_content str_ind end_ind =
-      if str_ind = end_ind then unexpected_end_of_format end_ind;
+      (if str_ind = end_ind then unexpected_end_of_format end_ind);
       match str.[str_ind] with
       | ']' ->
         str_ind + 1
@@ -2709,7 +2710,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
 
     (* Test for range in char set. *)
     and parse_char_set_after_char str_ind end_ind c =
-      if str_ind = end_ind then unexpected_end_of_format end_ind;
+      (if str_ind = end_ind then unexpected_end_of_format end_ind);
       match str.[str_ind] with
       | ']' ->
         add_char c;
@@ -2720,7 +2721,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
         add_char c';
         parse_char_set_content (str_ind + 1) end_ind
       | c' ->
-        if c = '%' then fail_single_percent str_ind;
+        (if c = '%' then fail_single_percent str_ind);
         (* note that '@' alone is accepted, as done by the legacy
            implementation; the documentation specifically requires %@
            so we could warn on that *)
@@ -2729,14 +2730,14 @@ let fmt_ebb_of_string ?legacy_behavior str =
 
     (* Manage range in char set (except if the '-' the last char before ']') *)
     and parse_char_set_after_minus str_ind end_ind c =
-      if str_ind = end_ind then unexpected_end_of_format end_ind;
+      (if str_ind = end_ind then unexpected_end_of_format end_ind);
       match str.[str_ind] with
       | ']' ->
         add_char c;
         add_char '-';
         str_ind + 1
       | '%' ->
-        if str_ind + 1 = end_ind then unexpected_end_of_format end_ind;
+        (if str_ind + 1 = end_ind then unexpected_end_of_format end_ind);
         begin match str.[str_ind + 1] with
           | ('%' | '@') as c' ->
             add_range c c';
@@ -2748,7 +2749,7 @@ let fmt_ebb_of_string ?legacy_behavior str =
         parse_char_set_content (str_ind + 1) end_ind
     in
     let str_ind, reverse =
-      if str_ind = end_ind then unexpected_end_of_format end_ind;
+      (if str_ind = end_ind then unexpected_end_of_format end_ind);
       match str.[str_ind] with
         | '^' -> str_ind + 1, true
         | _ -> str_ind, false in
@@ -2758,13 +2759,13 @@ let fmt_ebb_of_string ?legacy_behavior str =
 
   (* Consume all next spaces, raise an Failure if end_ind is reached. *)
   and parse_spaces str_ind end_ind =
-    if str_ind = end_ind then unexpected_end_of_format end_ind;
+    (if str_ind = end_ind then unexpected_end_of_format end_ind);
     if str.[str_ind] = ' ' then parse_spaces (str_ind + 1) end_ind else str_ind
 
   (* Read a positive integer from the string, raise a Failure if end_ind is
      reached. *)
   and parse_positive str_ind end_ind acc =
-    if str_ind = end_ind then unexpected_end_of_format end_ind;
+    (if str_ind = end_ind then unexpected_end_of_format end_ind);
     match str.[str_ind] with
     | '0' .. '9' as c ->
       let new_acc = acc * 10 + (int_of_char c - int_of_char '0') in
@@ -2779,11 +2780,11 @@ let fmt_ebb_of_string ?legacy_behavior str =
   (* Read a positive or negative integer from the string, raise a Failure
      if end_ind is reached. *)
   and parse_integer str_ind end_ind =
-    if str_ind = end_ind then unexpected_end_of_format end_ind;
+    (if str_ind = end_ind then unexpected_end_of_format end_ind);
     match str.[str_ind] with
     | '0' .. '9' -> parse_positive str_ind end_ind 0
     | '-' -> (
-      if str_ind + 1 = end_ind then unexpected_end_of_format end_ind;
+      (if str_ind + 1 = end_ind then unexpected_end_of_format end_ind);
       match str.[str_ind + 1] with
       | '0' .. '9' ->
         let next_ind, n = parse_positive (str_ind + 1) end_ind 0 in
@@ -2805,18 +2806,19 @@ let fmt_ebb_of_string ?legacy_behavior str =
   (* Search the end of the current sub-format
      (i.e. the corresponding "%}" or "%)") *)
   and search_subformat_end str_ind end_ind c =
-    if str_ind = end_ind then
+    if str_ind = end_ind then (
       failwith_message
         "invalid format %S: unclosed sub-format, \
-         expected \"%%%c\" at character number %d" str c end_ind;
+         expected \"%%%c\" at character number %d" str c end_ind
+    );
     match str.[str_ind] with
     | '%' ->
-      if str_ind + 1 = end_ind then unexpected_end_of_format end_ind;
+      (if str_ind + 1 = end_ind then unexpected_end_of_format end_ind);
       if str.[str_ind + 1] = c then (* End of format found *) str_ind else
         begin match str.[str_ind + 1] with
         | '_' ->
           (* Search for "%_(" or "%_{". *)
-          if str_ind + 2 = end_ind then unexpected_end_of_format end_ind;
+          (if str_ind + 2 = end_ind then unexpected_end_of_format end_ind);
           begin match str.[str_ind + 2] with
           | '{' ->
             let sub_end = search_subformat_end (str_ind + 3) end_ind '}' in

@@ -74,15 +74,15 @@ let resize b more =
 
 let add_char b c =
   let pos = b.position in
-  if pos >= b.length then resize b 1;
+  if pos >= b.length then (resize b 1);
   Bytes.unsafe_set b.buffer pos c;
   b.position <- pos + 1
 
 let add_substring b s offset len =
   if offset < 0 || len < 0 || offset + len > String.length s
-  then invalid_arg "Buffer.add_substring/add_subbytes";
+  then (invalid_arg "Buffer.add_substring/add_subbytes");
   let new_position = b.position + len in
-  if new_position > b.length then resize b len;
+  if new_position > b.length then (resize b len);
   Bytes.blit_string s offset b.buffer b.position len;
   b.position <- new_position
 
@@ -92,7 +92,7 @@ let add_subbytes b s offset len =
 let add_string b s =
   let len = String.length s in
   let new_position = b.position + len in
-  if new_position > b.length then resize b len;
+  if new_position > b.length then (resize b len);
   Bytes.blit_string s 0 b.buffer b.position len;
   b.position <- new_position
 
@@ -112,8 +112,8 @@ let rec add_channel_rec b ic len =
 
 let add_channel b ic len =
   if len < 0 || len > Sys.max_string_length then   (* PR#5004 *)
-    invalid_arg "Buffer.add_channel";
-  if b.position + len > b.length then resize b len;
+    (invalid_arg "Buffer.add_channel");
+  if b.position + len > b.length then (resize b len);
   add_channel_rec b ic len
 
 let output_buffer oc b =

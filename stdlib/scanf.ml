@@ -173,7 +173,7 @@ module Scanning : SCANNING = struct
       ib.ic_current_char <- c;
       ib.ic_current_char_is_valid <- true;
       ib.ic_char_count <- succ ib.ic_char_count;
-      if c = '\n' then ib.ic_line_count <- succ ib.ic_line_count;
+      (if c = '\n' then ib.ic_line_count <- succ ib.ic_line_count);
       c with
     | End_of_file ->
       let c = null_char in
@@ -196,7 +196,7 @@ module Scanning : SCANNING = struct
      new character. *)
   let checked_peek_char ib =
     let c = peek_char ib in
-    if ib.ic_eof then raise End_of_file;
+    (if ib.ic_eof then raise End_of_file);
     c
   ;;
 
@@ -823,21 +823,21 @@ let check_case_insensitive_string width ib error str =
   let width = ref width in
   for i = 0 to len - 1 do
     let c = Scanning.peek_char ib in
-    if lowercase c <> lowercase str.[i] then error ();
-    if !width = 0 then error ();
+    (if lowercase c <> lowercase str.[i] then error ());
+    (if !width = 0 then error ());
     width := Scanning.store_char !width ib c;
   done;
   !width
 ;;
 
 let scan_hex_float width precision ib =
-  if width = 0 || Scanning.end_of_input ib then bad_hex_float ();
+  (if width = 0 || Scanning.end_of_input ib then bad_hex_float ());
   let width = scan_sign width ib in
-  if width = 0 || Scanning.end_of_input ib then bad_hex_float ();
+  (if width = 0 || Scanning.end_of_input ib then bad_hex_float ());
   match Scanning.peek_char ib with
   | '0' as c -> (
     let width = Scanning.store_char width ib c in
-    if width = 0 || Scanning.end_of_input ib then bad_hex_float ();
+    (if width = 0 || Scanning.end_of_input ib then bad_hex_float ());
     let width = check_case_insensitive_string width ib bad_hex_float "x" in
     if width = 0 || Scanning.end_of_input ib then width else
       let width = match Scanning.peek_char ib with
@@ -859,25 +859,25 @@ let scan_hex_float width precision ib =
           match Scanning.peek_char ib with
           | 'p' | 'P' as c ->
             let width = Scanning.store_char width ib c in
-            if width = 0 || Scanning.end_of_input ib then bad_hex_float ();
+            (if width = 0 || Scanning.end_of_input ib then bad_hex_float ());
             scan_optionally_signed_decimal_int width ib
           | _ -> width
   )
   | 'n' | 'N' as c ->
     let width = Scanning.store_char width ib c in
-    if width = 0 || Scanning.end_of_input ib then bad_hex_float ();
+    (if width = 0 || Scanning.end_of_input ib then bad_hex_float ());
     check_case_insensitive_string width ib bad_hex_float "an"
   | 'i' | 'I' as c ->
     let width = Scanning.store_char width ib c in
-    if width = 0 || Scanning.end_of_input ib then bad_hex_float ();
+    (if width = 0 || Scanning.end_of_input ib then bad_hex_float ());
     check_case_insensitive_string width ib bad_hex_float "nfinity"
   | _ -> bad_hex_float ()
 ;;
 
 let scan_caml_float_rest width precision ib =
-  if width = 0 || Scanning.end_of_input ib then bad_float ();
+  (if width = 0 || Scanning.end_of_input ib then bad_float ());
   let width = scan_decimal_digit_star width ib in
-  if width = 0 || Scanning.end_of_input ib then bad_float ();
+  (if width = 0 || Scanning.end_of_input ib then bad_float ());
   let c = Scanning.peek_char ib in
   match c with
   | '.' ->
@@ -900,19 +900,19 @@ let scan_caml_float_rest width precision ib =
 ;;
 
 let scan_caml_float width precision ib =
-  if width = 0 || Scanning.end_of_input ib then bad_float ();
+  (if width = 0 || Scanning.end_of_input ib then bad_float ());
   let width = scan_sign width ib in
-  if width = 0 || Scanning.end_of_input ib then bad_float ();
+  (if width = 0 || Scanning.end_of_input ib then bad_float ());
   match Scanning.peek_char ib with
   | '0' as c -> (
     let width = Scanning.store_char width ib c in
-    if width = 0 || Scanning.end_of_input ib then bad_float ();
+    (if width = 0 || Scanning.end_of_input ib then bad_float ());
     match Scanning.peek_char ib with
     | 'x' | 'X' as c -> (
       let width = Scanning.store_char width ib c in
-      if width = 0 || Scanning.end_of_input ib then bad_float ();
+      (if width = 0 || Scanning.end_of_input ib then bad_float ());
       let width = scan_hexadecimal_int width ib in
-      if width = 0 || Scanning.end_of_input ib then bad_float ();
+      (if width = 0 || Scanning.end_of_input ib then bad_float ());
       let width = match Scanning.peek_char ib with
         | '.' as c -> (
           let width = Scanning.store_char width ib c in
@@ -929,7 +929,7 @@ let scan_caml_float width precision ib =
         match Scanning.peek_char ib with
         | 'p' | 'P' as c ->
           let width = Scanning.store_char width ib c in
-          if width = 0 || Scanning.end_of_input ib then bad_hex_float ();
+          (if width = 0 || Scanning.end_of_input ib then bad_hex_float ());
           scan_optionally_signed_decimal_int width ib
         | _ -> width
     )
@@ -938,7 +938,7 @@ let scan_caml_float width precision ib =
   )
   | '1' .. '9' as c ->
     let width = Scanning.store_char width ib c in
-    if width = 0 || Scanning.end_of_input ib then bad_float ();
+    (if width = 0 || Scanning.end_of_input ib then bad_float ());
     scan_caml_float_rest width precision ib
 (* Special case of nan and infinity:
   | 'i' -> 
@@ -1548,7 +1548,7 @@ let string_to_String s =
   Buffer.add_char b '\"';
   for i = 0 to l - 1 do
     let c = s.[i] in
-    if c = '\"' then Buffer.add_char b '\\';
+    (if c = '\"' then Buffer.add_char b '\\');
     Buffer.add_char b c;
   done;
   Buffer.add_char b '\"';
