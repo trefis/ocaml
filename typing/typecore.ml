@@ -388,6 +388,17 @@ let unify_pat_types_gadt loc env ty ty' =
       raise(Error(loc, !env, Recursive_local_constraint trace))
 
 
+(* Check that a type is generalizable at some level *)
+let generalizable level ty =
+  let rec check ty =
+    let ty = repr ty in
+    if ty.level < lowest_level then () else
+    if ty.level <= level then raise Exit else
+    (mark_type_node ty; iter_type_expr check ty)
+  in
+  try check ty; unmark_type ty; true
+  with Exit -> unmark_type ty; false
+
 (* Creating new conjunctive types is not allowed when typing patterns *)
 
 let unify_pat env pat expected_ty =
@@ -1365,6 +1376,108 @@ let rec type_pat ~constrs ~labels ~no_existentials ~mode ~explode ~env
           | _ -> {p with pat_type = ty;
                   pat_extra = extra :: p.pat_extra}
         in k p)
+  | Ppat_coerce (sp, sty', sty_opt) ->
+      (* Separate when not already separated by !principal *)
+      let separate = true in
+      begin match sty_opt with
+      | None ->
+          if separate then begin_def ();
+          let (cty', force) = Typetexp.transl_simple_type_delayed !env sty' in
+          let ty' = cty'.ctyp_type in
+          let ty', expected_ty' =
+            if separate then begin
+              end_def ();
+              generalize_structure ty';
+              instance !env ty', instance !env ty'
+            end else
+              ty', ty'
+          in
+          (*
+             (* CR trefis: I don't think we want the following. *)
+             unify_pat_types loc !env ty' expected_ty';
+          *)
+          type_pat sp expected_ty' (fun p ->
+            if separate then begin_def ();
+            let gen =
+              if separate then begin
+                end_def ();
+                let tv = newvar () in
+                let gen = generalizable tv.level expected_ty in
+                unify_var !env tv expected_ty;
+                gen
+              end else true
+            in
+            let extra = Tpat_coerce (cty', None), loc, sp.ppat_attributes in
+            if free_variables ~env:!env expected_ty = [] &&
+               free_variables ~env:!env ty' = []
+            then (
+                if not gen && (* first try a single coercion *)
+                  let snap = snapshot () in
+                  let ty, _b = enlarge_type !env ty' in
+                  try
+                    force (); (* CR trefis: ?? *)
+                    Ctype.unify !env expected_ty ty;
+                    true
+                  with Unify _ ->
+                    backtrack snap;
+                    false
+                then ()
+                else begin try
+                  let force' = subtype !env expected_ty ty' in
+                  force (); force' (); (* CR trefis *)
+                  if not gen && !Clflags.principal then
+                    Location.prerr_warning loc
+                      (Warnings.Not_principal "this ground coercion");
+                with Subtype (tr1, tr2) ->
+                  (* prerr_endline "coercion failed"; *)
+                  raise(Error(loc, !env, Not_subtype(tr1, tr2)))
+                end;
+            ) else (
+                let ty, b = enlarge_type !env ty' in
+                force ();
+                begin try Ctype.unify !env expected_ty ty with Unify trace ->
+                  raise(Error(sp.ppat_loc, !env,
+                        Coercion_failure(ty', full_expand !env ty', trace, b)))
+                end
+            );
+            k { p with pat_type = expected_ty; pat_extra = extra :: p.pat_extra }
+          )
+      | Some sty ->
+          if separate then begin_def ();
+          let (cty', force') =
+            Typetexp.transl_simple_type_delayed !env sty'
+          and (cty, force) =
+            Typetexp.transl_simple_type_delayed !env sty
+          in
+          let ty' = cty'.ctyp_type in
+          let ty = cty.ctyp_type in
+          let force'' =
+            let force =
+              try subtype !env ty ty'
+              with Subtype (tr1, tr2) ->
+                raise(Error(loc, !env, Not_subtype(tr1, tr2)))
+            in
+            (fun () ->
+               try force ()
+               with Subtype (tr1, tr2) ->
+                 raise(Error(loc, !env, Not_subtype(tr1, tr2))))
+          in
+          let ty, expected_ty' =
+            if separate then begin
+              end_def ();
+              generalize_structure ty;
+              generalize_structure ty';
+              instance !env ty, instance !env ty'
+            end else
+              ty, ty'
+          in
+          unify_pat_types loc !env ty expected_ty;
+          type_pat sp expected_ty' (fun p ->
+            pattern_force := force :: force' :: force'' :: !pattern_force;
+            let extra = Tpat_coerce (cty', Some cty), loc, sp.ppat_attributes in
+            k { p with pat_type = ty; pat_extra = extra :: p.pat_extra }
+          )
+      end
   | Ppat_type lid ->
       let (path, p,ty) = build_or_pat !env loc lid.txt in
       unify_pat_types loc !env ty expected_ty;
@@ -1761,17 +1874,6 @@ let check_application_result env statement exp =
       if statement then
         Location.prerr_warning loc Warnings.Statement_type
 
-(* Check that a type is generalizable at some level *)
-let generalizable level ty =
-  let rec check ty =
-    let ty = repr ty in
-    if ty.level < lowest_level then () else
-    if ty.level <= level then raise Exit else
-    (mark_type_node ty; iter_type_expr check ty)
-  in
-  try check ty; unmark_type ty; true
-  with Exit -> unmark_type ty; false
-
 (* Hack to allow coercion of self. Will clean-up later. *)
 let self_coercion = ref ([] : (Path.t * Location.t list ref) list)
 
@@ -1833,7 +1935,7 @@ let iter_ppat f p =
   | Ppat_tuple lst ->  List.iter f lst
   | Ppat_exception p | Ppat_alias (p,_)
   | Ppat_open (_,p)
-  | Ppat_constraint (p,_) | Ppat_lazy p -> f p
+  | Ppat_constraint (p,_) | Ppat_coerce (p, _, _) | Ppat_lazy p -> f p
   | Ppat_record (args, _flag) -> List.iter (fun (_,p) -> f p) args
 
 let contains_polymorphic_variant p =

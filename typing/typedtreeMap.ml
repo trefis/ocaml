@@ -259,6 +259,13 @@ module MakeMap(Map : MapArgument) = struct
     match pat_extra with
       | Tpat_constraint ct, loc, attrs ->
           (Tpat_constraint (map_core_type  ct), loc, attrs)
+      | Tpat_coerce (ct, ct_opt), loc, attrs ->
+          let ct_opt' =
+            match ct_opt with
+            | None -> None
+            | Some ct -> Some (map_core_type ct)
+          in
+          (Tpat_coerce (map_core_type ct, ct_opt'), loc, attrs)
       | (Tpat_type _ | Tpat_unpack | Tpat_open _ ), _, _ -> pat_extra
 
   and map_expression exp =

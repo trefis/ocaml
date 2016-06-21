@@ -45,6 +45,11 @@ type pattern =
    }
 
 and pat_extra =
+  | Tpat_coerce of core_type * core_type option
+        (** P <: T         { pat_desc = P
+                           ; pat_extra = (Tpat_coerce (T, None)) :: ... }
+            P <: T : T0    { pat_desc = P
+                           ; pat_extra = (Tpat_coerce (T, Some T0)) :: ... } *)
   | Tpat_constraint of core_type
         (** P : T          { pat_desc = P
                            ; pat_extra = (Tpat_constraint T, _, _) :: ... }

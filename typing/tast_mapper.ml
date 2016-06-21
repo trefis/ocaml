@@ -188,6 +188,8 @@ let pat sub x =
     | Tpat_unpack as d -> d
     | Tpat_open (path,loc,env) ->  Tpat_open (path, loc, sub.env sub env)
     | Tpat_constraint ct -> Tpat_constraint (sub.typ sub ct)
+    | Tpat_coerce (ct, ct_opt) ->
+        Tpat_coerce (sub.typ sub ct, opt (sub.typ sub) ct_opt)
   in
   let pat_env = sub.env sub x.pat_env in
   let pat_extra = List.map (tuple3 extra id id) x.pat_extra in

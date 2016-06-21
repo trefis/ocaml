@@ -230,6 +230,11 @@ and pattern i ppf x =
       line i ppf "Ppat_constraint\n";
       pattern i ppf p;
       core_type i ppf ct;
+  | Ppat_coerce (p, ct, ct_opt) ->
+      line i ppf "Ppat_coerce\n";
+      pattern i ppf p;
+      core_type i ppf ct;
+      option i core_type ppf ct_opt
   | Ppat_type (li) ->
       line i ppf "Ppat_type\n";
       longident_loc i ppf li

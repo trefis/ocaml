@@ -36,6 +36,7 @@ type pattern =
    }
 
 and pat_extra =
+  | Tpat_coerce of core_type * core_type option
   | Tpat_constraint of core_type
   | Tpat_type of Path.t * Longident.t loc
   | Tpat_open of Path.t * Longident.t loc * Env.t

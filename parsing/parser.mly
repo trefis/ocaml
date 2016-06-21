@@ -525,6 +525,7 @@ let package_type_of_module_type pmty =
 %token LBRACKETPERCENT
 %token LBRACKETPERCENTPERCENT
 %token LESS
+%token LESSCOLON
 %token LESSMINUS
 %token LET
 %token <string> LIDENT
@@ -1821,6 +1822,10 @@ simple_pattern_not_ident:
       { unclosed "(" 1 ")" 3 }
   | LPAREN pattern COLON core_type RPAREN
       { mkpat(Ppat_constraint($2, $4)) }
+  | LPAREN pattern LESSCOLON simple_core_type RPAREN
+      { mkpat(Ppat_coerce($2, $4, None)) }
+  | LPAREN pattern LESSCOLON simple_core_type COLON core_type RPAREN
+      { mkpat(Ppat_coerce($2, $4, Some $6)) }
   | LPAREN pattern COLON core_type error
       { unclosed "(" 1 ")" 5 }
   | LPAREN pattern COLON error

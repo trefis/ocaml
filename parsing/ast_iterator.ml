@@ -393,6 +393,10 @@ module P = struct
     | Ppat_or (p1, p2) -> sub.pat sub p1; sub.pat sub p2
     | Ppat_constraint (p, t) ->
         sub.pat sub p; sub.typ sub t
+    | Ppat_coerce (p, t, t_opt) ->
+        sub.pat sub p;
+        sub.typ sub t;
+        iter_opt (sub.typ sub) t_opt
     | Ppat_type s -> iter_loc sub s
     | Ppat_lazy p -> sub.pat sub p
     | Ppat_unpack s -> iter_loc sub s

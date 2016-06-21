@@ -210,6 +210,12 @@ and pattern i ppf x =
         attributes i ppf attrs;
         core_type i ppf cty;
         pattern i ppf { x with pat_extra = rem }
+    | (Tpat_coerce (cty, cty_opt), _, attrs) :: rem ->
+        line i ppf "Tpat_coerce\n";
+        attributes i ppf attrs;
+        core_type i ppf cty;
+        option i core_type ppf cty_opt;
+        pattern i ppf { x with pat_extra = rem }
     | (Tpat_type (id, _), _, attrs) :: rem ->
         line i ppf "Tpat_type %a\n" fmt_path id;
         attributes i ppf attrs;

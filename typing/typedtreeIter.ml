@@ -225,6 +225,8 @@ module MakeIterator(Iter : IteratorArgument) : sig
               | Tpat_type _ -> ()
               | Tpat_unpack -> ()
               | Tpat_open _ -> ()
+              | Tpat_coerce (ct, ct_opt) ->
+                  iter_core_type ct; option iter_core_type ct_opt
               | Tpat_constraint ct -> iter_core_type ct) pat.pat_extra;
       begin
         match pat.pat_desc with

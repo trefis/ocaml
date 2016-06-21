@@ -207,6 +207,8 @@ and pattern_desc =
         (* P1 | P2 *)
   | Ppat_constraint of pattern * core_type
         (* (P : T) *)
+  | Ppat_coerce of pattern * core_type * core_type option
+        (* (P <: T0 : T) *)
   | Ppat_type of Longident.t loc
         (* #tconst *)
   | Ppat_lazy of pattern

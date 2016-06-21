@@ -165,6 +165,8 @@ let rec pretty_val ppf v =
             fprintf ppf "@[(module %a)@]" pretty_val { v with pat_extra = rem }
           | Tpat_constraint _ ->
             fprintf ppf "@[(%a : _)@]" pretty_val { v with pat_extra = rem }
+          | Tpat_coerce _ ->
+            fprintf ppf "@[(%a <: _ : _)@]" pretty_val { v with pat_extra = rem }
           | Tpat_type _ ->
             fprintf ppf "@[(# %a)@]" pretty_val { v with pat_extra = rem }
           | Tpat_open _ ->

@@ -411,6 +411,9 @@ module P = struct
     | Ppat_or (p1, p2) -> or_ ~loc ~attrs (sub.pat sub p1) (sub.pat sub p2)
     | Ppat_constraint (p, t) ->
         constraint_ ~loc ~attrs (sub.pat sub p) (sub.typ sub t)
+    | Ppat_coerce (p, t, t_opt) ->
+        coerce ~loc ~attrs (sub.pat sub p) (sub.typ sub t)
+          (map_opt (sub.typ sub) t_opt)
     | Ppat_type s -> type_ ~loc ~attrs (map_loc sub s)
     | Ppat_lazy p -> lazy_ ~loc ~attrs (sub.pat sub p)
     | Ppat_unpack s -> unpack ~loc ~attrs (map_loc sub s)
