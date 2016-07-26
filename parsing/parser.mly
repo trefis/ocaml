@@ -351,6 +351,35 @@ let extra_rhs_core_type ct ~pos =
   let docs = rhs_info pos in
   { ct with ptyp_attributes = add_info_attrs docs ct.ptyp_attributes }
 
+module Expr = struct
+  type kind = Simple_expr | If_then_else | Expr
+  type t = {
+    expr: expression;
+    kind: kind;
+  }
+
+  let expr t = t.expr
+  let kind t = t.kind
+
+  let mk        expr = { expr; kind = Expr }
+  let mk_simple expr = { expr; kind = Simple_expr }
+  let mk_if ~attrs ~then_ ?else_ cond =
+    if Warning.is_active Warning.If_branch_not_delimited then begin
+      if then_.kind = Expr then
+        Location.prerr_warning then_.expr.pexp_loc
+          Warnings.If_branch_not_delimited;
+      match else_ with
+      | Some { expr; kind = Expr } ->
+          Location.prerr_warning expr.pexp_loc Warnings.If_branch_not_delimited
+      | _ -> ()
+    end;
+    let expr =
+      mkexp_attrs (Pexp_ifthenelse (cond, expr then_, Misc.may_map expr else_))
+        attrs
+    in
+    { expr; kind = If_then_else }
+end
+
 type let_binding =
   { lb_pattern: pattern;
     lb_expression: expression;
@@ -778,21 +807,21 @@ module_expr:
   | LPAREN module_expr error
       { unclosed "(" 1 ")" 3 }
   | LPAREN VAL attributes expr RPAREN
-      { mkmod ~attrs:$3 (Pmod_unpack $4)}
+      { mkmod ~attrs:$3 (Pmod_unpack (Expr.expr $4))}
   | LPAREN VAL attributes expr COLON package_type RPAREN
       { mkmod ~attrs:$3
           (Pmod_unpack(
-               ghexp(Pexp_constraint($4, ghtyp(Ptyp_package $6))))) }
+               ghexp(Pexp_constraint(Expr.expr $4, ghtyp(Ptyp_package $6))))) }
   | LPAREN VAL attributes expr COLON package_type COLONGREATER package_type
     RPAREN
       { mkmod ~attrs:$3
           (Pmod_unpack(
-               ghexp(Pexp_coerce($4, Some(ghtyp(Ptyp_package $6)),
+               ghexp(Pexp_coerce(Expr.expr $4, Some(ghtyp(Ptyp_package $6)),
                                  ghtyp(Ptyp_package $8))))) }
   | LPAREN VAL attributes expr COLONGREATER package_type RPAREN
       { mkmod ~attrs:$3
           (Pmod_unpack(
-               ghexp(Pexp_coerce($4, None, ghtyp(Ptyp_package $6))))) }
+               ghexp(Pexp_coerce(Expr.expr $4, None, ghtyp(Ptyp_package $6))))) }
   | LPAREN VAL attributes expr COLON error
       { unclosed "(" 1 ")" 6 }
   | LPAREN VAL attributes expr COLONGREATER error
@@ -1304,11 +1333,11 @@ and_class_type_declaration:
 /* Core expressions */
 
 seq_expr:
-  | expr        %prec below_SEMI  { $1 }
-  | expr SEMI                     { reloc_exp $1 }
-  | expr SEMI seq_expr            { mkexp(Pexp_sequence($1, $3)) }
+  | expr        %prec below_SEMI  { Expr.expr $1 }
+  | expr SEMI                     { reloc_exp (Expr.expr $1) }
+  | expr SEMI seq_expr            { mkexp(Pexp_sequence(Expr.expr $1, $3)) }
   | expr SEMI PERCENT attr_id seq_expr
-      { let seq = mkexp(Pexp_sequence ($1, $5)) in
+      { let seq = mkexp(Pexp_sequence (Expr.expr $1, $5)) in
         let payload = PStr [mkstrexp seq []] in
         mkexp (Pexp_extension ($4, payload)) }
 ;
@@ -1357,235 +1386,240 @@ expr:
     simple_expr %prec below_HASH
       { $1 }
   | simple_expr simple_labeled_expr_list
-      { mkexp(Pexp_apply($1, List.rev $2)) }
+      { Expr.mk @@ mkexp(Pexp_apply(Expr.expr $1, List.rev $2)) }
   | let_bindings IN seq_expr
-      { expr_of_let_bindings $1 $3 }
+      { Expr.mk @@ expr_of_let_bindings $1 $3 }
   | LET MODULE ext_attributes UIDENT module_binding_body IN seq_expr
-      { mkexp_attrs (Pexp_letmodule(mkrhs $4 4, $5, $7)) $3 }
+      { Expr.mk @@ mkexp_attrs (Pexp_letmodule(mkrhs $4 4, $5, $7)) $3 }
   | LET EXCEPTION ext_attributes let_exception_declaration IN seq_expr
-      { mkexp_attrs (Pexp_letexception($4, $6)) $3 }
+      { Expr.mk @@ mkexp_attrs (Pexp_letexception($4, $6)) $3 (* CR trefis: check me *) }
   | LET OPEN override_flag ext_attributes mod_longident IN seq_expr
-      { mkexp_attrs (Pexp_open($3, mkrhs $5 5, $7)) $4 }
+      { Expr.mk @@ mkexp_attrs (Pexp_open($3, mkrhs $5 5, $7)) $4 }
   | FUNCTION ext_attributes opt_bar match_cases
-      { mkexp_attrs (Pexp_function(List.rev $4)) $2 }
+      { Expr.mk @@ mkexp_attrs (Pexp_function(List.rev $4)) $2 }
   | FUN ext_attributes labeled_simple_pattern fun_def
       { let (l,o,p) = $3 in
-        mkexp_attrs (Pexp_fun(l, o, p, $4)) $2 }
+        Expr.mk @@ mkexp_attrs (Pexp_fun(l, o, p, $4)) $2 }
   | FUN ext_attributes LPAREN TYPE lident_list RPAREN fun_def
-      { mkexp_attrs (mk_newtypes $5 $7).pexp_desc $2 }
+      { Expr.mk @@ mkexp_attrs (mk_newtypes $5 $7).pexp_desc $2 }
   | MATCH ext_attributes seq_expr WITH opt_bar match_cases
-      { mkexp_attrs (Pexp_match($3, List.rev $6)) $2 }
+      { Expr.mk @@ mkexp_attrs (Pexp_match($3, List.rev $6)) $2 }
   | TRY ext_attributes seq_expr WITH opt_bar match_cases
-      { mkexp_attrs (Pexp_try($3, List.rev $6)) $2 }
+      { Expr.mk @@ mkexp_attrs (Pexp_try($3, List.rev $6)) $2 }
   | TRY ext_attributes seq_expr WITH error
       { syntax_error() }
   | expr_comma_list %prec below_COMMA
-      { mkexp(Pexp_tuple(List.rev $1)) }
+      { Expr.mk @@ mkexp(Pexp_tuple(List.rev $1)) }
   | constr_longident simple_expr %prec below_HASH
-      { mkexp(Pexp_construct(mkrhs $1 1, Some $2)) }
+      { Expr.mk @@ mkexp(Pexp_construct(mkrhs $1 1, Some (Expr.expr $2))) }
   | name_tag simple_expr %prec below_HASH
-      { mkexp(Pexp_variant($1, Some $2)) }
+      { Expr.mk @@ mkexp(Pexp_variant($1, Some (Expr.expr $2))) }
   | IF ext_attributes seq_expr THEN expr ELSE expr
-      { mkexp_attrs(Pexp_ifthenelse($3, $5, Some $7)) $2 }
+      { Expr.mk_if ~attrs:$2 $3 ~then_:$5 ~else_:$7 }
   | IF ext_attributes seq_expr THEN expr
-      { mkexp_attrs (Pexp_ifthenelse($3, $5, None)) $2 }
+      { Expr.mk_if ~attrs:$2 $3 ~then_:$5 }
   | WHILE ext_attributes seq_expr DO seq_expr DONE
-      { mkexp_attrs (Pexp_while($3, $5)) $2 }
+      { Expr.mk @@ mkexp_attrs (Pexp_while($3, $5)) $2 }
   | FOR ext_attributes pattern EQUAL seq_expr direction_flag seq_expr DO
     seq_expr DONE
-      { mkexp_attrs(Pexp_for($3, $5, $7, $6, $9)) $2 }
+      { Expr.mk @@ mkexp_attrs(Pexp_for($3, $5, $7, $6, $9)) $2 }
   | expr COLONCOLON expr
-      { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$1;$3])) (symbol_rloc()) }
+      { Expr.mk @@ mkexp_cons (rhs_loc 2)
+                     (ghexp(Pexp_tuple[Expr.expr $1; Expr.expr $3]))
+                     (symbol_rloc()) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
-      { mkexp_cons (rhs_loc 2) (ghexp(Pexp_tuple[$5;$7])) (symbol_rloc()) }
+      { Expr.mk @@ mkexp_cons (rhs_loc 2)
+                     (ghexp(Pexp_tuple[Expr.expr $5; Expr.expr $7]))
+                     (symbol_rloc()) }
   | expr INFIXOP0 expr
-      { mkinfix $1 $2 $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) $2 (Expr.expr $3) }
   | expr INFIXOP1 expr
-      { mkinfix $1 $2 $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) $2 (Expr.expr $3) }
   | expr INFIXOP2 expr
-      { mkinfix $1 $2 $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) $2 (Expr.expr $3) }
   | expr INFIXOP3 expr
-      { mkinfix $1 $2 $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) $2 (Expr.expr $3) }
   | expr INFIXOP4 expr
-      { mkinfix $1 $2 $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) $2 (Expr.expr $3) }
   | expr PLUS expr
-      { mkinfix $1 "+" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "+" (Expr.expr $3) }
   | expr PLUSDOT expr
-      { mkinfix $1 "+." $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "+." (Expr.expr $3) }
   | expr PLUSEQ expr
-      { mkinfix $1 "+=" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "+=" (Expr.expr $3) }
   | expr MINUS expr
-      { mkinfix $1 "-" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "-" (Expr.expr $3) }
   | expr MINUSDOT expr
-      { mkinfix $1 "-." $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "-." (Expr.expr $3) }
   | expr STAR expr
-      { mkinfix $1 "*" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "*" (Expr.expr $3) }
   | expr PERCENT expr
-      { mkinfix $1 "%" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "%" (Expr.expr $3) }
   | expr EQUAL expr
-      { mkinfix $1 "=" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "=" (Expr.expr $3) }
   | expr LESS expr
-    { mkinfix $1 "<" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "<" (Expr.expr $3) }
   | expr GREATER expr
-      { mkinfix $1 ">" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) ">" (Expr.expr $3) }
   | expr OR expr
-      { mkinfix $1 "or" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "or" (Expr.expr $3) }
   | expr BARBAR expr
-      { mkinfix $1 "||" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "||" (Expr.expr $3) }
   | expr AMPERSAND expr
-      { mkinfix $1 "&" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "&" (Expr.expr $3) }
   | expr AMPERAMPER expr
-      { mkinfix $1 "&&" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) "&&" (Expr.expr $3) }
   | expr COLONEQUAL expr
-      { mkinfix $1 ":=" $3 }
+      { Expr.mk @@ mkinfix (Expr.expr $1) ":=" (Expr.expr $3) }
   | subtractive expr %prec prec_unary_minus
-      { mkuminus $1 $2 }
+      { Expr.mk @@ mkuminus $1 (Expr.expr $2) }
   | additive expr %prec prec_unary_plus
-      { mkuplus $1 $2 }
+      { Expr.mk @@ mkuplus $1 (Expr.expr $2) }
   | simple_expr DOT label_longident LESSMINUS expr
-      { mkexp(Pexp_setfield($1, mkrhs $3 3, $5)) }
+      { Expr.mk @@ mkexp(Pexp_setfield(Expr.expr $1, mkrhs $3 3, Expr.expr $5)) }
   | simple_expr DOT LPAREN seq_expr RPAREN LESSMINUS expr
-      { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "Array" "set")),
-                         [Nolabel,$1; Nolabel,$4; Nolabel,$7])) }
+      { Expr.mk @@ mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "Array" "set")),
+                         [Nolabel,Expr.expr $1; Nolabel,$4; Nolabel,Expr.expr $7])) }
   | simple_expr DOT LBRACKET seq_expr RBRACKET LESSMINUS expr
-      { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "String" "set")),
-                         [Nolabel,$1; Nolabel,$4; Nolabel,$7])) }
+      { Expr.mk @@ mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "String" "set")),
+                         [Nolabel,Expr.expr $1; Nolabel,$4; Nolabel,Expr.expr $7])) }
   | simple_expr DOT LBRACE expr RBRACE LESSMINUS expr
-      { bigarray_set $1 $4 $7 }
+      { Expr.mk @@ bigarray_set (Expr.expr $1) (Expr.expr $4) (Expr.expr $7) }
   | label LESSMINUS expr
-      { mkexp(Pexp_setinstvar(mkrhs $1 1, $3)) }
+      { Expr.mk @@ mkexp(Pexp_setinstvar(mkrhs $1 1, Expr.expr $3)) }
   | ASSERT ext_attributes simple_expr %prec below_HASH
-      { mkexp_attrs (Pexp_assert $3) $2 }
+      { Expr.mk @@ mkexp_attrs (Pexp_assert (Expr.expr $3)) $2 }
   | LAZY ext_attributes simple_expr %prec below_HASH
-      { mkexp_attrs (Pexp_lazy $3) $2 }
+      { Expr.mk @@ mkexp_attrs (Pexp_lazy (Expr.expr $3)) $2 }
   | OBJECT ext_attributes class_structure END
-      { mkexp_attrs (Pexp_object $3) $2 }
+      { Expr.mk @@ mkexp_attrs (Pexp_object $3) $2 }
   | OBJECT ext_attributes class_structure error
       { unclosed "object" 1 "end" 4 }
   | expr attribute
-      { Exp.attr $1 $2 }
+      { Expr.mk @@ Exp.attr (Expr.expr $1) $2 }
   | UNDERSCORE
      { not_expecting 1 "wildcard \"_\"" }
 ;
 simple_expr:
     val_longident
-      { mkexp(Pexp_ident (mkrhs $1 1)) }
+      { Expr.mk_simple @@ mkexp(Pexp_ident (mkrhs $1 1)) }
   | constant
-      { mkexp(Pexp_constant $1) }
+      { Expr.mk_simple @@ mkexp(Pexp_constant $1) }
   | constr_longident %prec prec_constant_constructor
-      { mkexp(Pexp_construct(mkrhs $1 1, None)) }
+      { Expr.mk_simple @@ mkexp(Pexp_construct(mkrhs $1 1, None)) }
   | name_tag %prec prec_constant_constructor
-      { mkexp(Pexp_variant($1, None)) }
+      { Expr.mk_simple @@ mkexp(Pexp_variant($1, None)) }
   | LPAREN seq_expr RPAREN
-      { reloc_exp $2 }
+      { Expr.mk_simple @@ reloc_exp $2 }
   | LPAREN seq_expr error
       { unclosed "(" 1 ")" 3 }
   | BEGIN ext_attributes seq_expr END
-      { wrap_exp_attrs (reloc_exp $3) $2 (* check location *) }
+      { Expr.mk_simple @@ wrap_exp_attrs (reloc_exp $3) $2 (* check location *) }
   | BEGIN ext_attributes END
-      { mkexp_attrs (Pexp_construct (mkloc (Lident "()") (symbol_rloc ()),
-                               None)) $2 }
+      { Expr.mk_simple @@ mkexp_attrs (Pexp_construct (mkloc (Lident "()") (symbol_rloc ()),
+                                                       None)) $2 }
   | BEGIN ext_attributes seq_expr error
       { unclosed "begin" 1 "end" 4 }
   | LPAREN seq_expr type_constraint RPAREN
-      { mkexp_constraint $2 $3 }
+      { Expr.mk_simple @@ mkexp_constraint $2 $3 }
   | simple_expr DOT label_longident
-      { mkexp(Pexp_field($1, mkrhs $3 3)) }
+      { Expr.mk_simple @@ mkexp(Pexp_field(Expr.expr $1, mkrhs $3 3)) }
   | mod_longident DOT LPAREN seq_expr RPAREN
-      { mkexp(Pexp_open(Fresh, mkrhs $1 1, $4)) }
+      { Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1, $4)) }
   | mod_longident DOT LPAREN RPAREN
-      { mkexp(Pexp_open(Fresh, mkrhs $1 1,
+      { Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1,
                         mkexp(Pexp_construct(mkrhs (Lident "()") 1, None)))) }
   | mod_longident DOT LPAREN seq_expr error
-      { unclosed "(" 3 ")" 5 }
+      { Expr.mk_simple @@ unclosed "(" 3 ")" 5 }
   | simple_expr DOT LPAREN seq_expr RPAREN
-      { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "Array" "get")),
-                         [Nolabel,$1; Nolabel,$4])) }
+      { Expr.mk_simple @@ mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "Array" "get")),
+                                           [Nolabel,Expr.expr $1; Nolabel,$4])) }
   | simple_expr DOT LPAREN seq_expr error
       { unclosed "(" 3 ")" 5 }
   | simple_expr DOT LBRACKET seq_expr RBRACKET
-      { mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "String" "get")),
-                         [Nolabel,$1; Nolabel,$4])) }
+      { Expr.mk_simple @@ mkexp(Pexp_apply(ghexp(Pexp_ident(array_function "String" "get")),
+                                           [Nolabel,Expr.expr $1; Nolabel,$4])) }
   | simple_expr DOT LBRACKET seq_expr error
       { unclosed "[" 3 "]" 5 }
   | simple_expr DOT LBRACE expr RBRACE
-      { bigarray_get $1 $4 }
+      { Expr.mk_simple @@ bigarray_get (Expr.expr $1) (Expr.expr $4) }
   | simple_expr DOT LBRACE expr_comma_list error
       { unclosed "{" 3 "}" 5 }
   | LBRACE record_expr RBRACE
-      { let (exten, fields) = $2 in mkexp (Pexp_record(fields, exten)) }
+      { let (exten, fields) = $2 in
+        Expr.mk_simple @@ mkexp (Pexp_record(fields, exten)) }
   | LBRACE record_expr error
       { unclosed "{" 1 "}" 3 }
   | mod_longident DOT LBRACE record_expr RBRACE
       { let (exten, fields) = $4 in
         let rec_exp = mkexp(Pexp_record(fields, exten)) in
-        mkexp(Pexp_open(Fresh, mkrhs $1 1, rec_exp)) }
+        Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1, rec_exp)) }
   | mod_longident DOT LBRACE record_expr error
       { unclosed "{" 3 "}" 5 }
   | LBRACKETBAR expr_semi_list opt_semi BARRBRACKET
-      { mkexp (Pexp_array(List.rev $2)) }
+      { Expr.mk_simple @@ mkexp (Pexp_array(List.rev $2)) }
   | LBRACKETBAR expr_semi_list opt_semi error
       { unclosed "[|" 1 "|]" 4 }
   | LBRACKETBAR BARRBRACKET
-      { mkexp (Pexp_array []) }
+      { Expr.mk_simple @@ mkexp (Pexp_array []) }
   | mod_longident DOT LBRACKETBAR expr_semi_list opt_semi BARRBRACKET
-      { mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp(Pexp_array(List.rev $4)))) }
+      { Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp(Pexp_array(List.rev $4)))) }
   | mod_longident DOT LBRACKETBAR BARRBRACKET
-      { mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp(Pexp_array []))) }
+      { Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp(Pexp_array []))) }
   | mod_longident DOT LBRACKETBAR expr_semi_list opt_semi error
       { unclosed "[|" 3 "|]" 6 }
   | LBRACKET expr_semi_list opt_semi RBRACKET
-      { reloc_exp (mktailexp (rhs_loc 4) (List.rev $2)) }
+      { Expr.mk_simple @@ reloc_exp (mktailexp (rhs_loc 4) (List.rev $2)) }
   | LBRACKET expr_semi_list opt_semi error
       { unclosed "[" 1 "]" 4 }
   | mod_longident DOT LBRACKET expr_semi_list opt_semi RBRACKET
       { let list_exp = reloc_exp (mktailexp (rhs_loc 6) (List.rev $4)) in
-        mkexp(Pexp_open(Fresh, mkrhs $1 1, list_exp)) }
+        Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1, list_exp)) }
   | mod_longident DOT LBRACKET RBRACKET
-      { mkexp(Pexp_open(Fresh, mkrhs $1 1,
-                        mkexp(Pexp_construct(mkrhs (Lident "[]") 1, None)))) }
+      { Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1,
+                                          mkexp(Pexp_construct(mkrhs (Lident "[]") 1, None)))) }
   | mod_longident DOT LBRACKET expr_semi_list opt_semi error
       { unclosed "[" 3 "]" 6 }
   | PREFIXOP simple_expr
-      { mkexp(Pexp_apply(mkoperator $1 1, [Nolabel,$2])) }
+      { Expr.mk_simple @@ mkexp(Pexp_apply(mkoperator $1 1, [Nolabel,Expr.expr $2])) }
   | BANG simple_expr
-      { mkexp(Pexp_apply(mkoperator "!" 1, [Nolabel,$2])) }
+      { Expr.mk_simple @@ mkexp(Pexp_apply(mkoperator "!" 1, [Nolabel,Expr.expr $2])) }
   | NEW ext_attributes class_longident
-      { mkexp_attrs (Pexp_new(mkrhs $3 3)) $2 }
+      { Expr.mk_simple @@ mkexp_attrs (Pexp_new(mkrhs $3 3)) $2 }
   | LBRACELESS field_expr_list GREATERRBRACE
-      { mkexp (Pexp_override $2) }
+      { Expr.mk_simple @@ mkexp (Pexp_override(List.rev $2)) }
   | LBRACELESS field_expr_list error
       { unclosed "{<" 1 ">}" 3 }
   | LBRACELESS GREATERRBRACE
-      { mkexp (Pexp_override [])}
+      { Expr.mk_simple @@ mkexp (Pexp_override [])}
   | mod_longident DOT LBRACELESS field_expr_list GREATERRBRACE
-      { mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp (Pexp_override $4)))}
+      { Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp (Pexp_override(List.rev $4))))}
   | mod_longident DOT LBRACELESS GREATERRBRACE
-      { mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp (Pexp_override [])))}
+      { Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp (Pexp_override [])))}
   | mod_longident DOT LBRACELESS field_expr_list error
       { unclosed "{<" 3 ">}" 5 }
   | simple_expr HASH label
-      { mkexp(Pexp_send($1, $3)) }
+      { Expr.mk_simple @@ mkexp(Pexp_send(Expr.expr $1, $3)) }
   | simple_expr HASHOP simple_expr
-      { mkinfix $1 $2 $3 }
+      { Expr.mk_simple @@ mkinfix (Expr.expr $1) $2 (Expr.expr $3) }
   | LPAREN MODULE ext_attributes module_expr RPAREN
-      { mkexp_attrs (Pexp_pack $4) $3 }
+      { Expr.mk_simple @@ mkexp_attrs (Pexp_pack $4) $3 }
   | LPAREN MODULE ext_attributes module_expr COLON package_type RPAREN
-      { mkexp_attrs (Pexp_constraint (ghexp (Pexp_pack $4),
-                                      ghtyp (Ptyp_package $6)))
+      { Expr.mk_simple @@ mkexp_attrs (Pexp_constraint (ghexp (Pexp_pack $4),
+                                                        ghtyp (Ptyp_package $6)))
                     $3 }
   | LPAREN MODULE ext_attributes module_expr COLON error
       { unclosed "(" 1 ")" 6 }
   | mod_longident DOT LPAREN MODULE ext_attributes module_expr COLON
     package_type RPAREN
-      { mkexp(Pexp_open(Fresh, mkrhs $1 1,
-        mkexp_attrs (Pexp_constraint (ghexp (Pexp_pack $6),
-                                ghtyp (Ptyp_package $8)))
-                    $5 )) }
+      { Expr.mk_simple @@ mkexp(Pexp_open(Fresh, mkrhs $1 1,
+                                          mkexp_attrs (Pexp_constraint (ghexp (Pexp_pack $6),
+                                                                        ghtyp (Ptyp_package $8)))
+                                          $5 )) }
   | mod_longident DOT LPAREN MODULE ext_attributes module_expr COLON error
       { unclosed "(" 3 ")" 8 }
   | extension
-      { mkexp (Pexp_extension $1) }
+      { Expr.mk_simple @@ mkexp (Pexp_extension $1) }
 ;
 simple_labeled_expr_list:
     labeled_simple_expr
@@ -1595,19 +1629,19 @@ simple_labeled_expr_list:
 ;
 labeled_simple_expr:
     simple_expr %prec below_HASH
-      { (Nolabel, $1) }
+      { (Nolabel, Expr.expr $1) }
   | label_expr
       { $1 }
 ;
 label_expr:
     LABEL simple_expr %prec below_HASH
-      { (Labelled $1, $2) }
+      { (Labelled $1, Expr.expr $2) }
   | TILDE label_ident
       { (Labelled (fst $2), snd $2) }
   | QUESTION label_ident
       { (Optional (fst $2), snd $2) }
   | OPTLABEL simple_expr %prec below_HASH
-      { (Optional $1, $2) }
+      { (Optional $1, Expr.expr $2) }
 ;
 label_ident:
     LIDENT   { ($1, mkexp(Pexp_ident(mkrhs (Lident $1) 1))) }
@@ -1685,11 +1719,11 @@ fun_def:
       { mk_newtypes $3 $5 }
 ;
 expr_comma_list:
-    expr_comma_list COMMA expr                  { $3 :: $1 }
-  | expr COMMA expr                             { [$3; $1] }
+    expr_comma_list COMMA expr                  { Expr.expr $3 :: $1 }
+  | expr COMMA expr                             { [Expr.expr $3; Expr.expr $1] }
 ;
 record_expr:
-    simple_expr WITH lbl_expr_list              { (Some $1, $3) }
+    simple_expr WITH lbl_expr_list              { (Some (Expr.expr $1), $3) }
   | lbl_expr_list                               { (None, $1) }
 ;
 lbl_expr_list:
@@ -1699,7 +1733,7 @@ lbl_expr_list:
 ;
 lbl_expr:
     label_longident opt_type_constraint EQUAL expr
-      { (mkrhs $1 1, mkexp_opt_constraint $4 $2) }
+      { (mkrhs $1 1, mkexp_opt_constraint (Expr.expr $4) $2) }
   | label_longident opt_type_constraint
       { (mkrhs $1 1, mkexp_opt_constraint (exp_of_label $1 1) $2) }
 ;
@@ -1709,13 +1743,13 @@ field_expr_list:
 ;
 field_expr:
     label EQUAL expr
-      { (mkrhs $1 1, $3) }
+      { (mkrhs $1 1, Expr.expr $3) }
   | label
       { (mkrhs $1 1, exp_of_label (Lident $1) 1) }
 ;
 expr_semi_list:
-    expr                                        { [$1] }
-  | expr_semi_list SEMI expr                    { $3 :: $1 }
+    expr                                        { [Expr.expr $1] }
+  | expr_semi_list SEMI expr                    { Expr.expr $3 :: $1 }
 ;
 type_constraint:
     COLON core_type                             { (Some $2, None) }
