@@ -2136,10 +2136,11 @@ type amb_row = { row : pattern list ; varsets : IdSet.t list; }
    p3 :: r3...
 
    Simplify the first column [p1 p2 p3] by splitting all or-patterns and
-   collecting the head-bound variables (the varset). The result is a list of couples
+   collecting the head-bound variables (the varset). The result is a list of
+   couples
      (simple pattern, rest of row)
-   where a "simple pattern" starts with either the catch-all pattern omega (_) or
-   a head constructor, and the "rest of the row" has the head-bound variables
+   where a "simple pattern" starts with either the catch-all pattern omega (_)
+   or a head constructor, and the "rest of the row" has the head-bound variables
    pushed as a new varset.
 
    For example,
@@ -2148,11 +2149,11 @@ type amb_row = { row : pattern list ; varsets : IdSet.t list; }
      { row = (None as x) as y :: r3; varsets = s3 }
      { row = (Some x | (None as x)) :: r4 with varsets = s4 }
    becomes
-     (_, { row = r1; seen = s1 ++ {x} })
-     (Some _, { row = r2; seen = s2 ++ {y} })
-     (None, { row = r3; seen = s3 ++ {x, y} })
-     (Some x, { row = r4; seen = s4 })
-     (None, { row = r4; seen = s4 ++ {x} })
+     (_, { row = r1; varsets = s1 ++ {x} })
+     (Some _, { row = r2; varsets = s2 ++ {y} })
+     (None, { row = r3; varsets = s3 ++ {x, y} })
+     (Some x, { row = r4; varsets = s4 })
+     (None, { row = r4; varsets = s4 ++ {x} })
  *)
 let rec simplify_first_col = function
   | [] -> []
@@ -2160,14 +2161,20 @@ let rec simplify_first_col = function
   | { row = p::ps; varsets; }::rem ->
       simplify_head_pat IdSet.empty p ps varsets (simplify_first_col rem)
 
-and simplify_head_pat r p ps varsets k = match p.pat_desc with
-| Tpat_alias (p,x,_) -> simplify_head_pat (IdSet.add x r) p ps varsets k
-| Tpat_var (x,_) ->
-    (omega, { row = ps; varsets = IdSet.add x r :: varsets; }) :: k
-| Tpat_or (p1,p2,_) ->
-    simplify_head_pat r p1 ps varsets (simplify_head_pat r p2 ps varsets k)
-| _ ->
-    (p, { row = ps; varsets = r :: varsets; }) :: k
+and simplify_head_pat head_bound_variables p ps varsets k =
+  match p.pat_desc with
+  | Tpat_alias (p,x,_) ->
+    simplify_head_pat (IdSet.add x head_bound_variables) p ps varsets k
+  | Tpat_var (x,_) ->
+    let rest_of_the_row =
+      { row = ps; varsets = IdSet.add x head_bound_variables :: varsets; }
+    in
+    (omega, rest_of_the_row) :: k
+  | Tpat_or (p1,p2,_) ->
+    simplify_head_pat head_bound_variables p1 ps varsets
+      (simplify_head_pat head_bound_variables p2 ps varsets k)
+  | _ ->
+    (p, { row = ps; varsets = head_bound_variables :: varsets; }) :: k
 
 (* Consider a pattern matrix whose first column has been simplified
    to contain only _ or a head constructor
