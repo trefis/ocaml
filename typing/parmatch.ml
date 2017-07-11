@@ -353,11 +353,14 @@ let filter_one q pss =
   filter_rec pss
 
 (*
-  Filter pss in the ``extra case''. This applies :
+  Filters pss in the ``extra case''. This applies :
   - According to an extra constructor (datatype case, non-complete signature).
-  - Acordinng to anything (all-variables case).
+  - According to anything (all-variables case).
+
+   See section 3.1 of http://moscova.inria.fr/~maranget/papers/warn/warn.pdf for
+   a definition of the "default matrix".
 *)
-let filter_extra pss =
+let build_default_matrix pss =
   let rec filter_rec = function
       ({pat_desc = Tpat_alias(p,_,_)}::ps)::pss ->
         filter_rec ((p::ps)::pss)
@@ -817,7 +820,7 @@ let rec satisfiable pss qs = match pss with
         let q0 = discr_pat omega pss in
         begin match filter_all q0 pss with
           (* first column of pss is made of variables only *)
-        | [] -> satisfiable (filter_extra pss) qs
+        | [] -> satisfiable (build_default_matrix pss) qs
         | constrs  ->
             if full_match false constrs then
               List.exists
@@ -826,7 +829,7 @@ let rec satisfiable pss qs = match pss with
                   satisfiable pss (simple_match_args p omega @ qs))
                 constrs
             else
-              satisfiable (filter_extra pss) qs
+              satisfiable (build_default_matrix pss) qs
         end
     | {pat_desc=Tpat_variant (l,_,r)}::_ when is_absent l r -> false
     | q::qs ->
@@ -846,7 +849,7 @@ let rec satisfiables pss qs = match pss with
     | {pat_desc = (Tpat_any | Tpat_var(_))}::qs ->
         let q0 = discr_pat omega pss in
         let wild p =
-          List.map (fun qs -> p::qs) (satisfiables (filter_extra pss) qs) in
+          List.map (fun qs -> p::qs) (satisfiables (build_default_matrix pss) qs) in
         begin match filter_all q0 pss with
           (* first column of pss is made of variables only *)
         | [] ->
@@ -928,7 +931,7 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
     begin match filter_all q0 pss with
           (* first column of pss is made of variables only *)
     | [] ->
-        begin match exhaust ext (filter_extra pss) (n-1) with
+        begin match exhaust ext (build_default_matrix pss) (n-1) with
         | Rsome r -> Rsome (List.map (fun row -> q0::row) r)
         | r -> r
       end
@@ -949,15 +952,13 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
         then
           before
         else
-          (*
-            D = filter_extra pss is the default matrix
-            as it is included in pss, one can avoid
-            recursive calls on specialized matrices,
-            Essentially :
-           * D exhaustive => pss exhaustive
-           * D non-exhaustive => we have a non-filtered value
-           *)
-          let r =  exhaust ext (filter_extra pss) (n-1) in
+          (* as [build_default_matrix pss] is included in [pss] one can avoid
+             recursive calls on specialized matrices.
+             Essentially:
+             - [build_default_matrix pss] exhaustive => [pss] exhaustive
+             - [build_default_matrix pss] non-exhastive => we have a
+             non-filtered value *)
+          let r =  exhaust ext (build_default_matrix pss) (n-1) in
           match r with
           | Rnone -> before
           | Rsome r ->
@@ -1004,7 +1005,7 @@ let rec pressure_variants tdefs = function
   | pss   ->
       let q0 = discr_pat omega pss in
       begin match filter_all q0 pss with
-        [] -> pressure_variants tdefs (filter_extra pss)
+        [] -> pressure_variants tdefs (build_default_matrix pss)
       | constrs ->
           let rec try_non_omega = function
               (_p,pss) :: rem ->
@@ -1015,7 +1016,7 @@ let rec pressure_variants tdefs = function
           if full_match (tdefs=None) constrs then
             try_non_omega constrs
           else if tdefs = None then
-            pressure_variants None (filter_extra pss)
+            pressure_variants None (build_default_matrix pss)
           else
             let full = full_match true constrs in
             let ok =
@@ -1026,7 +1027,7 @@ let rec pressure_variants tdefs = function
               ({pat_desc=Tpat_variant _} as p,_):: _, Some env ->
                 let row = row_of_pat p in
                 if Btype.row_fixed row
-                || pressure_variants None (filter_extra pss) then ()
+                || pressure_variants None (build_default_matrix pss) then ()
                 else close_variant env row
             | _ -> ()
             end;
