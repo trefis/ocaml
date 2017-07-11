@@ -1077,7 +1077,7 @@ type answer =
     - left  ->  elements not to be processed,
     - right ->  elements to be processed
 *)
-type 'a row = {no_ors : 'a list ; ors : 'a list ; active : 'a list}
+type row = {no_ors : pattern list ; ors : pattern list ; active : pattern list}
 
 
 (*
