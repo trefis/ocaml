@@ -1534,18 +1534,12 @@ let rec initial_matrix = function
   (by a guarded clause)
 *)
 
-
-
-exception NoGuard
-
-let rec initial_all no_guard = function
-  | [] ->
-      if no_guard then
-        raise NoGuard
-      else
-        []
-  | {c_lhs=pat; c_guard; _} :: rem ->
-      ([pat], pat.pat_loc) :: initial_all (no_guard && c_guard = None) rem
+let rec initial_only_guarded = function
+  | [] -> []
+  | { c_guard = None; _} :: rem ->
+      initial_only_guarded rem
+  | { c_lhs = pat; _ } :: rem ->
+      ([pat], pat.pat_loc) :: initial_only_guarded rem
 
 
 let rec do_filter_var = function
@@ -1585,11 +1579,11 @@ let rec do_match pss qs = match qs with
 
 
 let check_partial_all v casel =
-  try
-    let pss = initial_all true casel in
-    do_match pss [v]
-  with
-  | NoGuard -> None
+  (* [v] was produced by [exhaust], so we know it cannot match any of the
+     unguarded clause. Therefore we only need to try to match it to one of
+     the guarded ones. *)
+  let pss = initial_only_guarded casel in
+  do_match pss [v]
 
 (************************)
 (* Exhaustiveness check *)
@@ -1863,7 +1857,7 @@ let check_unused pred casel =
                         p.pat_loc Warnings.Unused_pat)
                     ps
               | Used -> ()
-            with Empty | Not_found | NoGuard -> assert false
+            with Empty | Not_found -> assert false
             end ;
 
           if c_guard <> None then
