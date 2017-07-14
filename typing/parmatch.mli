@@ -31,9 +31,16 @@ val le_pat : pattern -> pattern -> bool
 val le_pats : pattern list -> pattern list -> bool
 val compat : pattern -> pattern -> bool
 val compats : pattern list -> pattern list -> bool
+
 exception Empty
+
 val lub : pattern -> pattern -> pattern
+(** [lub p q] is a pattern that matches all values matched by [p] and [q].
+    May raise [Empty], when [p] and [q] are not compatible. *)
+
 val lubs : pattern list -> pattern list -> pattern list
+(** [lubs [p1; ...; pn] [q1; ...; qk]], where [n < k], is
+    [[lub p1 q1; ...; lub pk qk]].  *)
 
 val get_mins : ('a -> 'a -> bool) -> 'a list -> 'a list
 
