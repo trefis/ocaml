@@ -423,24 +423,22 @@ let build_specialized_submatrix ~extend_row q pss =
     | _ -> [] in
   filter_rec pss
 
-(*
-  Filters pss in the ``extra case''. This applies :
-  - According to an extra constructor (datatype case, non-complete signature).
-  - According to anything (all-variables case).
+(* The default matrix was introduced in section 3.1 of
+   http://moscova.inria.fr/~maranget/papers/warn/warn.pdf .
 
-   See section 3.1 of http://moscova.inria.fr/~maranget/papers/warn/warn.pdf for
-   a definition of the "default matrix".
+   Here we make the assumption that the first column of the matrix was
+   previously simplified to contain only _ or a head constructor.
 *)
 let build_default_matrix pss =
   let rec filter_rec = function
-      ({pat_desc = Tpat_alias(p,_,_)}::ps)::pss ->
-        filter_rec ((p::ps)::pss)
-    | ({pat_desc = Tpat_or(p1,p2,_)}::ps)::pss ->
-        filter_rec ((p1::ps)::(p2::ps)::pss)
-    | ({pat_desc = (Tpat_any | Tpat_var(_))} :: qs) :: pss ->
-        qs :: filter_rec pss
-    | _::pss  -> filter_rec pss
-    | [] -> [] in
+    | [] -> []
+    | row :: rows ->
+      match row with
+      | ({pat_desc=(Tpat_var _|Tpat_alias _|Tpat_or _)},_) -> assert false
+      | ({pat_desc = Tpat_any}, qs) ->
+        qs :: filter_rec rows
+      | _ -> filter_rec rows
+  in
   filter_rec pss
 
 (* Consider a pattern matrix whose first column has been simplified
@@ -919,7 +917,7 @@ let rec satisfiable pss qs = match pss with
             q0 simplified
         with
           (* first column of pss is made of variables only *)
-        | [] -> satisfiable (build_default_matrix pss) qs
+        | [] -> satisfiable (build_default_matrix simplified) qs
         | constrs  ->
             if full_match false constrs then
               List.exists
@@ -928,7 +926,7 @@ let rec satisfiable pss qs = match pss with
                   satisfiable pss (simple_match_args p omega @ qs))
                 constrs
             else
-              satisfiable (build_default_matrix pss) qs
+              satisfiable (build_default_matrix simplified) qs
         end
     | {pat_desc=Tpat_variant (l,_,r)}::_ when is_absent l r -> false
     | q::qs ->
@@ -951,7 +949,9 @@ let rec satisfiables pss qs = match pss with
         let simplified = simplify_first_col pss in
         let q0 = discr_pat omega simplified in
         let wild p =
-          List.map (fun qs -> p::qs) (satisfiables (build_default_matrix pss) qs) in
+          List.map (fun qs -> p::qs)
+            (satisfiables (build_default_matrix simplified) qs)
+        in
         begin match
           build_specialized_submatrices ~return_omega_group:false ~extend_row:(@)
             q0 simplified
@@ -1074,7 +1074,7 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
     with
           (* first column of pss is made of variables only *)
     | [] ->
-        begin match exhaust ext (build_default_matrix pss) (n-1) with
+        begin match exhaust ext (build_default_matrix simplified) (n-1) with
         | Rsome r -> Rsome (List.map (fun row -> q0::row) r)
         | r -> r
       end
@@ -1101,7 +1101,7 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
              - [build_default_matrix pss] exhaustive => [pss] exhaustive
              - [build_default_matrix pss] non-exhastive => we have a
              non-filtered value *)
-          let r =  exhaust ext (build_default_matrix pss) (n-1) in
+          let r =  exhaust ext (build_default_matrix simplified) (n-1) in
           match r with
           | Rnone -> before
           | Rsome r ->
@@ -1152,7 +1152,7 @@ let rec pressure_variants tdefs = function
         build_specialized_submatrices ~return_omega_group:false ~extend_row:(@)
           q0 simplified
       with
-        [] -> pressure_variants tdefs (build_default_matrix pss)
+        [] -> pressure_variants tdefs (build_default_matrix simplified)
       | constrs ->
           let rec try_non_omega = function
               (_p,pss) :: rem ->
@@ -1163,7 +1163,7 @@ let rec pressure_variants tdefs = function
           if full_match (tdefs=None) constrs then
             try_non_omega constrs
           else if tdefs = None then
-            pressure_variants None (build_default_matrix pss)
+            pressure_variants None (build_default_matrix simplified)
           else
             let full = full_match true constrs in
             let ok =
@@ -1177,7 +1177,7 @@ let rec pressure_variants tdefs = function
               ({pat_desc=Tpat_variant _} as p,_):: _, Some env ->
                 let row = row_of_pat p in
                 if Btype.row_fixed row
-                || pressure_variants None (build_default_matrix pss) then ()
+                || pressure_variants None (build_default_matrix simplified) then ()
                 else close_variant env row
             | _ -> ()
             end;
