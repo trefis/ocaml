@@ -1021,25 +1021,19 @@ let rec do_match pss qs = match qs with
            (simplify_first_col pss))
         (simple_match_args q0 q @ qs)
 
-(*
-  Now another satisfiable function that additionally
-  supplies an example of a matching value.
 
-  This function should be called for exhaustiveness check only.
-*)
-
-type 'a result =
-  | Rnone           (* No matching value *)
-  | Rsome of 'a     (* This matching value *)
+type 'a exhaust_result =
+  | No_matching_value
+  | Witnesses of 'a list
 
 let rappend r1 r2 =
   match r1, r2 with
-  | Rnone, _ -> r2
-  | _, Rnone -> r1
-  | Rsome l1, Rsome l2 -> Rsome (l1 @ l2)
+  | No_matching_value, _ -> r2
+  | _, No_matching_value -> r1
+  | Witnesses l1, Witnesses l2 -> Witnesses (l1 @ l2)
 
 let rec try_many  f = function
-  | [] -> Rnone
+  | [] -> No_matching_value
   | (p,pss)::rest ->
       rappend (f (p, pss)) (try_many f rest)
 
@@ -1066,9 +1060,15 @@ let print_pat pat =
   Printf.fprintf stderr "PAT[%s]\n%!" (string_of_pat pat)
 *)
 
+(*
+  Now another satisfiable function that additionally
+  supplies an example of a matching value.
+
+  This function should be called for exhaustiveness check only.
+*)
 let rec exhaust (ext:Path.t option) pss n = match pss with
-| []    ->  Rsome [omegas n]
-| []::_ ->  Rnone
+| []    ->  Witnesses [omegas n]
+| []::_ ->  No_matching_value
 | pss   ->
     let simplified = simplify_first_col pss in
     let q0 = discr_pat omega simplified in
@@ -1079,19 +1079,19 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
           (* first column of pss is made of variables only *)
     | [] ->
         begin match exhaust ext (build_default_matrix simplified) (n-1) with
-        | Rsome r -> Rsome (List.map (fun row -> q0::row) r)
+        | Witnesses r -> Witnesses (List.map (fun row -> q0::row) r)
         | r -> r
       end
     | constrs ->
         let try_non_omega (p,pss) =
           if is_absent_pat p then
-            Rnone
+            No_matching_value
           else
             match
               exhaust
                 ext pss (List.length (simple_match_args p omega) + n - 1)
             with
-            | Rsome r -> Rsome (List.map (fun row ->  (set_args p row)) r)
+            | Witnesses r -> Witnesses (List.map (fun row ->  (set_args p row)) r)
             | r       -> r in
         let before = try_many try_non_omega constrs in
         if
@@ -1107,14 +1107,14 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
              non-filtered value *)
           let r =  exhaust ext (build_default_matrix simplified) (n-1) in
           match r with
-          | Rnone -> before
-          | Rsome r ->
+          | No_matching_value -> before
+          | Witnesses r ->
               try
                 let p = build_other ext constrs in
                 let dug = List.map (fun tail -> p :: tail) r in
                 match before with
-                | Rnone -> Rsome dug
-                | Rsome x -> Rsome (x @ dug)
+                | No_matching_value -> Witnesses dug
+                | Witnesses x -> Witnesses (x @ dug)
               with
       (* cannot occur, since constructors don't make a full signature *)
               | Empty -> fatal_error "Parmatch.exhaust"
@@ -1123,8 +1123,8 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
 let exhaust ext pss n =
   let ret = exhaust ext pss n in
   match ret with
-    Rnone -> Rnone
-  | Rsome lst ->
+    No_matching_value -> No_matching_value
+  | Witnesses lst ->
       let singletons =
         List.map
           (function
@@ -1132,7 +1132,7 @@ let exhaust ext pss n =
             | _ -> assert false)
           lst
       in
-      Rsome [orify_many singletons]
+      Witnesses [orify_many singletons]
 
 (*
    Another exhaustiveness check, enforcing variant typing.
@@ -1681,8 +1681,8 @@ let do_check_partial ~pred loc casel pss = match pss with
     Partial
 | ps::_  ->
     begin match exhaust None pss (List.length ps) with
-    | Rnone -> Total
-    | Rsome [u] ->
+    | No_matching_value -> Total
+    | Witnesses [u] ->
         let v =
           let (pattern,constrs,labels) = Conv.conv u in
           let u' = pred constrs labels pattern in
@@ -1786,11 +1786,11 @@ let do_check_fragile loc casel pss =
         List.iter
           (fun ext ->
             match exhaust (Some ext) pss (List.length ps) with
-            | Rnone ->
+            | No_matching_value ->
                 Location.prerr_warning
                   loc
                   (Warnings.Fragile_match (Path.name ext))
-            | Rsome _ -> ())
+            | Witnesses _ -> ())
           exts
 
 (********************************)
