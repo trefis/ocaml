@@ -1539,22 +1539,22 @@ let rec initial_only_guarded = function
   | { c_guard = None; _} :: rem ->
       initial_only_guarded rem
   | { c_lhs = pat; _ } :: rem ->
-      ([pat], pat.pat_loc) :: initial_only_guarded rem
+      [pat] :: initial_only_guarded rem
 
 
 let rec do_filter_var = function
-  | (_::ps,loc)::rem -> (ps,loc)::do_filter_var rem
+  | (_::ps)::rem -> ps::do_filter_var rem
   | _ -> []
 
 let do_filter_one q pss =
   let rec filter_rec = function
-    | ({pat_desc = Tpat_alias(p,_,_)}::ps,loc)::pss ->
-        filter_rec ((p::ps,loc)::pss)
-    | ({pat_desc = Tpat_or(p1,p2,_)}::ps,loc)::pss ->
-        filter_rec ((p1::ps,loc)::(p2::ps,loc)::pss)
-    | (p::ps,loc)::pss ->
+    | ({pat_desc = Tpat_alias(p,_,_)}::ps)::pss ->
+        filter_rec ((p::ps)::pss)
+    | ({pat_desc = Tpat_or(p1,p2,_)}::ps)::pss ->
+        filter_rec ((p1::ps)::(p2::ps)::pss)
+    | (p::ps)::pss ->
         if simple_match q p
-        then (simple_match_args q p @ ps, loc) :: filter_rec pss
+        then (simple_match_args q p @ ps) :: filter_rec pss
         else filter_rec pss
     | _ -> [] in
   filter_rec pss
@@ -1562,15 +1562,12 @@ let do_filter_one q pss =
 let rec do_match pss qs = match qs with
 | [] ->
     begin match pss  with
-    | ([],loc)::_ -> Some loc
-    | _ -> None
+    | []::_ -> true
+    | _ -> false
     end
 | q::qs -> match q with
   | {pat_desc = Tpat_or (q1,q2,_)} ->
-      begin match do_match pss (q1::qs) with
-      | None -> do_match pss (q2::qs)
-      | r -> r
-      end
+      do_match pss (q1::qs) || do_match pss (q2::qs)
   | {pat_desc = Tpat_any} ->
       do_match (do_filter_var pss) qs
   | _ ->
@@ -1708,16 +1705,9 @@ let do_check_partial ~pred loc casel pss = match pss with
                   let buf = Buffer.create 16 in
                   let fmt = Format.formatter_of_buffer buf in
                   Printpat.top_pretty fmt v;
-                  begin match check_partial_all v casel with
-                  | None -> ()
-                  | Some _ ->
-                      (* This is 'Some loc', where loc is the location of
-                         a possibly matching clause.
-                         Forget about loc, because printing two locations
-                         is a pain in the top-level *)
-                      Buffer.add_string buf
-                        "\n(However, some guarded clause may match this value.)"
-                  end;
+                  if check_partial_all v casel then
+                    Buffer.add_string buf
+                      "\n(However, some guarded clause may match this value.)";
                   if contains_extension v then
                     Buffer.add_string buf
                       "\nMatching over values of extensible variant types \
