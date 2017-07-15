@@ -405,24 +405,6 @@ and simplify_head_pat p ps k =
   | _ -> (p, ps) :: k
 
 
-(* Builds the specialized matrix of [pss] according to pattern [q].
-   See section 3.1 of http://moscova.inria.fr/~maranget/papers/warn/warn.pdf
-
-   NOTES:
-   - expects [pss] to be a "simplified matrix"
-   - [q] was produced by [discr_pat]
-*)
-let build_specialized_submatrix ~extend_row q pss =
-  let rec filter_rec = function
-    | ({pat_desc = (Tpat_alias _ | Tpat_or _ | Tpat_var _) }, _) :: _ ->
-        assert false
-    | (p, ps) :: pss ->
-        if simple_match q p
-        then extend_row (simple_match_args q p) ps :: filter_rec pss
-        else filter_rec pss
-    | _ -> [] in
-  filter_rec pss
-
 (* The default matrix was introduced in section 3.1 of
    http://moscova.inria.fr/~maranget/papers/warn/warn.pdf .
 
@@ -439,6 +421,24 @@ let build_default_matrix pss =
         qs :: filter_rec rows
       | _ -> filter_rec rows
   in
+  filter_rec pss
+
+(* Builds the specialized matrix of [pss] according to pattern [q].
+   See section 3.1 of http://moscova.inria.fr/~maranget/papers/warn/warn.pdf
+
+   NOTES:
+   - expects [pss] to be a "simplified matrix"
+   - [q] was produced by [discr_pat]
+*)
+let build_specialized_submatrix ~extend_row q pss =
+  let rec filter_rec = function
+    | ({pat_desc = (Tpat_alias _ | Tpat_or _ | Tpat_var _) }, _) :: _ ->
+        assert false
+    | (p, ps) :: pss ->
+        if simple_match q p
+        then extend_row (simple_match_args q p) ps :: filter_rec pss
+        else filter_rec pss
+    | _ -> [] in
   filter_rec pss
 
 (* Consider a pattern matrix whose first column has been simplified
