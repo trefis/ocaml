@@ -880,14 +880,6 @@ let build_other ext env = match env with
 | [] -> omega
 | _ -> omega
 
-(*
-  Core function :
-  Is the last row of pattern matrix pss + qs satisfiable ?
-  That is :
-    Does there exists at least one value vector, es such that :
-     1- for all ps in pss ps # es (ps and es are not compatible)
-     2- qs <= es                  (es matches qs)
-*)
 
 let rec has_instance p = match p.pat_desc with
   | Tpat_variant (l,_,r) when is_absent l r -> false
@@ -905,90 +897,105 @@ and has_instances = function
   | [] -> true
   | q::rem -> has_instance q && has_instances rem
 
-let rec satisfiable pss qs = match pss with
-| [] -> has_instances qs
-| _  ->
-    match qs with
-    | [] -> false
-    | {pat_desc = Tpat_or(q1,q2,_)}::qs ->
-        satisfiable pss (q1::qs) || satisfiable pss (q2::qs)
-    | {pat_desc = Tpat_alias(q,_,_)}::qs ->
-          satisfiable pss (q::qs)
-    | {pat_desc = (Tpat_any | Tpat_var(_))}::qs ->
-        let simplified = simplify_first_col pss in
-        let q0 = discr_pat omega simplified in
-        begin match
-          build_specialized_submatrices ~return_omega_group:false ~extend_row:(@)
-            q0 simplified
-        with
-          (* first column of pss is made of variables only *)
-        | [] -> satisfiable (build_default_matrix simplified) qs
-        | constrs  ->
-            if full_match false constrs then
-              List.exists
-                (fun (p,pss) ->
-                  not (is_absent_pat p) &&
-                  satisfiable pss (simple_match_args p omega @ qs))
-                constrs
-            else
-              satisfiable (build_default_matrix simplified) qs
-        end
-    | {pat_desc=Tpat_variant (l,_,r)}::_ when is_absent l r -> false
-    | q::qs ->
-        let simplified = simplify_first_col pss in
-        let q0 = discr_pat q simplified in
-        satisfiable (build_specialized_submatrix ~extend_row:(@) q0 simplified)
-          (simple_match_args q0 q @ qs)
+let rec collect_witnesses ~only_care_about_existence pred = function
+  | [] -> []
+  | x :: xs ->
+    let witnesses = pred x in
+    match witnesses with
+    | _ :: _ when only_care_about_existence -> witnesses
+    | _ ->
+      (* This is not tail-rec but neither was [List.flatten (List.map ...)]
+         which was used previously. *)
+      witnesses @ collect_witnesses ~only_care_about_existence pred xs
 
-(* Also return the remaining cases, to enable GADT handling *)
-let rec satisfiables pss qs = match pss with
-| [] -> if has_instances qs then [qs] else []
-| _  ->
-    match qs with
-    | [] -> []
-    | {pat_desc = Tpat_or(q1,q2,_)}::qs ->
-        satisfiables pss (q1::qs) @ satisfiables pss (q2::qs)
-    | {pat_desc = Tpat_alias(q,_,_)}::qs ->
-        satisfiables pss (q::qs)
-    | {pat_desc = (Tpat_any | Tpat_var(_))}::qs ->
-        let simplified = simplify_first_col pss in
-        let q0 = discr_pat omega simplified in
-        let wild p =
-          List.map (fun qs -> p::qs)
-            (satisfiables (build_default_matrix simplified) qs)
-        in
-        begin match
-          build_specialized_submatrices ~return_omega_group:false ~extend_row:(@)
-            q0 simplified
-        with
-          (* first column of pss is made of variables only *)
-        | [] ->
-            wild omega
-        | (p,_)::_ as constrs  ->
-            let for_constrs () =
-              List.flatten (
-              List.map
-                (fun (p,pss) ->
-                  if is_absent_pat p then [] else
-                  List.map (set_args p)
-                    (satisfiables pss (simple_match_args p omega @ qs)))
-                constrs )
-            in
-            if full_match false constrs then for_constrs () else
-            match p.pat_desc with
-              Tpat_construct _ ->
-                (* activate this code for checking non-gadt constructors *)
-                wild (build_other_constrs constrs p) @ for_constrs ()
-            | _ ->
-                wild omega
-        end
-    | {pat_desc=Tpat_variant (l,_,r)}::_ when is_absent l r -> []
-    | q::qs ->
-        let simplified = simplify_first_col pss in
-        let q0 = discr_pat q simplified in
-        List.map (set_args q0)
-          (satisfiables (build_specialized_submatrix ~extend_row:(@) q0 simplified)
-             (simple_match_args q0 q @ qs))
+let rec list_satisfying_vectors ~only_care_about_existence pss qs =
+  let list_satisfying_vectors = list_satisfying_vectors ~only_care_about_existence in
+  match pss with
+  | [] -> if has_instances qs then [qs] else []
+  | _  ->
+      match qs with
+      | [] -> []
+      | {pat_desc = Tpat_or(q1,q2,_)}::qs ->
+          let witnesses = list_satisfying_vectors pss (q1::qs) in
+          begin match witnesses with
+          | _ :: _ when only_care_about_existence -> witnesses
+          | _ -> witnesses @ list_satisfying_vectors pss (q2::qs)
+          end
+      | {pat_desc = Tpat_alias(q,_,_)}::qs ->
+          list_satisfying_vectors pss (q::qs)
+      | {pat_desc = (Tpat_any | Tpat_var(_))}::qs ->
+          let simplified = simplify_first_col pss in
+          let q0 = discr_pat omega simplified in
+          let wild p =
+            List.map (fun qs -> p::qs)
+              (list_satisfying_vectors (build_default_matrix simplified) qs)
+          in
+          begin match
+            build_specialized_submatrices ~return_omega_group:false ~extend_row:(@)
+              q0 simplified
+          with
+            (* first column of pss is made of variables only *)
+          | [] ->
+              wild omega
+          | (p,_)::_ as constrs  ->
+              let for_constrs () =
+                collect_witnesses ~only_care_about_existence (fun (p,pss) ->
+                  if is_absent_pat p then
+                    []
+                  else
+                    let witnesses =
+                      list_satisfying_vectors pss (simple_match_args p omega @ qs)
+                    in
+                    if only_care_about_existence then
+                      witnesses
+                    else
+                      List.map (set_args p) witnesses
+                ) constrs
+              in
+              if full_match false constrs then for_constrs () else
+              match p.pat_desc with
+                Tpat_construct _ when not only_care_about_existence ->
+                  (* activate this code for checking non-gadt constructors *)
+                  wild (build_other_constrs constrs p) @ for_constrs ()
+              | _ ->
+                  wild omega
+          end
+      | {pat_desc=Tpat_variant (l,_,r)}::_ when is_absent l r -> []
+      | q::qs ->
+          let simplified = simplify_first_col pss in
+          let q0 = discr_pat q simplified in
+          let sub_witnesses = 
+            list_satisfying_vectors
+              (build_specialized_submatrix ~extend_row:(@) q0 simplified)
+              (simple_match_args q0 q @ qs)
+          in
+          if only_care_about_existence then
+            sub_witnesses
+          else
+            List.map (set_args q0) sub_witnesses
+
+(*
+  Core function :
+  Is the last row of pattern matrix pss + qs satisfiable ?
+  That is :
+    Does there exists at least one value vector, es such that :
+     1- for all ps in pss, ps # es (ps and es are not compatible)
+     2- qs <= es                   (es matches qs)
+*)
+let satisfiable pss qs =
+  match list_satisfying_vectors ~only_care_about_existence:true pss qs with
+  | [] -> false
+  | _ -> true
+
+(* While [satisfiable] only checks whether the last row of [pss + qs] is
+   satisfiable, this function returns the (possibly empty) list of vectors [es]
+   which verify:
+     1- for all ps in pss, ps # es (ps and es are not compatible)
+     2- qs <= es                   (es matches qs)
+
+   This is done to enable GADT handling *)
+let satisfiables pss qs =
+  list_satisfying_vectors ~only_care_about_existence:false pss qs
 
 (******************************************)
 (* Look for a row that matches some value *)
