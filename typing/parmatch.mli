@@ -19,6 +19,33 @@ open Asttypes
 open Typedtree
 open Types
 
+module IntSet : Set.S with type elt = int
+
+module Simple_pattern : sig
+  type head =
+    | Sany
+    | Sarray of int
+    | Sconstant of Asttypes.constant
+    | Sconstruct of constructor_description
+    | Slazy
+    | Srecord of {
+        closed : closed_flag;
+        all_labels : label_description array;
+        mutable fields : IntSet.t
+      }
+    | Stuple of int
+        (* FIXME: s/has_argument : bool/arg : pattern option/ ? *)
+    | Svariant of { name : label; has_argument : bool; row : row_desc ref }
+
+  type t = {
+    sp_head : head;
+    sp_type : Types.type_expr;
+    sp_env : Env.t;
+  }
+end
+
+val pat_of_sp : Simple_pattern.t -> pattern
+
 val omega : pattern
 (** aka. "Tpat_any" or "_"  *)
 
@@ -27,7 +54,7 @@ val omegas : int -> pattern list
 val omega_list : 'a list -> pattern list
 (** [List.map (fun _ -> omega)] *)
 
-val normalize_pat : pattern -> pattern
+val normalize_pat : pattern -> Simple_pattern.t
 
 val const_compare : constant -> constant -> int
 (** [const_compare c1 c2] compares the actual values represented by [c1] and
@@ -60,17 +87,19 @@ val lubs : pattern list -> pattern list -> pattern list
 
 val get_mins : ('a -> 'a -> bool) -> 'a list -> 'a list
 
-(* Those two functions recombine one pattern and its arguments:
-   For instance:
-     (_,_)::p1::p2::rem -> (p1, p2)::rem
-   The second one will replace mutable arguments by '_'
+val set_args : Simple_pattern.t -> pattern list -> pattern list
+(** reconstructs a pattern from a simple pattern and its arguments.
+    [set_args (Stuple 2) (p1::p2::rem) -> (p1, p2)::rem]
 *)
-val set_args : pattern -> pattern list -> pattern list
-val set_args_erase_mutable : pattern -> pattern list -> pattern list
 
-val pat_of_constr : pattern -> constructor_description -> pattern
+val set_args_erase_mutable : Simple_pattern.t -> pattern list -> pattern list
+(** same a [set_args] but replaces mutable arguments by [_] *)
+
+val pat_of_constr : Simple_pattern.t -> constructor_description -> pattern
+
 val complete_constrs :
-    pattern -> constructor_tag list -> constructor_description  list
+    Simple_pattern.t -> constructor_tag list -> constructor_description  list
+
 val ppat_of_type :
     Env.t -> type_expr ->
     Parsetree.pattern *

@@ -126,7 +126,7 @@ let ctx_rshift_num n ctx = List.map (rshift_num n) ctx
   guards can alter these fields *)
 
 let combine {left=left ; right=right} = match left with
-| p::ps -> {left=ps ; right=set_args_erase_mutable p right}
+| p::ps -> {left=ps ; right=set_args_erase_mutable (normalize_pat p) right}
 | _ -> assert false
 
 let ctx_combine ctx = List.map combine ctx
@@ -180,66 +180,65 @@ let make_default matcher env =
   make_rec env
 
 let ctx_matcher p =
-  let p = normalize_pat p in
-  match p.pat_desc with
-  | Tpat_construct (_, cstr,omegas) ->
+  let sp = normalize_pat p in
+  let open Simple_pattern in
+  match sp.sp_head with
+  | Sconstruct cstr ->
       begin match cstr.cstr_tag with
       | Cstr_extension _ ->
-          let nargs = List.length omegas in
           (fun q rem -> match q.pat_desc with
           | Tpat_construct (_, _cstr',args)
-            when List.length args = nargs ->
+            when List.length args = cstr.cstr_arity ->
                 p,args @ rem
-          | Tpat_any -> p,omegas @ rem
+          | Tpat_any -> p,omegas cstr.cstr_arity @ rem
           | _ -> raise NoMatch)
       | _ ->
           (fun q rem -> match q.pat_desc with
           | Tpat_construct (_, cstr',args)
             when cstr.cstr_tag=cstr'.cstr_tag ->
               p,args @ rem
-          | Tpat_any -> p,omegas @ rem
+          | Tpat_any -> p,omegas cstr.cstr_arity @ rem
           | _ -> raise NoMatch)
       end
-  | Tpat_constant cst ->
+  | Sconstant cst ->
       (fun q rem -> match q.pat_desc with
       | Tpat_constant cst' when const_compare cst cst' = 0 ->
           p,rem
       | Tpat_any -> p,rem
       | _ -> raise NoMatch)
-  | Tpat_variant (lab,Some omega,_) ->
+  | Svariant { name = lab; has_argument = true; _ } ->
       (fun q rem -> match q.pat_desc with
       | Tpat_variant (lab',Some arg,_) when lab=lab' ->
           p,arg::rem
       | Tpat_any -> p,omega::rem
       | _ -> raise NoMatch)
-  | Tpat_variant (lab,None,_) ->
+  | Svariant { name = lab; has_argument = false; _ } ->
       (fun q rem -> match q.pat_desc with
       | Tpat_variant (lab',None,_) when lab=lab' ->
           p,rem
       | Tpat_any -> p,rem
       | _ -> raise NoMatch)
-  | Tpat_array omegas ->
-      let len = List.length omegas in
+  | Sarray len ->
       (fun q rem -> match q.pat_desc with
       | Tpat_array args when List.length args=len ->
           p,args @ rem
-      | Tpat_any -> p, omegas @ rem
+      | Tpat_any -> p, omegas len @ rem
       | _ -> raise NoMatch)
-  | Tpat_tuple omegas ->
+  | Stuple len ->
       (fun q rem -> match q.pat_desc with
       | Tpat_tuple args -> p,args @ rem
-      | _          -> p, omegas @ rem)
-  | Tpat_record (l,_) -> (* Records are normalized *)
+      | _          -> p, omegas len @ rem)
+  | Srecord { all_labels; fields; _ } -> (* Records are normalized *)
       (fun q rem -> match q.pat_desc with
       | Tpat_record (l',_) ->
           let l' = all_record_args l' in
           p, List.fold_right (fun (_, _,p) r -> p::r) l' rem
-      | _ -> p,List.fold_right (fun (_, _,p) r -> p::r) l rem)
-  | Tpat_lazy omega ->
+      | _ -> p, omegas (IntSet.cardinal fields) @ rem)
+  | Slazy ->
       (fun q rem -> match q.pat_desc with
       | Tpat_lazy arg -> p, (arg::rem)
       | _          -> p, (omega::rem))
- | _ -> fatal_error "Matching.ctx_matcher"
+ | Sany -> fatal_error "Matching.ctx_matcher"
 
 
 
@@ -1284,7 +1283,7 @@ let make_constant_matching p def ctx = function
         filter_ctx p  ctx in
       {pm = {cases = []; args = argl ; default = def} ;
         ctx = ctx ;
-        pat = normalize_pat p}
+        pat = pat_of_sp (normalize_pat p)}
 
 
 
@@ -1307,7 +1306,7 @@ let make_field_args loc binding_kind arg first_pos last_pos argl =
   in make_args first_pos
 
 let get_key_constr = function
-  | {pat_desc=Tpat_construct (_, cstr,_)} -> cstr.cstr_tag
+  | Simple_pattern.{ sp_head=Sconstruct cstr } -> cstr.cstr_tag
   | _ -> assert false
 
 let get_args_constr p rem = match p with
@@ -1375,7 +1374,7 @@ let make_constr_matching p def ctx = function
         {cases = []; args = newargs;
           default = make_default (matcher_constr cstr) def} ;
         ctx =  filter_ctx p ctx ;
-        pat=normalize_pat p}
+        pat= pat_of_sp (normalize_pat p)}
 
 
 let divide_constructor ctx pm =
@@ -1406,7 +1405,7 @@ let make_variant_matching_constant p lab def ctx = function
       and ctx = filter_ctx p ctx in
       {pm={ cases = []; args = argl ; default=def} ;
         ctx=ctx ;
-        pat = normalize_pat p}
+        pat = pat_of_sp (normalize_pat p)}
 
 let matcher_variant_nonconst lab p rem = match p.pat_desc with
 | Tpat_or (_,_,_) -> raise OrPat
@@ -1424,7 +1423,7 @@ let make_variant_matching_nonconst p lab def ctx = function
         {cases = []; args = (Lprim(Pfield 1, [arg], p.pat_loc), Alias) :: argl;
           default=def} ;
         ctx=ctx ;
-        pat = normalize_pat p}
+        pat = pat_of_sp (normalize_pat p)}
 
 let divide_variant row ctx {cases = cl; args = al; default=def} =
   let row = Btype.row_repr row in
@@ -1708,7 +1707,7 @@ let make_array_matching kind p def ctx = function
       and ctx = filter_ctx p ctx in
       {pm={cases = []; args = make_args 0 ; default = def} ;
         ctx=ctx ;
-        pat = normalize_pat p}
+        pat = pat_of_sp (normalize_pat p)}
 
 let divide_array kind ctx pm =
   divide
