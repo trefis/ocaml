@@ -13,21 +13,40 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(* Detection of partial matches and unused match cases. *)
+(** Detection of partial matches and unused match cases. *)
+
 open Asttypes
 open Typedtree
 open Types
 
 val omega : pattern
+(** aka. "Tpat_any" or "_"  *)
+
 val omegas : int -> pattern list
+
 val omega_list : 'a list -> pattern list
+(** [List.map (fun _ -> omega)] *)
+
 val normalize_pat : pattern -> pattern
+
 val const_compare : constant -> constant -> int
+(** [const_compare c1 c2] compares the actual values represented by [c1] and
+    [c2], while simply using [Pervasives.compare] would compare the
+    representations.
+
+    cf. PR#5758 *)
 
 val le_pat : pattern -> pattern -> bool
+(** [le_pat p q]  means: forall V,  V matches q implies V matches p *)
+
 val le_pats : pattern list -> pattern list -> bool
+(** [le_pats (p1 .. pm) (q1 .. qn)] means: forall i <= m, [le_pat pi qi] *)
+
 val compat : pattern -> pattern -> bool
+(** [compat p q] means: there exists V that matches both *)
+
 val compats : pattern list -> pattern list -> bool
+(** [List.for_all2 compat] *)
 
 exception Empty
 
