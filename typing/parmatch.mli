@@ -23,11 +23,14 @@ val omega : pattern
 (** aka. "Tpat_any" or "_"  *)
 
 val omegas : int -> pattern list
+(** [List.init (fun _ -> omega)] *)
 
 val omega_list : 'a list -> pattern list
 (** [List.map (fun _ -> omega)] *)
 
 val normalize_pat : pattern -> pattern
+(** Keep only the "head" of a pattern: all arguments are replaced by [omega], so
+    are variables. *)
 
 val const_compare : constant -> constant -> int
 (** [const_compare c1 c2] compares the actual values represented by [c1] and
@@ -60,10 +63,10 @@ val lubs : pattern list -> pattern list -> pattern list
 
 val get_mins : ('a -> 'a -> bool) -> 'a list -> 'a list
 
-(* Those two functions recombine one pattern and its arguments:
-   For instance:
-     (_,_)::p1::p2::rem -> (p1, p2)::rem
-   The second one will replace mutable arguments by '_'
+(** Those two functions recombine one pattern and its arguments:
+    For instance:
+      (_,_)::p1::p2::rem -> (p1, p2)::rem
+    The second one will replace mutable arguments by '_'
 *)
 val set_args : pattern -> pattern list -> pattern list
 val set_args_erase_mutable : pattern -> pattern list -> pattern list
