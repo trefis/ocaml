@@ -41,6 +41,10 @@ let rec fmt_longident_aux f x =
 
 let fmt_longident f x = fprintf f "\"%a\"" fmt_longident_aux x.txt;;
 
+let fmt_variant_tag f = function
+  | Label l -> fprintf f "%s" l
+  | AnyExtraTag -> fprintf f "*AnyExtraTag*"
+
 let fmt_ident = Ident.print
 
 let rec fmt_path_aux f x =
@@ -252,7 +256,7 @@ and pattern i ppf x =
       line i ppf "Tpat_construct %a\n" fmt_longident li;
       list i pattern ppf po;
   | Tpat_variant (l, po, _) ->
-      line i ppf "Tpat_variant \"%s\"\n" l;
+      line i ppf "Tpat_variant \"%a\"\n" fmt_variant_tag l;
       option i pattern ppf po;
   | Tpat_record (l, _c) ->
       line i ppf "Tpat_record\n";

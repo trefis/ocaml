@@ -33,6 +33,10 @@ type partial = Partial | Total
 type attribute = Parsetree.attribute
 type attributes = attribute list
 
+type variant_tag =
+  | Label of label
+  | AnyExtraTag
+
 (** {1 Core language} *)
 
 type pattern =
@@ -82,7 +86,7 @@ and pattern_desc =
             C P              [P]
             C (P1, ..., Pn)  [P1; ...; Pn]
           *)
-  | Tpat_variant of label * pattern option * row_desc ref
+  | Tpat_variant of variant_tag * pattern option * row_desc ref
         (** `A             (None)
             `A P           (Some P)
 

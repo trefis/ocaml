@@ -41,6 +41,10 @@ type closed_flag = Closed | Open
 
 type label = string
 
+type variant_tag =
+  | Label of label
+  | AnyExtraTag
+
 type arg_label =
     Nolabel
   | Labelled of string (*  label:T -> ... *)

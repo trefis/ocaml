@@ -44,6 +44,10 @@ let rec fmt_longident_aux f x =
 
 let fmt_longident f x = fprintf f "\"%a\"" fmt_longident_aux x;;
 
+let fmt_variant_tag f = function
+  | Label l -> fprintf f "%s" l
+  | AnyExtraTag -> fprintf f "*AnyExtraTag*"
+
 let fmt_longident_loc f (x : Longident.t loc) =
   fprintf f "\"%a\" %a" fmt_longident_aux x.txt fmt_location x.loc;
 ;;
@@ -214,7 +218,7 @@ and pattern i ppf x =
       line i ppf "Ppat_construct %a\n" fmt_longident_loc li;
       option i pattern ppf po;
   | Ppat_variant (l, po) ->
-      line i ppf "Ppat_variant \"%s\"\n" l;
+      line i ppf "Ppat_variant \"%a\"\n" fmt_variant_tag l;
       option i pattern ppf po;
   | Ppat_record (l, c) ->
       line i ppf "Ppat_record %a\n" fmt_closed_flag c;

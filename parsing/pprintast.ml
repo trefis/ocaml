@@ -377,7 +377,7 @@ and pattern1 ctxt (f:Format.formatter) (x:pattern) : unit =
   in
   if x.ppat_attributes <> [] then pattern ctxt f x
   else match x.ppat_desc with
-    | Ppat_variant (l, Some p) ->
+    | Ppat_variant (Label l, Some p) ->
         pp f "@[<2>`%s@;%a@]" l (simple_pattern ctxt) p
     | Ppat_construct (({txt=Lident("()"|"[]");_}), _) -> simple_pattern ctxt f x
     | Ppat_construct (({txt;_} as li), po) ->
@@ -423,7 +423,9 @@ and simple_pattern ctxt (f:Format.formatter) (x:pattern) : unit =
         pp f "@[<1>(%a)@]" (list  ~sep:",@;" (pattern1 ctxt))  l (* level1*)
     | Ppat_constant (c) -> pp f "%a" constant c
     | Ppat_interval (c1, c2) -> pp f "%a..%a" constant c1 constant c2
-    | Ppat_variant (l,None) ->  pp f "`%s" l
+    | Ppat_variant (Label l,None) ->  pp f "`%s" l
+    | Ppat_variant (AnyExtraTag,None) ->  pp f "*AnyExtraTag*"
+    | Ppat_variant (AnyExtraTag,Some _) ->  assert false
     | Ppat_constraint (p, ct) ->
         pp f "@[<2>(%a@;:@;%a)@]" (pattern1 ctxt) p (core_type ctxt) ct
     | Ppat_lazy p ->

@@ -49,7 +49,7 @@ and pattern_desc =
   | Tpat_tuple of pattern list
   | Tpat_construct of
       Longident.t loc * constructor_description * pattern list
-  | Tpat_variant of label * pattern option * row_desc ref
+  | Tpat_variant of variant_tag * pattern option * row_desc ref
   | Tpat_record of
       (Longident.t loc * label_description * pattern) list *
         closed_flag

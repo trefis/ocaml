@@ -307,8 +307,8 @@ let pattern sub pat =
                      (List.map (sub.pat sub) args)
                   )
           ))
-    | Tpat_variant (label, pato, _) ->
-        Ppat_variant (label, map_opt (sub.pat sub) pato)
+    | Tpat_variant (vtag, pato, _) ->
+        Ppat_variant (vtag, map_opt (sub.pat sub) pato)
     | Tpat_record (list, closed) ->
         Ppat_record (List.map (fun (lid, _, pat) ->
             map_loc sub lid, sub.pat sub pat) list, closed)

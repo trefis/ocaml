@@ -195,7 +195,7 @@ and pattern_desc =
            C P              Some P
            C (P1, ..., Pn)  Some (Ppat_tuple [P1; ...; Pn])
          *)
-  | Ppat_variant of label * pattern option
+  | Ppat_variant of variant_tag * pattern option
         (* `A             (None)
            `A P           (Some P)
          *)
