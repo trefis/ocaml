@@ -50,7 +50,9 @@ Error: This expression has type < child : 'a; previous : 'b option; .. >
        Self type cannot escape its class
 |}]
 
-class foo = object(self)
+(* This looks all weird... *)
+
+class foo1 = object(self)
   method previous = None
   method child =
     object
@@ -59,7 +61,77 @@ class foo = object(self)
     end
 end;;
 [%%expect{|
-class foo : object method child : child2 method previous : child2 option end
+class foo1 : object method child : child2 method previous : child2 option end
+|}]
+
+class foo2 = object(self)
+  method previous = None
+  method child =
+    object
+      inherit child1 self
+    end
+end;;
+[%%expect{|
+Line _, characters 0-116:
+  class foo2 = object(self)
+    method previous = None
+    method child =
+      object
+        inherit child1 self
+      end
+  end..
+Error: Some type variables are unbound in this type:
+         class foo2 :
+           object method child : child1 method previous : 'a option end
+       The method previous has type 'a option where 'a is unbound
+|}]
+
+class foo3 = object(self : 'a)
+  method previous : 'a option = None
+  method child =
+    object
+      inherit child1 self
+    end
+end;;
+[%%expect{|
+class foo3 :
+  object ('a) method child : child1 method previous : 'a option end
+|}]
+
+class foo3' = object(self : 'a)
+  method previous : 'a option = None
+  method child =
+    object
+      inherit child1 self
+      inherit child2
+    end
+end;;
+[%%expect{|
+class foo3' :
+  object ('a) method child : child1 method previous : 'a option end
+|}]
+
+class foo4 = object(self)
+  method previous : foo4 option = None
+  method child =
+    object
+      inherit child1 self
+    end
+end;;
+[%%expect{|
+class foo4 : object method child : child1 method previous : foo4 option end
+|}]
+
+class foo4' = object(self)
+  method previous : foo4 option = None
+  method child =
+    object
+      inherit child1 self
+      inherit child2
+    end
+end;;
+[%%expect{|
+class foo4 : object method child : child1 method previous : foo4 option end
 |}]
 
 class nested = object
@@ -93,17 +165,31 @@ class just_to_see = object
   end
 end;;
 [%%expect{|
-Line _, characters 18-24:
-            inherit child2
-                    ^^^^^^
-Error: The method parent has type < child : 'a; previous : 'b option >
-       but is expected to have type < previous : < .. > option; .. >
-       Self type cannot escape its class
+class just_to_see :
+  object method obj : < child : child2; previous : child2 option > end
+|}]
+
+class just_to_see2 = object
+  method obj = object(self)
+    method previous = None
+    method child =
+      let o =
+        object
+          inherit child1 self
+          inherit child2
+        end
+      in
+      o
+  end
+end;;
+[%%expect{|
+class just_to_see2 :
+  object method obj : < child : child2; previous : child2 option > end
 |}]
 
 type gadt = Not_really_though : gadt
 
-class just_to_see2 = object(self)
+class just_to_see3 = object(self)
   method previous = None
   method child Not_really_though =
     object
@@ -113,20 +199,6 @@ class just_to_see2 = object(self)
 end;;
 [%%expect{|
 type gadt = Not_really_though : gadt
-Line _, characters 14-20:
-        inherit child2
-                ^^^^^^
-Error: The method parent has type
-         < child : gadt -> 'a; previous : 'b option; .. >
-       but is expected to have type < previous : < .. > option; .. >
-       Self type cannot escape its class
-|}, Principal{|
-type gadt = Not_really_though : gadt
-Line _, characters 14-20:
-        inherit child2
-                ^^^^^^
-Error: The method parent has type
-         < child : 'a -> 'b; previous : 'c option; .. >
-       but is expected to have type < previous : < .. > option; .. >
-       Self type cannot escape its class
+class just_to_see3 :
+  object method child : gadt -> child2 method previous : child2 option end
 |}]
