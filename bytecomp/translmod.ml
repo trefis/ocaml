@@ -363,21 +363,6 @@ let compile_recmodule compile_rhs bindings cont =
           bindings))
     cont
 
-(* Extract the list of "value" identifiers bound by a signature.
-   "Value" identifiers are identifiers for signature components that
-   correspond to a run-time value: values, extensions, modules, classes.
-   Note: manifest primitives do not correspond to a run-time value! *)
-
-let rec bound_value_identifiers = function
-    [] -> []
-  | Sig_value(id, {val_kind = Val_reg}) :: rem ->
-      id :: bound_value_identifiers rem
-  | Sig_typext(id, _, _) :: rem -> id :: bound_value_identifiers rem
-  | Sig_module(id, _, _) :: rem -> id :: bound_value_identifiers rem
-  | Sig_class(id, _, _) :: rem -> id :: bound_value_identifiers rem
-  | _ :: rem -> bound_value_identifiers rem
-
-
 (* Code to translate class entries in a structure *)
 
 let transl_class_bindings cl_list =
@@ -656,8 +641,30 @@ and transl_structure loc fields cc rootpath final_env = function
                transl_module Tcoerce_none None modl, body),
           size
 
+      | Tstr_open od ->
+          begin match od.open_expr.mod_desc with
+          | Tmod_ident _ ->
+            transl_structure loc fields cc rootpath final_env rem
+          | _ ->
+            let ids = bound_value_identifiers od.open_type in
+            let mid = Ident.create_local "open" in
+            let rec rebind_idents pos newfields = function
+                [] ->
+                transl_structure loc newfields cc rootpath final_env rem
+              | id :: ids ->
+                let body, size =
+                  rebind_idents (pos + 1) (id :: newfields) ids
+                in
+                Llet(Alias, Pgenval, id,
+                    Lprim(Pfield pos, [Lvar mid], od.open_loc), body),
+                size
+            in
+            let body, size = rebind_idents 0 fields ids in
+            Llet(pure_module od.open_expr, Pgenval, mid,
+                transl_module Tcoerce_none None od.open_expr, body),
+            size
+          end
       | Tstr_modtype _
-      | Tstr_open _
       | Tstr_class_type _
       | Tstr_attribute _ ->
           transl_structure loc fields cc rootpath final_env rem
@@ -753,7 +760,12 @@ let rec defined_idents = function
     | Tstr_recmodule decls ->
       List.map (fun mb -> mb.mb_id) decls @ defined_idents rem
     | Tstr_modtype _ -> defined_idents rem
-    | Tstr_open _ -> defined_idents rem
+    | Tstr_open od ->
+        let rest = defined_idents rem in
+        begin match od.open_expr.mod_desc with
+        | Tmod_ident _ -> rest
+        | _ -> bound_value_identifiers od.open_type @ rest
+        end
     | Tstr_class cl_list ->
       List.map (fun (ci, _) -> ci.ci_id_class) cl_list @ defined_idents rem
     | Tstr_class_type _ -> defined_idents rem
@@ -807,7 +819,12 @@ and all_idents = function
     | Tstr_recmodule decls ->
       List.map (fun mb -> mb.mb_id) decls @ all_idents rem
     | Tstr_modtype _ -> all_idents rem
-    | Tstr_open _ -> all_idents rem
+    | Tstr_open od ->
+        let rest = all_idents rem in
+        begin match od.open_expr.mod_desc with
+        | Tmod_ident _ -> rest
+        | _ -> bound_value_identifiers od.open_type @ rest
+        end
     | Tstr_class cl_list ->
       List.map (fun (ci, _) -> ci.ci_id_class) cl_list @ all_idents rem
     | Tstr_class_type _ -> all_idents rem
@@ -1038,8 +1055,28 @@ let transl_store_structure glob map prims str =
                  Lambda.subst no_env_update subst
                    (transl_module Tcoerce_none None modl),
                  store_idents 0 ids)
+        | Tstr_open od ->
+            begin match od.open_expr.mod_desc with
+            | Tmod_ident _ ->
+                transl_store rootpath subst rem
+            | _ ->
+                let ids = bound_value_identifiers od.open_type in
+                let mid = Ident.create_local "open" in
+                let loc = od.open_loc in
+                let rec store_idents pos = function
+                    [] -> transl_store rootpath (add_idents true ids subst) rem
+                  | id :: idl ->
+                      Llet(Alias, Pgenval, id, Lprim(Pfield pos, [Lvar mid],
+                                                     loc),
+                          Lsequence(store_ident loc id,
+                                    store_idents (pos + 1) idl))
+                in
+                Llet(Strict, Pgenval, mid,
+                    Lambda.subst no_env_update subst
+                      (transl_module Tcoerce_none None od.open_expr),
+                    store_idents 0 ids)
+          end
         | Tstr_modtype _
-        | Tstr_open _
         | Tstr_class_type _
         | Tstr_attribute _ ->
             transl_store rootpath subst rem
@@ -1266,8 +1303,25 @@ let transl_toplevel_item item =
   | Tstr_primitive descr ->
       record_primitive descr.val_val;
       lambda_unit
+  | Tstr_open od ->
+      begin match od.open_expr.mod_desc with
+      | Tmod_ident _ ->
+          lambda_unit
+      | _ ->
+          let ids = bound_value_identifiers od.open_type in
+          let mid = Ident.create_local "open" in
+          let rec set_idents pos = function
+              [] ->
+                lambda_unit
+            | id :: ids ->
+                Lsequence(toploop_setvalue id
+                            (Lprim(Pfield pos, [Lvar mid], Location.none)),
+                          set_idents (pos + 1) ids)
+          in
+          Llet(Strict, Pgenval, mid,
+              transl_module Tcoerce_none None od.open_expr, set_idents 0 ids)
+      end
   | Tstr_modtype _
-  | Tstr_open _
   | Tstr_type _
   | Tstr_class_type _
   | Tstr_attribute _ ->

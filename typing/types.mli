@@ -497,3 +497,9 @@ type label_description =
     lbl_loc: Location.t;
     lbl_attributes: Parsetree.attributes;
   }
+
+(** Extracts the list of "value" identifiers bound by a signature.
+    "Value" identifiers are identifiers for signature components that
+    correspond to a run-time value: values, extensions, modules, classes.
+    Note: manifest primitives do not correspond to a run-time value! *)
+val bound_value_identifiers: signature -> Ident.t list

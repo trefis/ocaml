@@ -65,6 +65,13 @@ type hiding_error =
       user_kind: Sig_component_kind.t;
       user_loc: Location.t;
     }
+  | Appears_in_signature of {
+      opened_item_id: Ident.t;
+      opened_item_kind: Sig_component_kind.t;
+      user_id: Ident.t;
+      user_kind: Sig_component_kind.t;
+      user_loc: Location.t;
+    }
 
 type error =
     Cannot_apply of module_type
@@ -177,24 +184,25 @@ let initial_env ~loc ~safe_string ~initially_opened_module
   in
   List.fold_left open_implicit_module env open_implicit_modules
 
-let type_open ?toplevel env sod =
+let type_open_descr ?used_slot ?toplevel env sod =
   let (path, newenv) =
     Builtin_attributes.warning_scope sod.popen_attributes
       (fun () ->
-         type_open_ ?toplevel sod.popen_override env sod.popen_loc
-           sod.popen_lid
+         type_open_ ?used_slot ?toplevel sod.popen_override env sod.popen_loc
+           sod.popen_expr
       )
   in
   let od =
     {
+      open_expr = (path, sod.popen_expr);
+      open_type = [];
       open_override = sod.popen_override;
-      open_path = path;
-      open_txt = sod.popen_lid;
+      open_env = newenv;
       open_attributes = sod.popen_attributes;
       open_loc = sod.popen_loc;
     }
   in
-  (path, newenv, od)
+  (od, newenv)
 
 (* Record a module type *)
 let rm node =
@@ -745,8 +753,8 @@ and approx_sig env ssg =
           in
           Sig_modtype(id, info) :: approx_sig newenv srem
       | Psig_open sod ->
-          let (_path, mty, _od) = type_open env sod in
-          approx_sig mty srem
+          let _, env = type_open_descr env sod in
+          approx_sig env srem
       | Psig_include sincl ->
           let smty = sincl.pincl_mod in
           let mty = approx_modtype env smty in
@@ -787,9 +795,10 @@ module Signature_names : sig
   type t
 
   type info = [
-    | `Substituted_away of Subst.t
     | `Exported
+    | `From_open
     | `Shadowable of Ident.t * Location.t
+    | `Substituted_away of Subst.t
   ]
 
   val create : unit -> t
@@ -814,11 +823,13 @@ end = struct
   ]
 
   type info = [
+    | `From_open
     | `Substituted_away of Subst.t
     | bound_info
   ]
 
   type hide_reason =
+    | From_open
     | Shadowed_by of Ident.t * Location.t
 
   type to_be_removed = {
@@ -865,6 +876,9 @@ end = struct
     match info with
     | `Substituted_away s ->
       to_be_removed.subst <- Subst.compose s to_be_removed.subst
+    | `From_open ->
+      to_be_removed.hide <-
+        Ident.Map.add id (cl, loc, From_open) to_be_removed.hide
     | #bound_info as bound_info ->
         let name = Ident.name id in
         match Hashtbl.find_opt tbl name with
@@ -976,6 +990,15 @@ end = struct
               in
               let err_loc, hiding_error =
                 match reason with
+                | From_open ->
+                  removed_item_loc,
+                  Appears_in_signature {
+                    opened_item_kind = removed_item_kind;
+                    opened_item_id = removed_item_id;
+                    user_id;
+                    user_kind;
+                    user_loc;
+                  }
                 | Shadowed_by (shadower_id, shadower_loc) ->
                   shadower_loc,
                   Illegal_shadowing {
@@ -1245,7 +1268,7 @@ and transl_signature env sg =
             sg :: rem,
             final_env
         | Psig_open sod ->
-            let (_path, newenv, od) = type_open env sod in
+            let (od, newenv) = type_open_descr env sod in
             let (trem, rem, final_env) = transl_sig newenv srem in
             mksig (Tsig_open od) env loc :: trem,
             rem, final_env
@@ -1842,6 +1865,50 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
   | Pmod_extension ext ->
       raise (Error_forward (Builtin_attributes.error_of_extension ext))
 
+and type_open_decl ?used_slot ?toplevel names env sod =
+  Builtin_attributes.warning_scope sod.popen_attributes
+    (fun () ->
+       type_open_decl_aux ?used_slot ?toplevel names env sod
+    )
+
+and type_open_decl_aux ?used_slot ?toplevel names env od =
+  let loc = od.popen_loc in
+  match od.popen_expr.pmod_desc with
+  | Pmod_ident lid ->
+    let path, newenv =
+      type_open_ ?used_slot ?toplevel od.popen_override env loc lid
+    in
+    let md = { mod_desc = Tmod_ident (path, lid);
+               mod_type = Mty_alias(Mta_absent, path);
+               mod_env = env;
+               mod_attributes = od.popen_expr.pmod_attributes;
+               mod_loc = od.popen_expr.pmod_loc }
+    in
+    let open_descr = {
+      open_expr = md;
+      open_type = [];
+      open_override = od.popen_override;
+      open_env = newenv;
+      open_loc = loc;
+      open_attributes = od.popen_attributes
+    } in
+    open_descr, [], newenv
+  | _ ->
+    let md = type_module true false None env od.popen_expr in
+    let sg = extract_sig_open env md.mod_loc md.mod_type in
+    let scope = Ctype.create_scope () in
+    let sg, newenv = Env.enter_signature ~scope sg env in
+    List.iter (Signature_names.check_sig_item ~info:`From_open names loc) sg;
+    let open_descr = {
+      open_expr = md;
+      open_type = sg;
+      open_override = od.popen_override;
+      open_env = newenv;
+      open_loc = loc;
+      open_attributes = od.popen_attributes
+    } in
+    open_descr, sg, newenv
+
 and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
   let names = Signature_names.create () in
 
@@ -2020,8 +2087,8 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         let newenv, mtd, sg = transl_modtype_decl names env pmtd in
         Tstr_modtype mtd, [sg], newenv
     | Pstr_open sod ->
-        let (_path, newenv, od) = type_open ~toplevel env sod in
-        Tstr_open od, [], newenv
+        let (od, sg, newenv) = type_open_decl ~toplevel names env sod in
+        Tstr_open od, sg, newenv
     | Pstr_class cl ->
         let (classes, new_env) = Typeclass.class_declarations env cl in
         List.iter (fun cls ->
@@ -2228,12 +2295,21 @@ let type_package env m p nl =
   (wrap_constraint env true modl mty Tmodtype_implicit, tl')
 
 (* Fill in the forward declarations *)
+
+let type_open_decl ?used_slot env od =
+  type_open_decl ?used_slot ?toplevel:None (Signature_names.create ()) env od
+
+let type_open_descr ?used_slot env od =
+  type_open_descr ?used_slot ?toplevel:None env od
+
 let () =
   Typecore.type_module := type_module_alias;
   Typetexp.transl_modtype_longident := transl_modtype_longident;
   Typetexp.transl_modtype := transl_modtype;
   Typecore.type_open := type_open_ ?toplevel:None;
+  Typecore.type_open_decl := type_open_decl;
   Typecore.type_package := type_package;
+  Typeclass.type_open_descr := type_open_descr;
   type_module_type_of_fwd := type_module_type_of
 
 
@@ -2506,6 +2582,16 @@ let report_error ppf = function
         Location.print_loc user_loc
         (Sig_component_kind.to_string user_kind) (Ident.name user_id)
         Ident.print shadowed_item_id
+  | Cannot_hide_id Appears_in_signature
+      { opened_item_kind; opened_item_id; user_id; user_kind; user_loc } ->
+      let opened_item_kind= Sig_component_kind.to_string opened_item_kind in
+      fprintf ppf
+        "@[<v>The %s %a introduced by this open appears in the signature@ \
+         %a:@;<1 2>The %s %s has no valid type if %a is hidden@]"
+        opened_item_kind Ident.print opened_item_id
+        Location.print_loc user_loc
+        (Sig_component_kind.to_string user_kind) (Ident.name user_id)
+        Ident.print opened_item_id
   | Invalid_type_subst_rhs ->
       fprintf ppf "Only type synonyms are allowed on the right of :="
 

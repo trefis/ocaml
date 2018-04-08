@@ -521,6 +521,22 @@ and transl_exp0 e =
          }
   | Texp_unreachable ->
       raise (Error (e.exp_loc, Unreachable_reached))
+  | Texp_open (od, e) ->
+    begin match od.open_expr.mod_desc with
+    | Tmod_ident _ ->
+      transl_exp e
+    | _ ->
+      let oid = Ident.create_local "open" in
+      let body, _ =
+        List.fold_left (fun (body, pos) id ->
+          Llet(Alias, Pgenval, id,
+               Lprim(Pfield pos, [Lvar oid], od.open_loc), body),
+          pos + 1
+        ) (transl_exp e, 0) (bound_value_identifiers od.open_type)
+      in
+      Llet(Strict, Pgenval, oid,
+          !transl_module Tcoerce_none None od.open_expr, body)
+    end
 
 and transl_list expr_list =
   List.map transl_exp expr_list

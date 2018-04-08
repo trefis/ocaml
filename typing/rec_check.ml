@@ -151,6 +151,7 @@ let classify_expression : Typedtree.expression -> sd =
         classify_path env path
 
     (* non-binding cases *)
+    | Texp_open (_, e)
     | Texp_letmodule (_, _, _, e)
     | Texp_sequence (_, e)
     | Texp_letexception (_, e) ->
@@ -795,6 +796,8 @@ let rec expression : Typedtree.expression -> term_judg =
       empty
     | Texp_extension_constructor (_lid, pth) ->
       path pth << Dereference
+    | Texp_open (od, e) ->
+      open_declaration od >> expression e
 
 and class_structure : Typedtree.class_structure -> term_judg =
   fun cs -> list class_field cs.cstr_fields
@@ -941,13 +944,8 @@ and structure_item : Typedtree.structure_item -> bind_judg =
     | Tstr_class_type _
     | Tstr_attribute _ ->
       env
-    | Tstr_open _ ->
-      (* TODO: open introduces term/module variables in scope,
-         we could/should remove them from the environment.
-
-         See also Texp_open (in exp_extra, outside the normal matching path)
-         and Tcl_open. *)
-      env
+    | Tstr_open od ->
+      open_declaration od m env
     | Tstr_class classes ->
         let class_ids =
           let class_id ({ci_id_class = id; _}, _) = id in
@@ -984,6 +982,11 @@ and module_binding : (Ident.t * Typedtree.module_expr) -> bind_judg =
       let judg_E = modexp mexp << (Mode.join mM Guard) in
       Env.join (judg_E m) env
 
+and open_declaration : Typedtree.open_declaration -> bind_judg =
+  fun { open_expr = mexp; _ } m env ->
+      let judg_E = modexp mexp in
+      Env.join (judg_E m) env
+
 and recursive_module_bindings
   : (Ident.t * Typedtree.module_expr) list -> bind_judg =
   fun m_bindings m env ->
@@ -1013,7 +1016,7 @@ and class_expr : Typedtree.class_expr -> term_judg =
       value_bindings rec_flag bindings >> class_expr ce
     | Tcl_constraint (ce, _, _, _, _) ->
         class_expr ce
-    | Tcl_open (_, _, _, _, ce) ->
+    | Tcl_open (_, ce) ->
         class_expr ce
 
 and extension_constructor : Typedtree.extension_constructor -> term_judg =
@@ -1153,7 +1156,7 @@ let is_valid_class_expr idlist ce =
         value_bindings rec_flag bindings mode (class_expr mode ce)
       | Tcl_constraint (ce, _, _, _, _) ->
         class_expr mode ce
-      | Tcl_open (_, _, _, _, ce) ->
+      | Tcl_open (_, ce) ->
         class_expr mode ce
   in
   match Env.unguarded (class_expr Return ce) idlist with

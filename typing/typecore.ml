@@ -125,6 +125,12 @@ let type_open :
     ref =
   ref (fun ?used_slot:_ _ -> assert false)
 
+let type_open_decl :
+  (?used_slot:bool ref -> Env.t -> Parsetree.open_declaration
+   -> open_declaration * Types.signature * Env.t)
+    ref =
+  ref (fun ?used_slot:_ _ -> assert false)
+
 (* Forward declaration, to be filled in by Typemod.type_package *)
 
 let type_package =
@@ -188,7 +194,7 @@ let iter_expression f e =
     | Pexp_variant (_, eo) -> may expr eo
     | Pexp_record (iel, eo) ->
         may expr eo; List.iter (fun (_, e) -> expr e) iel
-    | Pexp_open (_, _, e)
+    | Pexp_open (_, e)
     | Pexp_newtype (_, e)
     | Pexp_poly (e, _)
     | Pexp_lazy e
@@ -255,7 +261,7 @@ let iter_expression f e =
         class_expr ce; List.iter (fun (_, e) -> expr e) lel
     | Pcl_let (_, pel, ce) ->
         List.iter binding pel; class_expr ce
-    | Pcl_open (_, _, ce)
+    | Pcl_open (_, ce)
     | Pcl_constraint (ce, _) -> class_expr ce
     | Pcl_extension _ -> ()
 
@@ -3242,15 +3248,17 @@ and type_expect_
         exp_type = newty (Tpackage (p, nl, tl'));
         exp_attributes = sexp.pexp_attributes;
         exp_env = env }
-  | Pexp_open (ovf, lid, e) ->
-      let (path, newenv) = !type_open ovf env sexp.pexp_loc lid in
+  | Pexp_open (od, e) ->
+      let (od, _, newenv) = !type_open_decl env od in
       let exp = type_expect newenv e ty_expected_explained in
-      { exp with
-        exp_extra = (Texp_open (ovf, path, lid, newenv), loc,
-                     sexp.pexp_attributes) ::
-                      exp.exp_extra;
+      rue {
+        exp_desc = Texp_open (od, exp);
+        exp_type = exp.exp_type;
+        exp_loc = loc;
+        exp_extra = [];
+        exp_attributes = sexp.pexp_attributes;
+        exp_env = env;
       }
-
   | Pexp_extension ({ txt = ("ocaml.extension_constructor"
                              |"extension_constructor"); _ },
                     payload) ->
@@ -3671,7 +3679,7 @@ and type_argument ?recarg env sarg ty_expected' ty_expected =
     match sexp.pexp_desc with
       Pexp_ident _ | Pexp_apply _ | Pexp_field _ | Pexp_constraint _
     | Pexp_coerce _ | Pexp_send _ | Pexp_new _ -> true
-    | Pexp_sequence (_, e) | Pexp_open (_, _, e) -> is_inferred e
+    | Pexp_sequence (_, e) | Pexp_open (_, e) -> is_inferred e
     | Pexp_ifthenelse (_, e1, Some e2) -> is_inferred e1 && is_inferred e2
     | _ -> false
   in

@@ -351,3 +351,12 @@ type label_description =
     lbl_loc: Location.t;
     lbl_attributes: Parsetree.attributes;
    }
+
+let rec bound_value_identifiers = function
+    [] -> []
+  | Sig_value(id, {val_kind = Val_reg}) :: rem ->
+      id :: bound_value_identifiers rem
+  | Sig_typext(id, _, _) :: rem -> id :: bound_value_identifiers rem
+  | Sig_module(id, _, _) :: rem -> id :: bound_value_identifiers rem
+  | Sig_class(id, _, _) :: rem -> id :: bound_value_identifiers rem
+  | _ :: rem -> bound_value_identifiers rem
