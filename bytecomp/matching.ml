@@ -1659,7 +1659,7 @@ let make_record_matching no_opt loc all_labels def = function
           let str =
             match lbl.lbl_mut with
               Immutable -> Alias,mut
-            | Mutable -> StrictOpt,no_opt && true in
+            | Mutable -> StrictOpt,no_opt in
           (access, str) :: make_args(pos + 1)
         end in
       let nfields = Array.length all_labels in
@@ -2922,10 +2922,8 @@ let check_partial is_mutable may_call pat_act_list partial =
       let partial = match partial with
       | Partial -> Partial
       | Total ->
-          if
-            mut || (match pat_act_list with [] -> true | _::_ -> false)
-          then Partial
-          else Total in
+        if mut then Partial else Total
+      in
       partial,mut
 
 let check_partial_list =
