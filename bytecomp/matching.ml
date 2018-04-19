@@ -2860,6 +2860,7 @@ let find_in_pat pred =
   find_rec
 
 let is_mutable_pat p = match p.pat_desc with
+| Tpat_array _ -> true
 | Tpat_record (lps,_) ->
     List.exists
       (fun (_,lbl,_) ->
@@ -2867,11 +2868,16 @@ let is_mutable_pat p = match p.pat_desc with
         | Mutable -> true
         | Immutable -> false)
       lps
-| Tpat_array _ -> true
+| Tpat_constant c -> begin
+    match c with
+    | Const_string _ -> not Config.safe_string
+    | Const_int _ | Const_char _ | Const_float _
+    | Const_int32 _ | Const_int64 _ | Const_nativeint _ -> false
+  end
 | Tpat_alias _ | Tpat_variant _ | Tpat_lazy _
 | Tpat_tuple _|Tpat_construct _
 | Tpat_or _
-| Tpat_constant _ | Tpat_var _ | Tpat_any
+| Tpat_var _ | Tpat_any
   -> false
 
 let is_mutable p = find_in_pat is_mutable_pat p
