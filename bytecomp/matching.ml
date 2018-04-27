@@ -1460,20 +1460,14 @@ let prim_obj_tag =
 
 let get_mod_field modname field =
   lazy (
-    try
-      let mod_ident = Ident.create_persistent modname in
-      let env = Env.open_pers_signature modname Env.initial_safe_string in
-      let p = try
+    match Env.open_pers_signature modname Env.initial_safe_string with
+    | exception Not_found -> fatal_error ("Module "^modname^" unavailable.")
+    | env -> begin
         match Env.lookup_value (Longident.Lident field) env with
-        | (Path.Pdot(_,_,i), _) -> i
-        | _ -> fatal_error ("Primitive "^modname^"."^field^" not found.")
-      with Not_found ->
-        fatal_error ("Primitive "^modname^"."^field^" not found.")
-      in
-      Lprim(Pfield p,
-            [Lprim(Pgetglobal mod_ident, [], Location.none)],
-            Location.none)
-    with Not_found -> fatal_error ("Module "^modname^" unavailable.")
+        | exception Not_found ->
+            fatal_error ("Primitive "^modname^"."^field^" not found.")
+        | (path, _) -> transl_value_path Location.none env path
+      end
   )
 
 let code_force_lazy_block =
@@ -1634,7 +1628,7 @@ let make_record_matching loc all_labels def = function
               Lprim (Pfield lbl.lbl_pos, [arg], loc)
             | Record_unboxed _ -> arg
             | Record_float -> Lprim (Pfloatfield lbl.lbl_pos, [arg], loc)
-            | Record_extension -> Lprim (Pfield (lbl.lbl_pos + 1), [arg], loc)
+            | Record_extension _ -> Lprim (Pfield (lbl.lbl_pos + 1), [arg], loc)
           in
           let str =
             match lbl.lbl_mut with
@@ -2326,7 +2320,7 @@ let combine_constructor loc arg ex_pat cstr partial ctx def
             let tests =
               List.fold_right
                 (fun (path, act) rem ->
-                   let ext = transl_extension_path ex_pat.pat_env path in
+                   let ext = transl_extension_path loc ex_pat.pat_env path in
                    Lifthenelse(Lprim(Pintcomp Ceq, [Lvar tag; ext], loc),
                                act, rem))
                 nonconsts
@@ -2336,7 +2330,7 @@ let combine_constructor loc arg ex_pat cstr partial ctx def
       in
         List.fold_right
           (fun (path, act) rem ->
-             let ext = transl_extension_path ex_pat.pat_env path in
+             let ext = transl_extension_path loc ex_pat.pat_env path in
              Lifthenelse(Lprim(Pintcomp Ceq, [arg; ext], loc),
                          act, rem))
           consts
@@ -2911,13 +2905,16 @@ let compile_matching repr handler_fun arg pat_act_list partial =
 
 let partial_function loc () =
   (* [Location.get_pos_info] is too expensive *)
+  let slot =
+    transl_extension_path Location.none
+      Env.initial_safe_string Predef.path_match_failure
+  in
   let (fname, line, char) = Location.get_pos_info loc.Location.loc_start in
   Lprim(Praise Raise_regular, [Lprim(Pmakeblock(0, Immutable, None),
-          [transl_normal_path Predef.path_match_failure;
-           Lconst(Const_block(0,
-              [Const_base(Const_string (fname, None));
-               Const_base(Const_int line);
-               Const_base(Const_int char)]))], loc)], loc)
+          [slot; Lconst(Const_block(0,
+                   [Const_base(Const_string (fname, None));
+                    Const_base(Const_int line);
+                    Const_base(Const_int char)]))], loc)], loc)
 
 let for_function loc repr param pat_act_list partial =
   compile_matching repr (partial_function loc) param pat_act_list partial

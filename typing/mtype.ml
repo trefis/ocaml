@@ -36,7 +36,7 @@ let freshen mty =
 let rec strengthen ~aliasable env mty p =
   match scrape env mty with
     Mty_signature sg ->
-      Mty_signature(strengthen_sig ~aliasable env sg p 0)
+      Mty_signature(strengthen_sig ~aliasable env sg p)
   | Mty_functor(param, arg, res)
     when !Clflags.applicative_functors && Ident.name param <> "*" ->
       Mty_functor(param, arg,
@@ -44,20 +44,15 @@ let rec strengthen ~aliasable env mty p =
   | mty ->
       mty
 
-and strengthen_sig ~aliasable env sg p pos =
+and strengthen_sig ~aliasable env sg p =
   match sg with
     [] -> []
-  | (Sig_value(_, desc) as sigelt) :: rem ->
-      let nextpos =
-        match desc.val_kind with
-        | Val_prim _ -> pos
-        | _ -> pos + 1
-      in
-      sigelt :: strengthen_sig ~aliasable env rem p nextpos
+  | (Sig_value(_, _) as sigelt) :: rem ->
+      sigelt :: strengthen_sig ~aliasable env rem p
   | Sig_type(id, {type_kind=Type_abstract}, _) ::
     (Sig_type(id', {type_private=Private}, _) :: _ as rem)
     when Ident.name id = Ident.name id' ^ "#row" ->
-      strengthen_sig ~aliasable env rem p pos
+      strengthen_sig ~aliasable env rem p
   | Sig_type(id, decl, rs) :: rem ->
       let newdecl =
         match decl.type_manifest, decl.type_private, decl.type_kind with
@@ -65,44 +60,44 @@ and strengthen_sig ~aliasable env sg p pos =
         | Some _, Private, (Type_record _ | Type_variant _) -> decl
         | _ ->
             let manif =
-              Some(Btype.newgenty(Tconstr(Pdot(p, Ident.name id, nopos),
+              Some(Btype.newgenty(Tconstr(Pdot(p, Ident.name id),
                                           decl.type_params, ref Mnil))) in
             if decl.type_kind = Type_abstract then
               { decl with type_private = Public; type_manifest = manif }
             else
               { decl with type_manifest = manif }
       in
-      Sig_type(id, newdecl, rs) :: strengthen_sig ~aliasable env rem p pos
+      Sig_type(id, newdecl, rs) :: strengthen_sig ~aliasable env rem p
   | (Sig_typext _ as sigelt) :: rem ->
-      sigelt :: strengthen_sig ~aliasable env rem p (pos+1)
-  | Sig_module(id, md, rs) :: rem ->
+      sigelt :: strengthen_sig ~aliasable env rem p
+  | Sig_module(id, pres, md, rs) :: rem ->
       let str =
-        strengthen_decl ~aliasable env md (Pdot(p, Ident.name id, pos))
+        strengthen_decl ~aliasable env md (Pdot(p, Ident.name id))
       in
-      Sig_module(id, str, rs)
+      Sig_module(id, pres, str, rs)
       :: strengthen_sig ~aliasable
-        (Env.add_module_declaration ~check:false id md env) rem p (pos+1)
+        (Env.add_module_declaration ~check:false id pres md env) rem p
       (* Need to add the module in case it defines manifest module types *)
   | Sig_modtype(id, decl) :: rem ->
       let newdecl =
         match decl.mtd_type with
           None ->
-            {decl with mtd_type = Some(Mty_ident(Pdot(p,Ident.name id,nopos)))}
+            {decl with mtd_type = Some(Mty_ident(Pdot(p,Ident.name id)))}
         | Some _ ->
             decl
       in
       Sig_modtype(id, newdecl) ::
-      strengthen_sig ~aliasable (Env.add_modtype id decl env) rem p pos
+      strengthen_sig ~aliasable (Env.add_modtype id decl env) rem p
       (* Need to add the module type in case it is manifest *)
   | (Sig_class _ as sigelt) :: rem ->
-      sigelt :: strengthen_sig ~aliasable env rem p (pos+1)
+      sigelt :: strengthen_sig ~aliasable env rem p
   | (Sig_class_type _ as sigelt) :: rem ->
-      sigelt :: strengthen_sig ~aliasable env rem p pos
+      sigelt :: strengthen_sig ~aliasable env rem p
 
 and strengthen_decl ~aliasable env md p =
   match md.md_type with
   | Mty_alias _ -> md
-  | _ when aliasable -> {md with md_type = Mty_alias(Mta_present, p)}
+  | _ when aliasable -> {md with md_type = Mty_alias p}
   | mty -> {md with md_type = strengthen ~aliasable env mty p}
 
 let () = Env.strengthen := strengthen
@@ -110,7 +105,7 @@ let () = Env.strengthen := strengthen
 let scrape_for_type_of env mty =
   let rec loop env path mty =
     match mty, path with
-    | Mty_alias(_, path), _ -> begin
+    | Mty_alias path, _ -> begin
         try
           let md = Env.find_module path env in
           loop env (Some path) md.md_type
@@ -136,7 +131,7 @@ let nondep_supertype env mid mty =
         if Path.isfree mid p then
           nondep_mty env va (Env.find_modtype_expansion p env)
         else mty
-    | Mty_alias(_, p) ->
+    | Mty_alias p ->
         if Path.isfree mid p then
           nondep_mty env va (Env.find_module p env).md_type
         else mty
@@ -147,7 +142,7 @@ let nondep_supertype env mid mty =
           match va with Co -> Contra | Contra -> Co | Strict -> Strict in
         Mty_functor(param, Misc.may_map (nondep_mty env var_inv) arg,
                     nondep_mty
-                      (Env.add_module ~arg:true param
+                      (Env.add_module ~arg:true param Mta_present
                          (Btype.default_mty arg) env) va res)
 
   and nondep_sig env va = function
@@ -165,9 +160,9 @@ let nondep_supertype env mid mty =
       | Sig_typext(id, ext, es) ->
           Sig_typext(id, Ctype.nondep_extension_constructor env mid ext, es)
           :: rem'
-      | Sig_module(id, md, rs) ->
-          Sig_module(id, {md with md_type=nondep_mty env va md.md_type}, rs)
-          :: rem'
+      | Sig_module(id, pres, md, rs) ->
+          let md = {md with md_type=nondep_mty env va md.md_type} in
+          Sig_module(id, pres, md, rs) :: rem'
       | Sig_modtype(id, d) ->
           begin try
             Sig_modtype(id, nondep_modtype_decl env d) :: rem'
@@ -232,12 +227,12 @@ let rec enrich_modtype env p mty =
 and enrich_item env p = function
     Sig_type(id, decl, rs) ->
       Sig_type(id,
-                enrich_typedecl env (Pdot(p, Ident.name id, nopos)) id decl, rs)
-  | Sig_module(id, md, rs) ->
-      Sig_module(id,
+                enrich_typedecl env (Pdot(p, Ident.name id)) id decl, rs)
+  | Sig_module(id, pres, md, rs) ->
+      Sig_module(id, pres,
                   {md with
                    md_type = enrich_modtype env
-                       (Pdot(p, Ident.name id, nopos)) md.md_type},
+                       (Pdot(p, Ident.name id)) md.md_type},
                  rs)
   | item -> item
 
@@ -245,35 +240,34 @@ let rec type_paths env p mty =
   match scrape env mty with
     Mty_ident _ -> []
   | Mty_alias _ -> []
-  | Mty_signature sg -> type_paths_sig env p 0 sg
+  | Mty_signature sg -> type_paths_sig env p sg
   | Mty_functor _ -> []
 
-and type_paths_sig env p pos sg =
+and type_paths_sig env p sg =
   match sg with
     [] -> []
-  | Sig_value(_id, decl) :: rem ->
-      let pos' = match decl.val_kind with Val_prim _ -> pos | _ -> pos + 1 in
-      type_paths_sig env p pos' rem
   | Sig_type(id, _decl, _) :: rem ->
-      Pdot(p, Ident.name id, nopos) :: type_paths_sig env p pos rem
-  | Sig_module(id, md, _) :: rem ->
-      type_paths env (Pdot(p, Ident.name id, pos)) md.md_type @
-      type_paths_sig (Env.add_module_declaration ~check:false id md env)
-        p (pos+1) rem
+      Pdot(p, Ident.name id) :: type_paths_sig env p rem
+  | Sig_module(id, pres, md, _) :: rem ->
+      type_paths env (Pdot(p, Ident.name id)) md.md_type @
+      type_paths_sig (Env.add_module_declaration ~check:false id pres md env)
+        p rem
   | Sig_modtype(id, decl) :: rem ->
-      type_paths_sig (Env.add_modtype id decl env) p pos rem
-  | (Sig_typext _ | Sig_class _) :: rem ->
-      type_paths_sig env p (pos+1) rem
-  | (Sig_class_type _) :: rem ->
-      type_paths_sig env p pos rem
+      type_paths_sig (Env.add_modtype id decl env) p rem
+  | (Sig_value _ | Sig_typext _ | Sig_class _ | Sig_class_type _) :: rem ->
+      type_paths_sig env p rem
 
-let rec no_code_needed env mty =
-  match scrape env mty with
-    Mty_ident _ -> false
-  | Mty_signature sg -> no_code_needed_sig env sg
-  | Mty_functor(_, _, _) -> false
-  | Mty_alias(Mta_absent, _) -> true
-  | Mty_alias(Mta_present, _) -> false
+
+let rec no_code_needed_mod env pres mty =
+  match pres with
+  | Mta_absent -> true
+  | Mta_present -> begin
+      match scrape env mty with
+        Mty_ident _ -> false
+      | Mty_signature sg -> no_code_needed_sig env sg
+      | Mty_functor _ -> false
+      | Mty_alias _ -> false
+    end
 
 and no_code_needed_sig env sg =
   match sg with
@@ -283,15 +277,16 @@ and no_code_needed_sig env sg =
       | Val_prim _ -> no_code_needed_sig env rem
       | _ -> false
       end
-  | Sig_module(id, md, _) :: rem ->
-      no_code_needed env md.md_type &&
+  | Sig_module(id, pres, md, _) :: rem ->
+      no_code_needed_mod env pres md.md_type &&
       no_code_needed_sig
-        (Env.add_module_declaration ~check:false id md env) rem
+        (Env.add_module_declaration ~check:false id pres md env) rem
   | (Sig_type _ | Sig_modtype _ | Sig_class_type _) :: rem ->
       no_code_needed_sig env rem
   | (Sig_typext _ | Sig_class _) :: _ ->
       false
 
+let no_code_needed env mty = no_code_needed_mod env Mta_present mty
 
 (* Check whether a module type may return types *)
 
@@ -322,7 +317,7 @@ and contains_type_item env = function
          the current constraints which guarantee that this type
          is kept local to expressions.  *)
       raise Exit
-  | Sig_module (_, {md_type = mty}, _) ->
+  | Sig_module (_, _, {md_type = mty}, _) ->
       contains_type env mty
   | Sig_value _
   | Sig_type _
@@ -342,12 +337,12 @@ module PathMap = Map.Make (Path)
 
 let rec get_prefixes = function
     Pident _ -> PathSet.empty
-  | Pdot (p, _, _)
+  | Pdot (p, _)
   | Papply (p, _) -> PathSet.add p (get_prefixes p)
 
 let rec get_arg_paths = function
     Pident _ -> PathSet.empty
-  | Pdot (p, _, _) -> get_arg_paths p
+  | Pdot (p, _) -> get_arg_paths p
   | Papply (p1, p2) ->
       PathSet.add p2
         (PathSet.union (get_prefixes p2)
@@ -358,9 +353,9 @@ let rec rollback_path subst p =
   with Not_found ->
     match p with
       Pident _ | Papply _ -> p
-    | Pdot (p1, s, n) ->
+    | Pdot (p1, s) ->
         let p1' = rollback_path subst p1 in
-        if Path.same p1 p1' then p else rollback_path subst (Pdot (p1', s, n))
+        if Path.same p1 p1' then p else rollback_path subst (Pdot (p1', s))
 
 let rec collect_ids subst bindings p =
     begin match rollback_path subst p with
@@ -384,13 +379,13 @@ let collect_arg_paths mty =
   and it_signature_item it si =
     type_iterators.it_signature_item it si;
     match si with
-      Sig_module (id, {md_type=Mty_alias(_, p)}, _) ->
+    | Sig_module (id, _, {md_type=Mty_alias p}, _) ->
         bindings := Ident.add id p !bindings
-    | Sig_module (id, {md_type=Mty_signature sg}, _) ->
+    | Sig_module (id, _, {md_type=Mty_signature sg}, _) ->
         List.iter
-          (function Sig_module (id', _, _) ->
+          (function Sig_module (id', _, _, _) ->
               subst :=
-                PathMap.add (Pdot (Pident id, Ident.name id', -1)) id' !subst
+                PathMap.add (Pdot (Pident id, Ident.name id')) id' !subst
             | _ -> ())
           sg
     | _ -> ()
@@ -401,41 +396,40 @@ let collect_arg_paths mty =
   PathSet.fold (fun p -> Ident.Set.union (collect_ids !subst !bindings p))
     !paths Ident.Set.empty
 
-let rec remove_aliases_mty env excl mty =
+let rec remove_aliases_mty env excl pres mty =
   match mty with
     Mty_signature sg ->
-      Mty_signature (remove_aliases_sig env excl sg)
+      Mta_present, Mty_signature (remove_aliases_sig env excl sg)
   | Mty_alias _ ->
       let mty' = Env.scrape_alias env mty in
-      if mty' = mty then mty else
-      remove_aliases_mty env excl mty'
+      if mty' = mty then pres, mty else
+      remove_aliases_mty env excl pres mty'
   | mty ->
-      mty
+      Mta_present, mty
 
 and remove_aliases_sig env excl sg =
   match sg with
     [] -> []
-  | Sig_module(id, md, rs) :: rem  ->
-      let mty =
+  | Sig_module(id, pres, md, rs) :: rem  ->
+      let pres, mty =
         match md.md_type with
           Mty_alias _ when Ident.Set.mem id excl ->
-            md.md_type
+            pres, md.md_type
         | mty ->
-            remove_aliases_mty env excl mty
+            remove_aliases_mty env excl pres mty
       in
-      Sig_module(id, {md with md_type = mty} , rs) ::
-      remove_aliases_sig (Env.add_module id mty env) excl rem
+      Sig_module(id, pres, {md with md_type = mty} , rs) ::
+      remove_aliases_sig (Env.add_module id pres mty env) excl rem
   | Sig_modtype(id, mtd) :: rem ->
       Sig_modtype(id, mtd) ::
       remove_aliases_sig (Env.add_modtype id mtd env) excl rem
   | it :: rem ->
       it :: remove_aliases_sig env excl rem
 
-
 let scrape_for_type_of ~remove_aliases env mty =
   if remove_aliases then begin
     let excl = collect_arg_paths mty in
-    remove_aliases_mty env excl mty
+    snd (remove_aliases_mty env excl Mta_present (* FIXME? *) mty)
   end else begin
     scrape_for_type_of env mty
   end
