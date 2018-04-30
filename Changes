@@ -24,6 +24,9 @@ Working version
 - GPR#1733: change the perspective of the unexpected existential error message
   (Florian Angeletti, review by Gabriel Scherer and Jeremy Yallop)
 
+- GPR#1748: do not error when instantiating polymorphic fields in patterns
+  (Thomas Refis, review by ...)
+
 ### Code generation and optimizations:
 
 ### Runtime system:
