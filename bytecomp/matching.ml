@@ -82,11 +82,11 @@ type ctx = {left:pattern list ; right:pattern list}
 let pretty_ctx ctx =
   List.iter
     (fun {left=left ; right=right} ->
-      prerr_string "LEFT:" ;
+      Format.fprintf Format.err_formatter "LEFT:" ;
       pretty_line Format.err_formatter left ;
-      prerr_string " RIGHT:" ;
+      Format.fprintf Format.err_formatter " RIGHT:" ;
       pretty_line Format.err_formatter right ;
-      prerr_endline "")
+      Format.fprintf Format.err_formatter "\n")
     ctx
 
 let le_ctx c1 c2 =
@@ -416,27 +416,24 @@ let pretty_cases cases =
   List.iter
     (fun (ps,_l) ->
       List.iter
-        (fun p ->
-          top_pretty Format.str_formatter p ;
-          prerr_string " " ;
-          prerr_string (Format.flush_str_formatter ()))
+        (fun p -> Format.fprintf Format.err_formatter " %a%!" top_pretty p)
         ps ;
 (*
-      prerr_string " -> " ;
+      Format.fprintf Format.err_formatter " -> " ;
       Printlambda.lambda Format.str_formatter l ;
-      prerr_string (Format.flush_str_formatter ()) ;
+      Format.fprintf Format.err_formatter (Format.flush_str_formatter ()) ;
 *)
-      prerr_endline "")
+      Format.fprintf Format.err_formatter "\n")
     cases
 
 let pretty_def def =
-  prerr_endline "+++++ Defaults +++++" ;
+  Format.fprintf Format.err_formatter "+++++ Defaults +++++\n" ;
   List.iter
     (fun (pss,i) ->
       Printf.fprintf stderr "Matrix for %d\n"  i ;
       pretty_matrix Format.err_formatter pss)
     def ;
-  prerr_endline "+++++++++++++++++++++"
+  Format.fprintf Format.err_formatter "+++++++++++++++++++++\n"
 
 let pretty_pm pm =
   pretty_cases pm.cases ;
@@ -446,13 +443,13 @@ let pretty_pm pm =
 
 let rec pretty_precompiled = function
   | Pm pm ->
-      prerr_endline "++++ PM ++++" ;
+      Format.fprintf Format.err_formatter "++++ PM ++++\n" ;
       pretty_pm pm
   | PmVar x ->
-      prerr_endline "++++ VAR ++++" ;
+      Format.fprintf Format.err_formatter "++++ VAR ++++\n" ;
       pretty_precompiled x.inside
   | PmOr x ->
-      prerr_endline "++++ OR ++++" ;
+      Format.fprintf Format.err_formatter "++++ OR ++++\n" ;
       pretty_pm x.body ;
       pretty_matrix Format.err_formatter x.or_matrix ;
       List.iter
@@ -645,13 +642,27 @@ let simplify_cases args cls = match args with
 (* Once matchings are simplified one can easily find
    their nature *)
 
-let rec what_is_cases cases = match cases with
-| ({pat_desc=Tpat_any} :: _, _) :: rem -> what_is_cases rem
-| (({pat_desc=(Tpat_var _|Tpat_or (_,_,_)|Tpat_alias (_,_,_))}::_),_)::_
-  -> assert false (* applies to simplified matchings only *)
-| (p::_,_)::_ -> p
-| [] -> omega
-| _ -> assert false
+exception Incoherent
+
+let what_is_cases cases =
+  let rec aux = function
+    | ({pat_desc=Tpat_any} :: _, _) :: rem -> aux rem
+    | (({pat_desc=(Tpat_var _|Tpat_or (_,_,_)|Tpat_alias (_,_,_))}::_),_)::_
+      -> assert false (* applies to simplified matchings only *)
+    | (p::_,_)::_ -> p
+    | [] -> omega
+    | _ -> assert false
+  in
+  let first_column =
+    List.map (function
+      | [], _ -> assert false
+      | pat :: _, _ -> pat
+    ) cases
+  in
+  if all_coherent first_column then
+    aux cases
+  else
+    raise Incoherent
 
 
 
@@ -1147,7 +1158,7 @@ let split_precompile argo pm =
   let {me=next}, nexts = split_or argo pm.cases pm.args pm.default  in
   if dbg && (nexts <> [] || (match next with PmOr _ -> true | _ -> false))
   then begin
-    prerr_endline "** SPLIT **" ;
+    Format.fprintf Format.err_formatter "** SPLIT **\n" ;
     pretty_pm pm ;
     pretty_precompiled_res  next nexts
   end ;
@@ -1231,7 +1242,7 @@ let rec matcher_const cst p rem = match p.pat_desc with
 let get_key_constant caller = function
   | {pat_desc= Tpat_constant cst} -> cst
   | p ->
-      prerr_endline ("BAD: "^caller) ;
+      Format.fprintf Format.err_formatter "BAD: %s" caller ;
       pretty_pat p ;
       assert false
 
@@ -2170,7 +2181,7 @@ let mk_failaction_neg partial ctx def = match partial with
 (* In line with the article and simpler than before *)
 let mk_failaction_pos partial seen ctx defs  =
   if dbg then begin
-    prerr_endline "**POS**" ;
+    Format.fprintf Format.err_formatter "**POS**\n" ;
     pretty_def defs ;
     ()
   end ;
@@ -2718,14 +2729,15 @@ let rec compile_match repr partial ctx m = match m with
 (* verbose version of do_compile_matching, for debug *)
 
 and do_compile_matching_pr repr partial ctx arg x =
-  prerr_string "COMPILE: " ;
-  prerr_endline (match partial with Partial -> "Partial" | Total -> "Total") ;
-  prerr_endline "MATCH" ;
+  Format.fprintf Format.err_formatter "COMPILE: " ;
+  Format.fprintf Format.err_formatter "%s\n"
+    (match partial with Partial -> "Partial" | Total -> "Total") ;
+  Format.fprintf Format.err_formatter "MATCH\n" ;
   pretty_precompiled x ;
-  prerr_endline "CTX" ;
+  Format.fprintf Format.err_formatter "CTX\n" ;
   pretty_ctx ctx ;
   let (_, jumps) as r =  do_compile_matching repr partial ctx arg x in
-  prerr_endline "JUMPS" ;
+  Format.fprintf Format.err_formatter "JUMPS\n" ;
   pretty_jumps jumps ;
   r
 
