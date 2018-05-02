@@ -27,6 +27,16 @@ open Printpat
 
 let dbg = false
 
+let partial_function loc () =
+  (* [Location.get_pos_info] is too expensive *)
+  let (fname, line, char) = Location.get_pos_info loc.Location.loc_start in
+  Lprim(Praise Raise_regular, [Lprim(Pmakeblock(0, Immutable, None),
+          [transl_normal_path Predef.path_match_failure;
+           Lconst(Const_block(0,
+              [Const_base(Const_string (fname, None));
+               Const_base(Const_int line);
+               Const_base(Const_int char)]))], loc)], loc)
+
 (*  See Peyton-Jones, ``The Implementation of functional programming
     languages'', chapter 5. *)
 (*
@@ -646,12 +656,11 @@ exception Incoherent
 
 let what_is_cases cases =
   let rec aux = function
-    | ({pat_desc=Tpat_any} :: _, _) :: rem -> aux rem
-    | (({pat_desc=(Tpat_var _|Tpat_or (_,_,_)|Tpat_alias (_,_,_))}::_),_)::_
+    | {pat_desc=Tpat_any} :: rem -> aux rem
+    | {pat_desc=(Tpat_var _|Tpat_or (_,_,_)|Tpat_alias (_,_,_))} ::_
       -> assert false (* applies to simplified matchings only *)
-    | (p::_,_)::_ -> p
+    | p ::_ -> p
     | [] -> omega
-    | _ -> assert false
   in
   let first_column =
     List.map (function
@@ -660,7 +669,7 @@ let what_is_cases cases =
     ) cases
   in
   if all_coherent first_column then
-    aux cases
+    aux first_column
   else
     raise Incoherent
 
@@ -998,7 +1007,10 @@ and split_naive cls args def k =
   | _ -> assert false
 
 and split_constr cls args def k =
-  let ex_pat = what_is_cases cls in
+  match what_is_cases cls with
+  | exception Incoherent ->
+      split_naive cls args def k (* Meh *)
+  | ex_pat ->
   match ex_pat.pat_desc with
   | Tpat_any -> precompile_var args cls def k
   | Tpat_construct (_,{cstr_tag=Cstr_extension _},_) ->
@@ -2743,46 +2755,50 @@ and do_compile_matching_pr repr partial ctx arg x =
 
 and do_compile_matching repr partial ctx arg pmh = match pmh with
 | Pm pm ->
-  let pat = what_is_cases pm.cases in
-  begin match pat.pat_desc with
-  | Tpat_any ->
-      compile_no_test
-        divide_var ctx_rshift repr partial ctx pm
-  | Tpat_tuple patl ->
-      compile_no_test
-        (divide_tuple (List.length patl) (normalize_pat pat)) ctx_combine
-        repr partial ctx pm
-  | Tpat_record ((_, lbl,_)::_,_) ->
-      compile_no_test
-        (divide_record lbl.lbl_all (normalize_pat pat))
-        ctx_combine repr partial ctx pm
-  | Tpat_constant cst ->
-      compile_test
-        (compile_match repr partial) partial
-        divide_constant
-        (combine_constant pat.pat_loc arg cst partial)
-        ctx pm
-  | Tpat_construct (_, cstr, _) ->
-      compile_test
-        (compile_match repr partial) partial
-        divide_constructor
-        (combine_constructor pat.pat_loc arg pat cstr partial)
-        ctx pm
-  | Tpat_array _ ->
-      let kind = Typeopt.array_pattern_kind pat in
-      compile_test (compile_match repr partial) partial
-        (divide_array kind) (combine_array pat.pat_loc arg kind partial)
-        ctx pm
-  | Tpat_lazy _ ->
-      compile_no_test
-        (divide_lazy (normalize_pat pat))
-        ctx_combine repr partial ctx pm
-  | Tpat_variant(_, _, row) ->
-      compile_test (compile_match repr partial) partial
-        (divide_variant !row)
-        (combine_variant pat.pat_loc !row arg partial)
-        ctx pm
-  | _ -> assert false
+  begin match what_is_cases pm.cases with
+  | exception Incoherent ->
+      partial_function Location.none (), [] (* yirk *)
+  | pat ->
+    begin match pat.pat_desc with
+    | Tpat_any ->
+        compile_no_test
+          divide_var ctx_rshift repr partial ctx pm
+    | Tpat_tuple patl ->
+        compile_no_test
+          (divide_tuple (List.length patl) (normalize_pat pat)) ctx_combine
+          repr partial ctx pm
+    | Tpat_record ((_, lbl,_)::_,_) ->
+        compile_no_test
+          (divide_record lbl.lbl_all (normalize_pat pat))
+          ctx_combine repr partial ctx pm
+    | Tpat_constant cst ->
+        compile_test
+          (compile_match repr partial) partial
+          divide_constant
+          (combine_constant pat.pat_loc arg cst partial)
+          ctx pm
+    | Tpat_construct (_, cstr, _) ->
+        compile_test
+          (compile_match repr partial) partial
+          divide_constructor
+          (combine_constructor pat.pat_loc arg pat cstr partial)
+          ctx pm
+    | Tpat_array _ ->
+        let kind = Typeopt.array_pattern_kind pat in
+        compile_test (compile_match repr partial) partial
+          (divide_array kind) (combine_array pat.pat_loc arg kind partial)
+          ctx pm
+    | Tpat_lazy _ ->
+        compile_no_test
+          (divide_lazy (normalize_pat pat))
+          ctx_combine repr partial ctx pm
+    | Tpat_variant(_, _, row) ->
+        compile_test (compile_match repr partial) partial
+          (divide_variant !row)
+          (combine_variant pat.pat_loc !row arg partial)
+          ctx pm
+    | _ -> assert false
+    end
   end
 | PmVar {inside=pmh ; var_arg=arg} ->
     let lam, total =
@@ -2920,16 +2936,6 @@ let compile_matching repr handler_fun arg pat_act_list partial =
       assert (jumps_is_empty total) ;
       lambda
 
-
-let partial_function loc () =
-  (* [Location.get_pos_info] is too expensive *)
-  let (fname, line, char) = Location.get_pos_info loc.Location.loc_start in
-  Lprim(Praise Raise_regular, [Lprim(Pmakeblock(0, Immutable, None),
-          [transl_normal_path Predef.path_match_failure;
-           Lconst(Const_block(0,
-              [Const_base(Const_string (fname, None));
-               Const_base(Const_int line);
-               Const_base(Const_int char)]))], loc)], loc)
 
 let for_function loc repr param pat_act_list partial =
   compile_matching repr (partial_function loc) param pat_act_list partial
