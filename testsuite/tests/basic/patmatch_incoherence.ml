@@ -15,7 +15,7 @@ match { x = [] } with
 | { x = "" :: _ } -> ()
 ;;
 [%%expect{|
-Uncaught exception: File "bytecomp/matching.ml", line 2237, characters 58-64: Assertion failed
+Uncaught exception: Failure("BOUHOU")
 
 |}];;
 
@@ -31,7 +31,7 @@ match { x = assert false } with
 | { x = "" } -> ()
 ;;
 [%%expect{|
-Uncaught exception: File "bytecomp/matching.ml", line 2237, characters 58-64: Assertion failed
+Uncaught exception: Failure("BOUHOU")
 
 |}];;
 

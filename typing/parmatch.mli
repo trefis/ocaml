@@ -58,6 +58,8 @@ module Compat :
        val compats : pattern list -> pattern list -> bool
      end
 
+val all_coherent : pattern list -> bool
+
 exception Empty
 
 val lub : pattern -> pattern -> pattern

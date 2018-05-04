@@ -2738,47 +2738,51 @@ and do_compile_matching_pr repr partial ctx arg x =
 
 and do_compile_matching repr partial ctx arg pmh = match pmh with
 | Pm pm ->
-  let pat = what_is_cases pm.cases in
-  begin match pat.pat_desc with
-  | Tpat_any ->
+  let first_column = List.map (fun (row, _body) -> List.hd row) pm.cases in
+  if not (all_coherent first_column) then (
+    failwith "BOUHOU"
+  ) else (
+    let pat = what_is_cases pm.cases in
+    match pat.pat_desc with
+    | Tpat_any ->
       compile_no_test
         divide_var ctx_rshift repr partial ctx pm
-  | Tpat_tuple patl ->
+    | Tpat_tuple patl ->
       compile_no_test
         (divide_tuple (List.length patl) (normalize_pat pat)) ctx_combine
         repr partial ctx pm
-  | Tpat_record ((_, lbl,_)::_,_) ->
+    | Tpat_record ((_, lbl,_)::_,_) ->
       compile_no_test
         (divide_record lbl.lbl_all (normalize_pat pat))
         ctx_combine repr partial ctx pm
-  | Tpat_constant cst ->
+    | Tpat_constant cst ->
       compile_test
         (compile_match repr partial) partial
         divide_constant
         (combine_constant pat.pat_loc arg cst partial)
         ctx pm
-  | Tpat_construct (_, cstr, _) ->
+    | Tpat_construct (_, cstr, _) ->
       compile_test
         (compile_match repr partial) partial
         divide_constructor
         (combine_constructor pat.pat_loc arg pat cstr partial)
         ctx pm
-  | Tpat_array _ ->
+    | Tpat_array _ ->
       let kind = Typeopt.array_pattern_kind pat in
       compile_test (compile_match repr partial) partial
         (divide_array kind) (combine_array pat.pat_loc arg kind partial)
         ctx pm
-  | Tpat_lazy _ ->
+    | Tpat_lazy _ ->
       compile_no_test
         (divide_lazy (normalize_pat pat))
         ctx_combine repr partial ctx pm
-  | Tpat_variant(_, _, row) ->
+    | Tpat_variant(_, _, row) ->
       compile_test (compile_match repr partial) partial
         (divide_variant !row)
         (combine_variant pat.pat_loc !row arg partial)
         ctx pm
-  | _ -> assert false
-  end
+    | _ -> assert false
+  )
 | PmVar {inside=pmh ; var_arg=arg} ->
     let lam, total =
       do_compile_matching repr partial (ctx_lshift ctx) arg pmh in
