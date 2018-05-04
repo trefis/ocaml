@@ -15,8 +15,12 @@ match { x = [] } with
 | { x = "" :: _ } -> ()
 ;;
 [%%expect{|
-Uncaught exception: Failure("BOUHOU")
-
+(let (*match* = [0: 0a] *match* =a (field 0 *match*))
+  (if *match*
+    (let (*match* =a (field 0 *match*))
+      (raise (makeblock 0 (global Assert_failureg) [0: "" 1 0])))
+    0a))
+- : unit = ()
 |}];;
 
 
@@ -31,8 +35,13 @@ match { x = assert false } with
 | { x = "" } -> ()
 ;;
 [%%expect{|
-Uncaught exception: Failure("BOUHOU")
-
+(let
+  (*match* =
+     (makeblock 0
+       (raise (makeblock 0 (global Assert_failureg) [0: "" 1 12])))
+   *match* =a (field 0 *match*))
+  (raise (makeblock 0 (global Assert_failureg) [0: "" 1 0])))
+Exception: Assert_failure ("", 1, 12).
 |}];;
 
 match { x = assert false } with
