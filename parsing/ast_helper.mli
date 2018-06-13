@@ -350,7 +350,7 @@ module Incl:
 module Vb:
   sig
     val mk: ?loc: loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
-      pattern -> expression -> value_binding
+      pattern -> core_type option -> expression -> value_binding
   end
 
 

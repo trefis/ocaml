@@ -874,6 +874,7 @@ and structure_item_desc =
 and value_binding =
   {
     pvb_pat: pattern;
+    pvb_type: core_type option;
     pvb_expr: expression;
     pvb_attributes: attributes;
     pvb_loc: Location.t;

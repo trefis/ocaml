@@ -877,6 +877,10 @@ and value_binding i ppf x =
   line i ppf "<def>\n";
   attributes (i+1) ppf x.pvb_attributes;
   pattern (i+1) ppf x.pvb_pat;
+  begin match x.pvb_type with
+  | None -> ()
+  | Some ty -> core_type (i + 1) ppf ty
+  end;
   expression (i+1) ppf x.pvb_expr
 
 and string_x_expression i ppf (s, e) =

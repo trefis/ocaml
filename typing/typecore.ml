@@ -2342,7 +2342,7 @@ and type_expect_
       let body =
         Exp.let_ ~loc Nonrecursive
           ~attrs:[Attr.mk (mknoloc "#default") (PStr [])]
-          [Vb.mk spat smatch] sbody
+          [Vb.mk spat None smatch] sbody
       in
       type_function ?in_function loc sexp.pexp_attributes env
                     ty_expected_explained l [Exp.case pat body]
@@ -4246,14 +4246,11 @@ and type_let
 
   let spatl =
     List.map
-      (fun {pvb_pat=spat; pvb_expr=sexp; pvb_attributes=attrs} ->
+      (fun {pvb_pat=spat; pvb_type=typ; pvb_attributes=attrs} ->
         attrs,
-        match spat.ppat_desc, sexp.pexp_desc with
+        match spat.ppat_desc, typ with
           (Ppat_any | Ppat_constraint _), _ -> spat
-        | _, Pexp_coerce (_, _, sty)
-        | _, Pexp_constraint (_, sty) when !Clflags.principal ->
-            (* propagate type annotation to pattern,
-               to allow it to be generalized in -principal mode *)
+        | _, Some sty ->
             Pat.constraint_
               ~loc:{spat.ppat_loc with Location.loc_ghost=true}
               spat

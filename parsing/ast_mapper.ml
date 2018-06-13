@@ -624,9 +624,10 @@ let default_mapper =
 
 
     value_binding =
-      (fun this {pvb_pat; pvb_expr; pvb_attributes; pvb_loc} ->
+      (fun this {pvb_pat; pvb_type; pvb_expr; pvb_attributes; pvb_loc} ->
          Vb.mk
            (this.pat this pvb_pat)
+           (map_opt (this.typ this) pvb_type)
            (this.expr this pvb_expr)
            ~loc:(this.location this pvb_loc)
            ~attrs:(this.attributes this pvb_attributes)

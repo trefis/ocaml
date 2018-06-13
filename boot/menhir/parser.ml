@@ -16,7 +16,7 @@ module MenhirBasics = struct
     | VAL
     | UNDERSCORE
     | UIDENT of (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
 # 22 "parsing/parser.ml"
   )
@@ -28,7 +28,7 @@ module MenhirBasics = struct
     | THEN
     | STRUCT
     | STRING of (
-# 616 "parsing/parser.mly"
+# 618 "parsing/parser.mly"
        (string * string option)
 # 34 "parsing/parser.ml"
   )
@@ -44,7 +44,7 @@ module MenhirBasics = struct
     | QUESTION
     | PRIVATE
     | PREFIXOP of (
-# 602 "parsing/parser.mly"
+# 604 "parsing/parser.mly"
        (string)
 # 50 "parsing/parser.ml"
   )
@@ -54,7 +54,7 @@ module MenhirBasics = struct
     | PERCENT
     | OR
     | OPTLABEL of (
-# 595 "parsing/parser.mly"
+# 597 "parsing/parser.mly"
        (string)
 # 60 "parsing/parser.ml"
   )
@@ -72,7 +72,7 @@ module MenhirBasics = struct
     | MATCH
     | LPAREN
     | LIDENT of (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
 # 78 "parsing/parser.ml"
   )
@@ -92,39 +92,39 @@ module MenhirBasics = struct
     | LBRACE
     | LAZY
     | LABEL of (
-# 565 "parsing/parser.mly"
+# 567 "parsing/parser.mly"
        (string)
 # 98 "parsing/parser.ml"
   )
     | INT of (
-# 564 "parsing/parser.mly"
+# 566 "parsing/parser.mly"
        (string * char option)
 # 103 "parsing/parser.ml"
   )
     | INITIALIZER
     | INHERIT
     | INFIXOP4 of (
-# 560 "parsing/parser.mly"
+# 562 "parsing/parser.mly"
        (string)
 # 110 "parsing/parser.ml"
   )
     | INFIXOP3 of (
-# 559 "parsing/parser.mly"
+# 561 "parsing/parser.mly"
        (string)
 # 115 "parsing/parser.ml"
   )
     | INFIXOP2 of (
-# 558 "parsing/parser.mly"
+# 560 "parsing/parser.mly"
        (string)
 # 120 "parsing/parser.ml"
   )
     | INFIXOP1 of (
-# 557 "parsing/parser.mly"
+# 559 "parsing/parser.mly"
        (string)
 # 125 "parsing/parser.ml"
   )
     | INFIXOP0 of (
-# 556 "parsing/parser.mly"
+# 558 "parsing/parser.mly"
        (string)
 # 130 "parsing/parser.ml"
   )
@@ -132,7 +132,7 @@ module MenhirBasics = struct
     | IN
     | IF
     | HASHOP of (
-# 613 "parsing/parser.mly"
+# 615 "parsing/parser.mly"
        (string)
 # 138 "parsing/parser.ml"
   )
@@ -145,7 +145,7 @@ module MenhirBasics = struct
     | FUN
     | FOR
     | FLOAT of (
-# 545 "parsing/parser.mly"
+# 547 "parsing/parser.mly"
        (string * char option)
 # 151 "parsing/parser.ml"
   )
@@ -159,7 +159,7 @@ module MenhirBasics = struct
     | ELSE
     | DOWNTO
     | DOTOP of (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
 # 165 "parsing/parser.ml"
   )
@@ -167,14 +167,14 @@ module MenhirBasics = struct
     | DOT
     | DONE
     | DOCSTRING of (
-# 632 "parsing/parser.mly"
+# 634 "parsing/parser.mly"
        (Docstrings.docstring)
 # 173 "parsing/parser.ml"
   )
     | DO
     | CONSTRAINT
     | COMMENT of (
-# 631 "parsing/parser.mly"
+# 633 "parsing/parser.mly"
        (string * Location.t)
 # 180 "parsing/parser.ml"
   )
@@ -185,7 +185,7 @@ module MenhirBasics = struct
     | COLON
     | CLASS
     | CHAR of (
-# 525 "parsing/parser.mly"
+# 527 "parsing/parser.mly"
        (char)
 # 191 "parsing/parser.ml"
   )
@@ -580,6 +580,7 @@ let extra_rhs_core_type ct ~pos =
 
 type let_binding =
   { lb_pattern: pattern;
+    lb_type: core_type option;
     lb_expression: expression;
     lb_attributes: attributes;
     lb_docs: docs Lazy.t;
@@ -592,9 +593,10 @@ type let_bindings =
     lbs_extension: string Asttypes.loc option;
     lbs_loc: Location.t }
 
-let mklb first ~loc (p, e) attrs =
+let mklb first ~loc (p, t, e) attrs =
   {
     lb_pattern = p;
+    lb_type = t;
     lb_expression = e;
     lb_attributes = attrs;
     lb_docs = symbol_docs_lazy loc;
@@ -621,7 +623,7 @@ let val_of_let_bindings ~loc lbs =
          Vb.mk ~loc:lb.lb_loc ~attrs:lb.lb_attributes
            ~docs:(Lazy.force lb.lb_docs)
            ~text:(Lazy.force lb.lb_text)
-           lb.lb_pattern lb.lb_expression)
+           lb.lb_pattern lb.lb_type lb.lb_expression)
       lbs.lbs_bindings
   in
   let str = mkstr ~loc (Pstr_value(lbs.lbs_rec, List.rev bindings)) in
@@ -634,7 +636,7 @@ let expr_of_let_bindings ~loc lbs body =
     List.map
       (fun lb ->
          Vb.mk ~loc:lb.lb_loc ~attrs:lb.lb_attributes
-           lb.lb_pattern lb.lb_expression)
+           lb.lb_pattern lb.lb_type lb.lb_expression)
       lbs.lbs_bindings
   in
     mkexp_attrs ~loc (Pexp_let(lbs.lbs_rec, List.rev bindings, body))
@@ -645,7 +647,7 @@ let class_of_let_bindings ~loc lbs body =
     List.map
       (fun lb ->
          Vb.mk ~loc:lb.lb_loc ~attrs:lb.lb_attributes
-           lb.lb_pattern lb.lb_expression)
+           lb.lb_pattern lb.lb_type lb.lb_expression)
       lbs.lbs_bindings
   in
     if lbs.lbs_extension <> None then
@@ -702,7 +704,7 @@ let mk_directive ~loc name arg =
     }
 
 
-# 706 "parsing/parser.ml"
+# 708 "parsing/parser.ml"
 
 module Tables = struct
   
@@ -1229,9 +1231,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2993 "parsing/parser.mly"
+# 2989 "parsing/parser.mly"
                                                 ( "+" )
-# 1235 "parsing/parser.ml"
+# 1237 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1254,9 +1256,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2994 "parsing/parser.mly"
+# 2990 "parsing/parser.mly"
                                                 ( "+." )
-# 1260 "parsing/parser.ml"
+# 1262 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1307,9 +1309,9 @@ module Tables = struct
         let _7 : (Parsetree.attributes) = Obj.magic _7 in
         let _6 : (Parsetree.class_expr) = Obj.magic _6 in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 1313 "parsing/parser.ml"
+# 1315 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _4 : ((Parsetree.core_type * Asttypes.variance) list) = Obj.magic _4 in
         let _3 : (Asttypes.virtual_flag) = Obj.magic _3 in
@@ -1326,21 +1328,21 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 1332 "parsing/parser.ml"
+# 1334 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1287 "parsing/parser.mly"
+# 1289 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         let text = symbol_text _symbolstartpos in
         Ci.mk _5 _6 ~virt:_3 ~params:_4
                     ~attrs:(_2@_7) ~loc:(make_loc _sloc) ~text ~docs )
-# 1344 "parsing/parser.ml"
+# 1346 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1397,9 +1399,9 @@ module Tables = struct
         let _7 : (Parsetree.class_type) = Obj.magic _7 in
         let _6 : unit = Obj.magic _6 in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 1403 "parsing/parser.ml"
+# 1405 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _4 : ((Parsetree.core_type * Asttypes.variance) list) = Obj.magic _4 in
         let _3 : (Asttypes.virtual_flag) = Obj.magic _3 in
@@ -1416,21 +1418,21 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 1422 "parsing/parser.ml"
+# 1424 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__8_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1558 "parsing/parser.mly"
+# 1560 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         let text = symbol_text _symbolstartpos in
         Ci.mk _5 _7 ~virt:_3 ~params:_4
                     ~attrs:(_2@_8) ~loc:(make_loc _sloc) ~text ~docs )
-# 1434 "parsing/parser.ml"
+# 1436 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1487,9 +1489,9 @@ module Tables = struct
         let _7 : (Parsetree.class_type) = Obj.magic _7 in
         let _6 : unit = Obj.magic _6 in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 1493 "parsing/parser.ml"
+# 1495 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _4 : ((Parsetree.core_type * Asttypes.variance) list) = Obj.magic _4 in
         let _3 : (Asttypes.virtual_flag) = Obj.magic _3 in
@@ -1506,21 +1508,21 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 1512 "parsing/parser.ml"
+# 1514 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__8_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1581 "parsing/parser.mly"
+# 1583 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         let text = symbol_text _symbolstartpos in
         Ci.mk _5 _7 ~virt:_3 ~params:_4
                     ~attrs:(_2@_8) ~loc:(make_loc _sloc) ~text ~docs )
-# 1524 "parsing/parser.ml"
+# 1526 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1554,7 +1556,7 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _4 : (Parsetree.attributes) = Obj.magic _4 in
-        let _3 : (Parsetree.pattern * Parsetree.expression) = Obj.magic _3 in
+        let _3 : (Parsetree.pattern * Parsetree.core_type option * Parsetree.expression) = Obj.magic _3 in
         let _2 : (Parsetree.attributes) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -1564,9 +1566,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2019 "parsing/parser.mly"
+# 2015 "parsing/parser.mly"
       ( mklb ~loc:_sloc false _3 (_2@_4) )
-# 1570 "parsing/parser.ml"
+# 1572 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1607,9 +1609,9 @@ module Tables = struct
         let _5 : (Parsetree.attributes) = Obj.magic _5 in
         let _4 : (Parsetree.module_expr) = Obj.magic _4 in
         let _10 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 1613 "parsing/parser.ml"
+# 1615 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _2 : (Parsetree.attributes) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
@@ -1624,20 +1626,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 1630 "parsing/parser.ml"
+# 1632 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1111 "parsing/parser.mly"
+# 1113 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         let text = symbol_text _symbolstartpos in
         Mb.mk _3 _4 ~attrs:(_2@_5) ~loc:(make_loc _sloc) ~text ~docs )
-# 1641 "parsing/parser.ml"
+# 1643 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1684,9 +1686,9 @@ module Tables = struct
         let _5 : (Parsetree.module_type) = Obj.magic _5 in
         let _4 : unit = Obj.magic _4 in
         let _10 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 1690 "parsing/parser.ml"
+# 1692 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _2 : (Parsetree.attributes) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
@@ -1701,20 +1703,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 1707 "parsing/parser.ml"
+# 1709 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__6_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1252 "parsing/parser.mly"
+# 1254 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         let text = symbol_text _symbolstartpos in
         Md.mk _3 _5 ~attrs:(_2@_6) ~loc:(make_loc _sloc) ~text ~docs )
-# 1718 "parsing/parser.ml"
+# 1720 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1766,9 +1768,9 @@ module Tables = struct
         let _6 : ((Parsetree.core_type * Parsetree.core_type * Ast_helper.loc) list) = Obj.magic _6 in
         let _5 : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = Obj.magic _5 in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 1772 "parsing/parser.ml"
+# 1774 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _3 : ((Parsetree.core_type * Asttypes.variance) list) = Obj.magic _3 in
         let _2 : (Parsetree.attributes) = Obj.magic _2 in
@@ -1784,23 +1786,23 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 1790 "parsing/parser.ml"
+# 1792 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2336 "parsing/parser.mly"
+# 2332 "parsing/parser.mly"
       ( let (kind, priv, manifest) = _5 in
         let docs = symbol_docs _sloc in
         let text = symbol_text _symbolstartpos in
         Type.mk _4 ~params:_3 ~cstrs:(List.rev _6)
           ~kind ~priv ?manifest
           ~attrs:(_2@_7) ~loc:(make_loc _sloc) ~docs ~text )
-# 1804 "parsing/parser.ml"
+# 1806 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1829,9 +1831,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 3056 "parsing/parser.mly"
+# 3052 "parsing/parser.mly"
                      ( _1 )
-# 1835 "parsing/parser.ml"
+# 1837 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -1840,15 +1842,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 735 "parsing/parser.mly"
+# 737 "parsing/parser.mly"
     ( mkloc _1 (make_loc _sloc) )
-# 1846 "parsing/parser.ml"
+# 1848 "parsing/parser.ml"
           
         in
         
-# 3058 "parsing/parser.mly"
+# 3054 "parsing/parser.mly"
     ( _1 )
-# 1852 "parsing/parser.ml"
+# 1854 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1893,9 +1895,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 3057 "parsing/parser.mly"
+# 3053 "parsing/parser.mly"
                                  ( _1 ^ "." ^ _3.txt )
-# 1899 "parsing/parser.ml"
+# 1901 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -1904,15 +1906,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 735 "parsing/parser.mly"
+# 737 "parsing/parser.mly"
     ( mkloc _1 (make_loc _sloc) )
-# 1910 "parsing/parser.ml"
+# 1912 "parsing/parser.ml"
           
         in
         
-# 3058 "parsing/parser.mly"
+# 3054 "parsing/parser.mly"
     ( _1 )
-# 1916 "parsing/parser.ml"
+# 1918 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1956,9 +1958,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 3062 "parsing/parser.mly"
+# 3058 "parsing/parser.mly"
     ( Attr.mk ~loc:(make_loc _sloc) _2 _3 )
-# 1962 "parsing/parser.ml"
+# 1964 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -1974,9 +1976,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.attributes) = 
-# 3078 "parsing/parser.mly"
+# 3074 "parsing/parser.mly"
                ( [] )
-# 1980 "parsing/parser.ml"
+# 1982 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2005,9 +2007,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.attributes) = 
-# 3079 "parsing/parser.mly"
+# 3075 "parsing/parser.mly"
                          ( _1 :: _2 )
-# 2011 "parsing/parser.ml"
+# 2013 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2055,20 +2057,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 2061 "parsing/parser.ml"
+# 2063 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__4_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2419 "parsing/parser.mly"
+# 2415 "parsing/parser.mly"
     ( let args,res = _3 in
       let info = symbol_info _endpos in
       Type.constructor _2 ~args ?res ~attrs:_4 ~loc:(make_loc _sloc) ~info )
-# 2072 "parsing/parser.ml"
+# 2074 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2116,20 +2118,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 2122 "parsing/parser.ml"
+# 2124 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__4_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2528 "parsing/parser.mly"
+# 2524 "parsing/parser.mly"
       ( let args, res = _3 in
         let info = symbol_info _endpos in
         Te.decl _2 ~args ?res ~attrs:_4 ~loc:(make_loc _sloc) ~info )
-# 2133 "parsing/parser.ml"
+# 2135 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2183,9 +2185,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 2189 "parsing/parser.ml"
+# 2191 "parsing/parser.ml"
           
         in
         let _2 =
@@ -2196,19 +2198,19 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 2202 "parsing/parser.ml"
+# 2204 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2539 "parsing/parser.mly"
+# 2535 "parsing/parser.mly"
       ( let info = symbol_info _endpos in
         Te.rebind _2 _4 ~attrs:_5 ~loc:(make_loc _sloc) ~info )
-# 2212 "parsing/parser.ml"
+# 2214 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2259,9 +2261,9 @@ module Tables = struct
         let _7 : (Parsetree.attributes) = Obj.magic _7 in
         let _6 : (Parsetree.class_expr) = Obj.magic _6 in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 2265 "parsing/parser.ml"
+# 2267 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _4 : ((Parsetree.core_type * Asttypes.variance) list) = Obj.magic _4 in
         let _3 : (Asttypes.virtual_flag) = Obj.magic _3 in
@@ -2278,22 +2280,22 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 2284 "parsing/parser.ml"
+# 2286 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1278 "parsing/parser.mly"
+# 1280 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Ci.mk _5 _6 ~virt:_3 ~params:_4
                     ~attrs:(attrs@_7) ~loc:(make_loc _sloc) ~docs
         , ext )
-# 2297 "parsing/parser.ml"
+# 2299 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2316,9 +2318,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.class_declaration list * string Asttypes.loc option) = 
-# 1271 "parsing/parser.mly"
+# 1273 "parsing/parser.mly"
       ( let (body, ext) = _1 in ([body], ext) )
-# 2322 "parsing/parser.ml"
+# 2324 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2347,9 +2349,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.class_declaration list * string Asttypes.loc option) = 
-# 1273 "parsing/parser.mly"
+# 1275 "parsing/parser.mly"
       ( let (l, ext) = _1 in (_2 :: l, ext) )
-# 2353 "parsing/parser.ml"
+# 2355 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2406,9 +2408,9 @@ module Tables = struct
         let _7 : (Parsetree.class_type) = Obj.magic _7 in
         let _6 : unit = Obj.magic _6 in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 2412 "parsing/parser.ml"
+# 2414 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _4 : ((Parsetree.core_type * Asttypes.variance) list) = Obj.magic _4 in
         let _3 : (Asttypes.virtual_flag) = Obj.magic _3 in
@@ -2425,22 +2427,22 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 2431 "parsing/parser.ml"
+# 2433 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__8_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1549 "parsing/parser.mly"
+# 1551 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Ci.mk _5 _7 ~virt:_3 ~params:_4
                     ~attrs:(attrs @ _8) ~loc:(make_loc _sloc) ~docs
         , ext )
-# 2444 "parsing/parser.ml"
+# 2446 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2463,9 +2465,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.class_description list * string Asttypes.loc option) = 
-# 1542 "parsing/parser.mly"
+# 1544 "parsing/parser.mly"
       ( let (body, ext) = _1 in ([body],ext) )
-# 2469 "parsing/parser.ml"
+# 2471 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2494,9 +2496,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.class_description list * string Asttypes.loc option) = 
-# 1544 "parsing/parser.mly"
+# 1546 "parsing/parser.mly"
       ( let (l, ext) = _1 in (_2 :: l, ext) )
-# 2500 "parsing/parser.ml"
+# 2502 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2519,9 +2521,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.class_expr) = 
-# 1316 "parsing/parser.mly"
+# 1318 "parsing/parser.mly"
       ( _1 )
-# 2525 "parsing/parser.ml"
+# 2527 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2559,9 +2561,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1318 "parsing/parser.mly"
+# 1320 "parsing/parser.mly"
       ( wrap_class_attrs ~loc:_sloc _3 _2 )
-# 2565 "parsing/parser.ml"
+# 2567 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2599,9 +2601,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1320 "parsing/parser.mly"
+# 1322 "parsing/parser.mly"
       ( class_of_let_bindings ~loc:_sloc _1 _3 )
-# 2605 "parsing/parser.ml"
+# 2607 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2667,18 +2669,18 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 2673 "parsing/parser.ml"
+# 2675 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1322 "parsing/parser.mly"
+# 1324 "parsing/parser.mly"
       ( mkclass ~loc:_sloc ~attrs:_4 (Pcl_open(_3, _5, _7)) )
-# 2682 "parsing/parser.ml"
+# 2684 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2707,9 +2709,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.class_expr) = 
-# 1324 "parsing/parser.mly"
+# 1326 "parsing/parser.mly"
       ( Cl.attr _1 _2 )
-# 2713 "parsing/parser.ml"
+# 2715 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2750,21 +2752,21 @@ module Tables = struct
               let xs =
                 let xs = xs0 in
                 
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 2756 "parsing/parser.ml"
+# 2758 "parsing/parser.ml"
                 
               in
               
-# 783 "parsing/parser.mly"
+# 785 "parsing/parser.mly"
     ( xs )
-# 2762 "parsing/parser.ml"
+# 2764 "parsing/parser.ml"
               
             in
             
-# 1327 "parsing/parser.mly"
+# 1329 "parsing/parser.mly"
         ( Pcl_apply(_1, _2) )
-# 2768 "parsing/parser.ml"
+# 2770 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos_xs000_ in
@@ -2773,15 +2775,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 2779 "parsing/parser.ml"
+# 2781 "parsing/parser.ml"
           
         in
         
-# 1330 "parsing/parser.mly"
+# 1332 "parsing/parser.mly"
       ( _1 )
-# 2785 "parsing/parser.ml"
+# 2787 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2810,9 +2812,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 1329 "parsing/parser.mly"
+# 1331 "parsing/parser.mly"
         ( Pcl_extension _1 )
-# 2816 "parsing/parser.ml"
+# 2818 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -2821,15 +2823,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 2827 "parsing/parser.ml"
+# 2829 "parsing/parser.ml"
           
         in
         
-# 1330 "parsing/parser.mly"
+# 1332 "parsing/parser.mly"
       ( _1 )
-# 2833 "parsing/parser.ml"
+# 2835 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2885,10 +2887,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1374 "parsing/parser.mly"
+# 1376 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mkcf ~loc:_sloc (Pcf_inherit (_2, _4, _5)) ~attrs:(_3@_6) ~docs )
-# 2892 "parsing/parser.ml"
+# 2894 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2928,11 +2930,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1377 "parsing/parser.mly"
+# 1379 "parsing/parser.mly"
       ( let v, attrs = _2 in
         let docs = symbol_docs _sloc in
         mkcf ~loc:_sloc (Pcf_val v) ~attrs:(attrs@_3) ~docs )
-# 2936 "parsing/parser.ml"
+# 2938 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -2972,11 +2974,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1381 "parsing/parser.mly"
+# 1383 "parsing/parser.mly"
       ( let meth, attrs = _2 in
         let docs = symbol_docs _sloc in
         mkcf ~loc:_sloc (Pcf_method meth) ~attrs:(attrs@_3) ~docs )
-# 2980 "parsing/parser.ml"
+# 2982 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3020,10 +3022,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1385 "parsing/parser.mly"
+# 1387 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mkcf ~loc:_sloc (Pcf_constraint _3) ~attrs:(_2@_4) ~docs )
-# 3027 "parsing/parser.ml"
+# 3029 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3067,10 +3069,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1388 "parsing/parser.mly"
+# 1390 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mkcf ~loc:_sloc (Pcf_initializer _3) ~attrs:(_2@_4) ~docs )
-# 3074 "parsing/parser.ml"
+# 3076 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3102,10 +3104,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1391 "parsing/parser.mly"
+# 1393 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mkcf ~loc:_sloc (Pcf_extension _1) ~attrs:_2 ~docs )
-# 3109 "parsing/parser.ml"
+# 3111 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3134,9 +3136,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 1394 "parsing/parser.mly"
+# 1396 "parsing/parser.mly"
       ( Pcf_attribute _1 )
-# 3140 "parsing/parser.ml"
+# 3142 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -3145,15 +3147,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 754 "parsing/parser.mly"
+# 756 "parsing/parser.mly"
     ( mkcf ~loc:_sloc _1 )
-# 3151 "parsing/parser.ml"
+# 3153 "parsing/parser.ml"
           
         in
         
-# 1395 "parsing/parser.mly"
+# 1397 "parsing/parser.mly"
       ( _1 )
-# 3157 "parsing/parser.ml"
+# 3159 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3169,9 +3171,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.class_field list) = 
-# 1367 "parsing/parser.mly"
+# 1369 "parsing/parser.mly"
       ( [] )
-# 3175 "parsing/parser.ml"
+# 3177 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3200,9 +3202,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.class_field list) = 
-# 1369 "parsing/parser.mly"
+# 1371 "parsing/parser.mly"
       ( _2 :: List.rev (text_cstr _startpos__2_) @ _1 )
-# 3206 "parsing/parser.ml"
+# 3208 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3231,9 +3233,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.class_expr) = 
-# 1294 "parsing/parser.mly"
+# 1296 "parsing/parser.mly"
       ( _2 )
-# 3237 "parsing/parser.ml"
+# 3239 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3286,9 +3288,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1297 "parsing/parser.mly"
+# 1299 "parsing/parser.mly"
         ( Pcl_constraint(_4, _2) )
-# 3292 "parsing/parser.ml"
+# 3294 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__40_ in
@@ -3297,15 +3299,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 3303 "parsing/parser.ml"
+# 3305 "parsing/parser.ml"
           
         in
         
-# 1300 "parsing/parser.mly"
+# 1302 "parsing/parser.mly"
       ( _1 )
-# 3309 "parsing/parser.ml"
+# 3311 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3342,9 +3344,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1299 "parsing/parser.mly"
+# 1301 "parsing/parser.mly"
       ( let (l,o,p) = _1 in Pcl_fun(l, o, p, _2) )
-# 3348 "parsing/parser.ml"
+# 3350 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -3353,15 +3355,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 3359 "parsing/parser.ml"
+# 3361 "parsing/parser.ml"
           
         in
         
-# 1300 "parsing/parser.mly"
+# 1302 "parsing/parser.mly"
       ( _1 )
-# 3365 "parsing/parser.ml"
+# 3367 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3391,15 +3393,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 3397 "parsing/parser.ml"
+# 3399 "parsing/parser.ml"
           
         in
         
-# 1307 "parsing/parser.mly"
+# 1309 "parsing/parser.mly"
                                            ( _1 )
-# 3403 "parsing/parser.ml"
+# 3405 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3434,9 +3436,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.class_expr_desc) = 
-# 1310 "parsing/parser.mly"
+# 1312 "parsing/parser.mly"
       ( let (l,o,p) = _1 in Pcl_fun(l, o, p, _3) )
-# 3440 "parsing/parser.ml"
+# 3442 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3465,9 +3467,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.class_expr_desc) = 
-# 1312 "parsing/parser.mly"
+# 1314 "parsing/parser.mly"
       ( let (l,o,p) = _1 in Pcl_fun(l, o, p, _2) )
-# 3471 "parsing/parser.ml"
+# 3473 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3486,17 +3488,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 3492 "parsing/parser.ml"
+# 3494 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2909 "parsing/parser.mly"
+# 2905 "parsing/parser.mly"
                                                 ( Lident _1 )
-# 3500 "parsing/parser.ml"
+# 3502 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3525,9 +3527,9 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _3 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 3531 "parsing/parser.ml"
+# 3533 "parsing/parser.ml"
         ) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
         let _1 : (Longident.t) = Obj.magic _1 in
@@ -3535,9 +3537,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Longident.t) = 
-# 2910 "parsing/parser.mly"
+# 2906 "parsing/parser.mly"
                                                 ( Ldot(_1, _3) )
-# 3541 "parsing/parser.ml"
+# 3543 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3575,9 +3577,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1358 "parsing/parser.mly"
+# 1360 "parsing/parser.mly"
       ( reloc_pat ~loc:_sloc _2 )
-# 3581 "parsing/parser.ml"
+# 3583 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3638,9 +3640,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1360 "parsing/parser.mly"
+# 1362 "parsing/parser.mly"
       ( Ppat_constraint(_2, _4) )
-# 3644 "parsing/parser.ml"
+# 3646 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -3649,15 +3651,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 3655 "parsing/parser.ml"
+# 3657 "parsing/parser.ml"
           
         in
         
-# 1361 "parsing/parser.mly"
+# 1363 "parsing/parser.mly"
       ( _1 )
-# 3661 "parsing/parser.ml"
+# 3663 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3676,9 +3678,9 @@ module Tables = struct
         let _symbolstartpos = _endpos in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1363 "parsing/parser.mly"
+# 1365 "parsing/parser.mly"
       ( ghpat ~loc:_sloc Ppat_any )
-# 3682 "parsing/parser.ml"
+# 3684 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3713,9 +3715,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.core_type) = 
-# 1492 "parsing/parser.mly"
+# 1494 "parsing/parser.mly"
       ( _2 )
-# 3719 "parsing/parser.ml"
+# 3721 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3733,9 +3735,9 @@ module Tables = struct
         let _v : (Parsetree.core_type) = let _1 =
           let _1 =
             
-# 1493 "parsing/parser.mly"
+# 1495 "parsing/parser.mly"
                       ( Ptyp_any )
-# 3739 "parsing/parser.ml"
+# 3741 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__0_ in
@@ -3743,15 +3745,15 @@ module Tables = struct
           let _symbolstartpos = _endpos in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 3749 "parsing/parser.ml"
+# 3751 "parsing/parser.ml"
           
         in
         
-# 1494 "parsing/parser.mly"
+# 1496 "parsing/parser.mly"
       ( _1 )
-# 3755 "parsing/parser.ml"
+# 3757 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3786,15 +3788,15 @@ module Tables = struct
           let _endpos = _endpos__1_ in
           let _startpos = _startpos__1_ in
           
-# 723 "parsing/parser.mly"
+# 725 "parsing/parser.mly"
                                ( extra_csig _startpos _endpos _1 )
-# 3792 "parsing/parser.ml"
+# 3794 "parsing/parser.ml"
           
         in
         
-# 1488 "parsing/parser.mly"
+# 1490 "parsing/parser.mly"
       ( Csig.mk _1 (List.rev _2) )
-# 3798 "parsing/parser.ml"
+# 3800 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3838,10 +3840,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1504 "parsing/parser.mly"
+# 1506 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mkctf ~loc:_sloc (Pctf_inherit _3) ~attrs:(_2@_4) ~docs )
-# 3845 "parsing/parser.ml"
+# 3847 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3886,10 +3888,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1507 "parsing/parser.mly"
+# 1509 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mkctf ~loc:_sloc (Pctf_val _3) ~attrs:(_2@_4) ~docs )
-# 3893 "parsing/parser.ml"
+# 3895 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -3950,9 +3952,9 @@ module Tables = struct
         let _v : (Parsetree.class_type_field) = let _6 =
           let _1 = _11 in
           
-# 2604 "parsing/parser.mly"
+# 2600 "parsing/parser.mly"
     ( _1 )
-# 3956 "parsing/parser.ml"
+# 3958 "parsing/parser.ml"
           
         in
         let _4 =
@@ -3963,20 +3965,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 3969 "parsing/parser.ml"
+# 3971 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1511 "parsing/parser.mly"
+# 1513 "parsing/parser.mly"
       ( let (p, v) = _3 in
         let docs = symbol_docs _sloc in
         mkctf ~loc:_sloc (Pctf_method (_4, p, v, _6)) ~attrs:(_2@_7) ~docs )
-# 3980 "parsing/parser.ml"
+# 3982 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4020,10 +4022,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1515 "parsing/parser.mly"
+# 1517 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mkctf ~loc:_sloc (Pctf_constraint _3) ~attrs:(_2@_4) ~docs )
-# 4027 "parsing/parser.ml"
+# 4029 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4055,10 +4057,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1518 "parsing/parser.mly"
+# 1520 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mkctf ~loc:_sloc (Pctf_extension _1) ~attrs:_2 ~docs )
-# 4062 "parsing/parser.ml"
+# 4064 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4087,9 +4089,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 1521 "parsing/parser.mly"
+# 1523 "parsing/parser.mly"
       ( Pctf_attribute _1 )
-# 4093 "parsing/parser.ml"
+# 4095 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -4098,15 +4100,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 752 "parsing/parser.mly"
+# 754 "parsing/parser.mly"
     ( mkctf ~loc:_sloc _1 )
-# 4104 "parsing/parser.ml"
+# 4106 "parsing/parser.ml"
           
         in
         
-# 1522 "parsing/parser.mly"
+# 1524 "parsing/parser.mly"
       ( _1 )
-# 4110 "parsing/parser.ml"
+# 4112 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4122,9 +4124,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.class_type_field list) = 
-# 1498 "parsing/parser.mly"
+# 1500 "parsing/parser.mly"
     ( [] )
-# 4128 "parsing/parser.ml"
+# 4130 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4153,9 +4155,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.class_type_field list) = 
-# 1500 "parsing/parser.mly"
+# 1502 "parsing/parser.mly"
     ( _2 :: List.rev (text_csig _startpos__2_) @ _1 )
-# 4159 "parsing/parser.ml"
+# 4161 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4218,23 +4220,23 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 4224 "parsing/parser.ml"
+# 4226 "parsing/parser.ml"
               
             in
             let _2 =
               let tys = tys0 in
               
-# 2744 "parsing/parser.mly"
+# 2740 "parsing/parser.mly"
     ( tys )
-# 4232 "parsing/parser.ml"
+# 4234 "parsing/parser.ml"
               
             in
             
-# 1471 "parsing/parser.mly"
+# 1473 "parsing/parser.mly"
         ( Pcty_constr (_4, List.rev _2) )
-# 4238 "parsing/parser.ml"
+# 4240 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -4243,15 +4245,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 750 "parsing/parser.mly"
+# 752 "parsing/parser.mly"
     ( mkcty ~loc:_sloc _1 )
-# 4249 "parsing/parser.ml"
+# 4251 "parsing/parser.ml"
           
         in
         
-# 1476 "parsing/parser.mly"
+# 1478 "parsing/parser.mly"
       ( _1 )
-# 4255 "parsing/parser.ml"
+# 4257 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4289,15 +4291,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 4295 "parsing/parser.ml"
+# 4297 "parsing/parser.ml"
               
             in
             
-# 1473 "parsing/parser.mly"
+# 1475 "parsing/parser.mly"
         ( Pcty_constr (_1, []) )
-# 4301 "parsing/parser.ml"
+# 4303 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -4306,15 +4308,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 750 "parsing/parser.mly"
+# 752 "parsing/parser.mly"
     ( mkcty ~loc:_sloc _1 )
-# 4312 "parsing/parser.ml"
+# 4314 "parsing/parser.ml"
           
         in
         
-# 1476 "parsing/parser.mly"
+# 1478 "parsing/parser.mly"
       ( _1 )
-# 4318 "parsing/parser.ml"
+# 4320 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4343,9 +4345,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 1475 "parsing/parser.mly"
+# 1477 "parsing/parser.mly"
         ( Pcty_extension _1 )
-# 4349 "parsing/parser.ml"
+# 4351 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -4354,15 +4356,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 750 "parsing/parser.mly"
+# 752 "parsing/parser.mly"
     ( mkcty ~loc:_sloc _1 )
-# 4360 "parsing/parser.ml"
+# 4362 "parsing/parser.ml"
           
         in
         
-# 1476 "parsing/parser.mly"
+# 1478 "parsing/parser.mly"
       ( _1 )
-# 4366 "parsing/parser.ml"
+# 4368 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4406,9 +4408,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1478 "parsing/parser.mly"
+# 1480 "parsing/parser.mly"
       ( mkcty ~loc:_sloc ~attrs:_2 (Pcty_signature _3) )
-# 4412 "parsing/parser.ml"
+# 4414 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4451,9 +4453,9 @@ module Tables = struct
         let _v : (Parsetree.class_type) = let _loc__4_ = (_startpos__4_, _endpos__4_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 1480 "parsing/parser.mly"
+# 1482 "parsing/parser.mly"
       ( unclosed "object" _loc__1_ "end" _loc__4_ )
-# 4457 "parsing/parser.ml"
+# 4459 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4482,9 +4484,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.class_type) = 
-# 1482 "parsing/parser.mly"
+# 1484 "parsing/parser.mly"
       ( Cty.attr _1 _2 )
-# 4488 "parsing/parser.ml"
+# 4490 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4550,18 +4552,18 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 4556 "parsing/parser.ml"
+# 4558 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1484 "parsing/parser.mly"
+# 1486 "parsing/parser.mly"
       ( mkcty ~loc:_sloc ~attrs:_4 (Pcty_open(_3, _5, _7)) )
-# 4565 "parsing/parser.ml"
+# 4567 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4596,9 +4598,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.class_expr) = 
-# 1334 "parsing/parser.mly"
+# 1336 "parsing/parser.mly"
       ( _2 )
-# 4602 "parsing/parser.ml"
+# 4604 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4635,9 +4637,9 @@ module Tables = struct
         let _v : (Parsetree.class_expr) = let _loc__3_ = (_startpos__3_, _endpos__3_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 1336 "parsing/parser.mly"
+# 1338 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__3_ )
-# 4641 "parsing/parser.ml"
+# 4643 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4700,23 +4702,23 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 4706 "parsing/parser.ml"
+# 4708 "parsing/parser.ml"
               
             in
             let _2 =
               let tys = tys0 in
               
-# 2744 "parsing/parser.mly"
+# 2740 "parsing/parser.mly"
     ( tys )
-# 4714 "parsing/parser.ml"
+# 4716 "parsing/parser.ml"
               
             in
             
-# 1339 "parsing/parser.mly"
+# 1341 "parsing/parser.mly"
         ( Pcl_constr(_4, List.rev _2) )
-# 4720 "parsing/parser.ml"
+# 4722 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -4725,15 +4727,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 4731 "parsing/parser.ml"
+# 4733 "parsing/parser.ml"
           
         in
         
-# 1348 "parsing/parser.mly"
+# 1350 "parsing/parser.mly"
       ( _1 )
-# 4737 "parsing/parser.ml"
+# 4739 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4771,15 +4773,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 4777 "parsing/parser.ml"
+# 4779 "parsing/parser.ml"
               
             in
             
-# 1341 "parsing/parser.mly"
+# 1343 "parsing/parser.mly"
         ( Pcl_constr(_1, []) )
-# 4783 "parsing/parser.ml"
+# 4785 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -4788,15 +4790,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 4794 "parsing/parser.ml"
+# 4796 "parsing/parser.ml"
           
         in
         
-# 1348 "parsing/parser.mly"
+# 1350 "parsing/parser.mly"
       ( _1 )
-# 4800 "parsing/parser.ml"
+# 4802 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4857,9 +4859,9 @@ module Tables = struct
             let _loc__4_ = (_startpos__4_, _endpos__4_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 1343 "parsing/parser.mly"
+# 1345 "parsing/parser.mly"
         ( unclosed "object" _loc__1_ "end" _loc__4_ )
-# 4863 "parsing/parser.ml"
+# 4865 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__40_ in
@@ -4868,15 +4870,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 4874 "parsing/parser.ml"
+# 4876 "parsing/parser.ml"
           
         in
         
-# 1348 "parsing/parser.mly"
+# 1350 "parsing/parser.mly"
       ( _1 )
-# 4880 "parsing/parser.ml"
+# 4882 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -4937,9 +4939,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1345 "parsing/parser.mly"
+# 1347 "parsing/parser.mly"
         ( Pcl_constraint(_2, _4) )
-# 4943 "parsing/parser.ml"
+# 4945 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -4948,15 +4950,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 4954 "parsing/parser.ml"
+# 4956 "parsing/parser.ml"
           
         in
         
-# 1348 "parsing/parser.mly"
+# 1350 "parsing/parser.mly"
       ( _1 )
-# 4960 "parsing/parser.ml"
+# 4962 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5025,9 +5027,9 @@ module Tables = struct
             let _loc__5_ = (_startpos__5_, _endpos__5_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 1347 "parsing/parser.mly"
+# 1349 "parsing/parser.mly"
         ( unclosed "(" _loc__1_ ")" _loc__5_ )
-# 5031 "parsing/parser.ml"
+# 5033 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -5036,15 +5038,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 756 "parsing/parser.mly"
+# 758 "parsing/parser.mly"
     ( mkclass ~loc:_sloc _1 )
-# 5042 "parsing/parser.ml"
+# 5044 "parsing/parser.ml"
           
         in
         
-# 1348 "parsing/parser.mly"
+# 1350 "parsing/parser.mly"
       ( _1 )
-# 5048 "parsing/parser.ml"
+# 5050 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5088,9 +5090,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1350 "parsing/parser.mly"
+# 1352 "parsing/parser.mly"
     ( mkclass ~loc:_sloc ~attrs:_2 (Pcl_structure _3) )
-# 5094 "parsing/parser.ml"
+# 5096 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5125,15 +5127,15 @@ module Tables = struct
           let _endpos = _endpos__1_ in
           let _startpos = _startpos__1_ in
           
-# 722 "parsing/parser.mly"
+# 724 "parsing/parser.mly"
                                ( extra_cstr _startpos _endpos _1 )
-# 5131 "parsing/parser.ml"
+# 5133 "parsing/parser.ml"
           
         in
         
-# 1354 "parsing/parser.mly"
+# 1356 "parsing/parser.mly"
        ( Cstr.mk _1 (List.rev _2) )
-# 5137 "parsing/parser.ml"
+# 5139 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5156,9 +5158,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.class_type) = 
-# 1456 "parsing/parser.mly"
+# 1458 "parsing/parser.mly"
       ( _1 )
-# 5162 "parsing/parser.ml"
+# 5164 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5206,9 +5208,9 @@ module Tables = struct
         let _400 : (Parsetree.core_type) = Obj.magic _400 in
         let _300 : unit = Obj.magic _300 in
         let _200 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 5212 "parsing/parser.ml"
+# 5214 "parsing/parser.ml"
         ) = Obj.magic _200 in
         let _100 : unit = Obj.magic _100 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -5231,9 +5233,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1459 "parsing/parser.mly"
+# 1461 "parsing/parser.mly"
         ( Pcty_arrow(Optional _2 , _4, _6) )
-# 5237 "parsing/parser.ml"
+# 5239 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__60_ in
@@ -5242,15 +5244,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 750 "parsing/parser.mly"
+# 752 "parsing/parser.mly"
     ( mkcty ~loc:_sloc _1 )
-# 5248 "parsing/parser.ml"
+# 5250 "parsing/parser.ml"
           
         in
         
-# 1466 "parsing/parser.mly"
+# 1468 "parsing/parser.mly"
       ( _1 )
-# 5254 "parsing/parser.ml"
+# 5256 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5287,9 +5289,9 @@ module Tables = struct
         let _300 : unit = Obj.magic _300 in
         let _200 : (Parsetree.core_type) = Obj.magic _200 in
         let _100 : (
-# 595 "parsing/parser.mly"
+# 597 "parsing/parser.mly"
        (string)
-# 5293 "parsing/parser.ml"
+# 5295 "parsing/parser.ml"
         ) = Obj.magic _100 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__100_ in
@@ -5307,9 +5309,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1461 "parsing/parser.mly"
+# 1463 "parsing/parser.mly"
         ( Pcty_arrow(Optional _1, _2, _4) )
-# 5313 "parsing/parser.ml"
+# 5315 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__40_ in
@@ -5318,15 +5320,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 750 "parsing/parser.mly"
+# 752 "parsing/parser.mly"
     ( mkcty ~loc:_sloc _1 )
-# 5324 "parsing/parser.ml"
+# 5326 "parsing/parser.ml"
           
         in
         
-# 1466 "parsing/parser.mly"
+# 1468 "parsing/parser.mly"
       ( _1 )
-# 5330 "parsing/parser.ml"
+# 5332 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5369,9 +5371,9 @@ module Tables = struct
         let _300 : (Parsetree.core_type) = Obj.magic _300 in
         let _200 : unit = Obj.magic _200 in
         let _100 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 5375 "parsing/parser.ml"
+# 5377 "parsing/parser.ml"
         ) = Obj.magic _100 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__100_ in
@@ -5391,9 +5393,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1463 "parsing/parser.mly"
+# 1465 "parsing/parser.mly"
         ( Pcty_arrow(Labelled _1, _3, _5) )
-# 5397 "parsing/parser.ml"
+# 5399 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -5402,15 +5404,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 750 "parsing/parser.mly"
+# 752 "parsing/parser.mly"
     ( mkcty ~loc:_sloc _1 )
-# 5408 "parsing/parser.ml"
+# 5410 "parsing/parser.ml"
           
         in
         
-# 1466 "parsing/parser.mly"
+# 1468 "parsing/parser.mly"
       ( _1 )
-# 5414 "parsing/parser.ml"
+# 5416 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5455,9 +5457,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1465 "parsing/parser.mly"
+# 1467 "parsing/parser.mly"
         ( Pcty_arrow(Nolabel, _1, _3) )
-# 5461 "parsing/parser.ml"
+# 5463 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -5466,15 +5468,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 750 "parsing/parser.mly"
+# 752 "parsing/parser.mly"
     ( mkcty ~loc:_sloc _1 )
-# 5472 "parsing/parser.ml"
+# 5474 "parsing/parser.ml"
           
         in
         
-# 1466 "parsing/parser.mly"
+# 1468 "parsing/parser.mly"
       ( _1 )
-# 5478 "parsing/parser.ml"
+# 5480 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5536,9 +5538,9 @@ module Tables = struct
         let _8 : (Parsetree.class_type) = Obj.magic _8 in
         let _7 : unit = Obj.magic _7 in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 5542 "parsing/parser.ml"
+# 5544 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _5 : ((Parsetree.core_type * Asttypes.variance) list) = Obj.magic _5 in
         let _4 : (Asttypes.virtual_flag) = Obj.magic _4 in
@@ -5556,22 +5558,22 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 5562 "parsing/parser.ml"
+# 5564 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__9_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1572 "parsing/parser.mly"
+# 1574 "parsing/parser.mly"
       ( let (ext, attrs) = _3 in
         let docs = symbol_docs _sloc in
         Ci.mk _6 _8 ~virt:_4 ~params:_5
                     ~attrs:(attrs@_9) ~loc:(make_loc _sloc) ~docs
         , ext )
-# 5575 "parsing/parser.ml"
+# 5577 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5594,9 +5596,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.class_type_declaration list * string Asttypes.loc option) = 
-# 1565 "parsing/parser.mly"
+# 1567 "parsing/parser.mly"
       ( let (body, ext) = _1 in ([body],ext) )
-# 5600 "parsing/parser.ml"
+# 5602 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5625,9 +5627,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.class_type_declaration list * string Asttypes.loc option) = 
-# 1567 "parsing/parser.mly"
+# 1569 "parsing/parser.mly"
       ( let (l, ext) = _1 in (_2 :: l, ext) )
-# 5631 "parsing/parser.ml"
+# 5633 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5643,9 +5645,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : ((Parsetree.core_type * Asttypes.variance) list) = 
-# 1303 "parsing/parser.mly"
+# 1305 "parsing/parser.mly"
                                                 ( [] )
-# 5649 "parsing/parser.ml"
+# 5651 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5686,27 +5688,27 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 5692 "parsing/parser.ml"
+# 5694 "parsing/parser.ml"
               
             in
             
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 5698 "parsing/parser.ml"
+# 5700 "parsing/parser.ml"
             
           in
           
-# 2403 "parsing/parser.mly"
+# 2399 "parsing/parser.mly"
     ( tys )
-# 5704 "parsing/parser.ml"
+# 5706 "parsing/parser.ml"
           
         in
         
-# 1304 "parsing/parser.mly"
+# 1306 "parsing/parser.mly"
                                                 ( _2 )
-# 5710 "parsing/parser.ml"
+# 5712 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5725,17 +5727,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 5731 "parsing/parser.ml"
+# 5733 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2905 "parsing/parser.mly"
+# 2901 "parsing/parser.mly"
                                                 ( Lident _1 )
-# 5739 "parsing/parser.ml"
+# 5741 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5764,9 +5766,9 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _3 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 5770 "parsing/parser.ml"
+# 5772 "parsing/parser.ml"
         ) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
         let _1 : (Longident.t) = Obj.magic _1 in
@@ -5774,9 +5776,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Longident.t) = 
-# 2906 "parsing/parser.mly"
+# 2902 "parsing/parser.mly"
                                                 ( Ldot(_1, _3) )
-# 5780 "parsing/parser.ml"
+# 5782 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5795,17 +5797,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 564 "parsing/parser.mly"
+# 566 "parsing/parser.mly"
        (string * char option)
-# 5801 "parsing/parser.ml"
+# 5803 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.constant) = 
-# 2803 "parsing/parser.mly"
+# 2799 "parsing/parser.mly"
                  ( let (n, m) = _1 in Pconst_integer (n, m) )
-# 5809 "parsing/parser.ml"
+# 5811 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5824,17 +5826,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 525 "parsing/parser.mly"
+# 527 "parsing/parser.mly"
        (char)
-# 5830 "parsing/parser.ml"
+# 5832 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.constant) = 
-# 2804 "parsing/parser.mly"
+# 2800 "parsing/parser.mly"
                  ( Pconst_char _1 )
-# 5838 "parsing/parser.ml"
+# 5840 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5853,17 +5855,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 616 "parsing/parser.mly"
+# 618 "parsing/parser.mly"
        (string * string option)
-# 5859 "parsing/parser.ml"
+# 5861 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.constant) = 
-# 2805 "parsing/parser.mly"
+# 2801 "parsing/parser.mly"
                  ( let (s, d) = _1 in Pconst_string (s, d) )
-# 5867 "parsing/parser.ml"
+# 5869 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5882,17 +5884,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 545 "parsing/parser.mly"
+# 547 "parsing/parser.mly"
        (string * char option)
-# 5888 "parsing/parser.ml"
+# 5890 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.constant) = 
-# 2806 "parsing/parser.mly"
+# 2802 "parsing/parser.mly"
                  ( let (f, m) = _1 in Pconst_float (f, m) )
-# 5896 "parsing/parser.ml"
+# 5898 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5911,17 +5913,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 5917 "parsing/parser.ml"
+# 5919 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2861 "parsing/parser.mly"
+# 2857 "parsing/parser.mly"
                                                 ( _1 )
-# 5925 "parsing/parser.ml"
+# 5927 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5950,9 +5952,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (string) = 
-# 2862 "parsing/parser.mly"
+# 2858 "parsing/parser.mly"
                                                 ( "[]" )
-# 5956 "parsing/parser.ml"
+# 5958 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -5981,9 +5983,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (string) = 
-# 2863 "parsing/parser.mly"
+# 2859 "parsing/parser.mly"
                                                 ( "()" )
-# 5987 "parsing/parser.ml"
+# 5989 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6018,9 +6020,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (string) = 
-# 2864 "parsing/parser.mly"
+# 2860 "parsing/parser.mly"
                                                 ( "::" )
-# 6024 "parsing/parser.ml"
+# 6026 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6043,9 +6045,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2865 "parsing/parser.mly"
+# 2861 "parsing/parser.mly"
                                                 ( "false" )
-# 6049 "parsing/parser.ml"
+# 6051 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6068,9 +6070,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2866 "parsing/parser.mly"
+# 2862 "parsing/parser.mly"
                                                 ( "true" )
-# 6074 "parsing/parser.ml"
+# 6076 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6093,9 +6095,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2874 "parsing/parser.mly"
+# 2870 "parsing/parser.mly"
                                                 ( _1 )
-# 6099 "parsing/parser.ml"
+# 6101 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6142,9 +6144,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
         let _v : (Longident.t) = 
-# 2875 "parsing/parser.mly"
+# 2871 "parsing/parser.mly"
                                                 ( Ldot(_1,"::") )
-# 6148 "parsing/parser.ml"
+# 6150 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6173,9 +6175,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Longident.t) = 
-# 2876 "parsing/parser.mly"
+# 2872 "parsing/parser.mly"
                                                 ( Lident "[]" )
-# 6179 "parsing/parser.ml"
+# 6181 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6204,9 +6206,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Longident.t) = 
-# 2877 "parsing/parser.mly"
+# 2873 "parsing/parser.mly"
                                                 ( Lident "()" )
-# 6210 "parsing/parser.ml"
+# 6212 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6241,9 +6243,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Longident.t) = 
-# 2878 "parsing/parser.mly"
+# 2874 "parsing/parser.mly"
                                                 ( Lident "::" )
-# 6247 "parsing/parser.ml"
+# 6249 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6266,9 +6268,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2879 "parsing/parser.mly"
+# 2875 "parsing/parser.mly"
                                                 ( Lident "false" )
-# 6272 "parsing/parser.ml"
+# 6274 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6291,9 +6293,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2880 "parsing/parser.mly"
+# 2876 "parsing/parser.mly"
                                                 ( Lident "true" )
-# 6297 "parsing/parser.ml"
+# 6299 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6331,9 +6333,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1534 "parsing/parser.mly"
+# 1536 "parsing/parser.mly"
     ( _1, _3, make_loc _sloc )
-# 6337 "parsing/parser.ml"
+# 6339 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6368,9 +6370,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.core_type * Parsetree.core_type) = 
-# 1538 "parsing/parser.mly"
+# 1540 "parsing/parser.mly"
     ( _1, _3 )
-# 6374 "parsing/parser.ml"
+# 6376 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6405,9 +6407,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : ((Parsetree.core_type * Parsetree.core_type * Ast_helper.loc) list) = 
-# 2344 "parsing/parser.mly"
+# 2340 "parsing/parser.mly"
                                                 ( _3 :: _1 )
-# 6411 "parsing/parser.ml"
+# 6413 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6423,9 +6425,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : ((Parsetree.core_type * Parsetree.core_type * Ast_helper.loc) list) = 
-# 2345 "parsing/parser.mly"
+# 2341 "parsing/parser.mly"
                                                 ( [] )
-# 6429 "parsing/parser.ml"
+# 6431 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6454,27 +6456,27 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 6460 "parsing/parser.ml"
+# 6462 "parsing/parser.ml"
               
             in
             
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 6466 "parsing/parser.ml"
+# 6468 "parsing/parser.ml"
             
           in
           
-# 2761 "parsing/parser.mly"
+# 2757 "parsing/parser.mly"
     ( _1 )
-# 6472 "parsing/parser.ml"
+# 6474 "parsing/parser.ml"
           
         in
         
-# 2459 "parsing/parser.mly"
+# 2455 "parsing/parser.mly"
                                      ( Pcstr_tuple _1 )
-# 6478 "parsing/parser.ml"
+# 6480 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6509,9 +6511,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.constructor_arguments) = 
-# 2460 "parsing/parser.mly"
+# 2456 "parsing/parser.mly"
                                      ( Pcstr_record _2 )
-# 6515 "parsing/parser.ml"
+# 6517 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6553,9 +6555,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 6559 "parsing/parser.ml"
+# 6561 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -6563,11 +6565,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2413 "parsing/parser.mly"
+# 2409 "parsing/parser.mly"
     ( let args,res = _2 in
       let info = symbol_info _endpos in
       Type.constructor _1 ~args ?res ~attrs:_3 ~loc:(make_loc _sloc) ~info )
-# 6571 "parsing/parser.ml"
+# 6573 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6590,9 +6592,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.constructor_declaration list) = 
-# 2406 "parsing/parser.mly"
+# 2402 "parsing/parser.mly"
                                                          ( [  ] )
-# 6596 "parsing/parser.ml"
+# 6598 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6615,9 +6617,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.constructor_declaration list) = 
-# 2407 "parsing/parser.mly"
+# 2403 "parsing/parser.mly"
                                                          ( [_1] )
-# 6621 "parsing/parser.ml"
+# 6623 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6640,9 +6642,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.constructor_declaration list) = 
-# 2408 "parsing/parser.mly"
+# 2404 "parsing/parser.mly"
                                                          ( [_1] )
-# 6646 "parsing/parser.ml"
+# 6648 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6671,9 +6673,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.constructor_declaration list) = 
-# 2409 "parsing/parser.mly"
+# 2405 "parsing/parser.mly"
                                                          ( _2 :: _1 )
-# 6677 "parsing/parser.ml"
+# 6679 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6696,9 +6698,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.core_type) = 
-# 2615 "parsing/parser.mly"
+# 2611 "parsing/parser.mly"
       ( _1 )
-# 6702 "parsing/parser.ml"
+# 6704 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6727,9 +6729,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type) = 
-# 2617 "parsing/parser.mly"
+# 2613 "parsing/parser.mly"
       ( Typ.attr _1 _2 )
-# 6733 "parsing/parser.ml"
+# 6735 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6752,9 +6754,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.core_type) = 
-# 2628 "parsing/parser.mly"
+# 2624 "parsing/parser.mly"
       ( _1 )
-# 6758 "parsing/parser.ml"
+# 6760 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6784,15 +6786,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 6790 "parsing/parser.ml"
+# 6792 "parsing/parser.ml"
           
         in
         
-# 2630 "parsing/parser.mly"
+# 2626 "parsing/parser.mly"
       ( _1 )
-# 6796 "parsing/parser.ml"
+# 6798 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6840,9 +6842,9 @@ module Tables = struct
         let _10 : (Parsetree.core_type) = Obj.magic _10 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 6846 "parsing/parser.ml"
+# 6848 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -6852,15 +6854,15 @@ module Tables = struct
           let _endpos__1_ = _endpos__10_ in
           let _1 = _10 in
           
-# 2643 "parsing/parser.mly"
+# 2639 "parsing/parser.mly"
   ( extra_rhs_core_type _1 ~pos:_endpos__1_ )
-# 6858 "parsing/parser.ml"
+# 6860 "parsing/parser.ml"
           
         in
         
-# 2634 "parsing/parser.mly"
+# 2630 "parsing/parser.mly"
       ( Ptyp_arrow(Optional _2, _4, _6) )
-# 6864 "parsing/parser.ml"
+# 6866 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6897,9 +6899,9 @@ module Tables = struct
         let _3 : unit = Obj.magic _3 in
         let _10 : (Parsetree.core_type) = Obj.magic _10 in
         let _1 : (
-# 595 "parsing/parser.mly"
+# 597 "parsing/parser.mly"
        (string)
-# 6903 "parsing/parser.ml"
+# 6905 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
@@ -6908,15 +6910,15 @@ module Tables = struct
           let _endpos__1_ = _endpos__10_ in
           let _1 = _10 in
           
-# 2643 "parsing/parser.mly"
+# 2639 "parsing/parser.mly"
   ( extra_rhs_core_type _1 ~pos:_endpos__1_ )
-# 6914 "parsing/parser.ml"
+# 6916 "parsing/parser.ml"
           
         in
         
-# 2636 "parsing/parser.mly"
+# 2632 "parsing/parser.mly"
       ( Ptyp_arrow(Optional _1 , _2, _4) )
-# 6920 "parsing/parser.ml"
+# 6922 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -6959,9 +6961,9 @@ module Tables = struct
         let _10 : (Parsetree.core_type) = Obj.magic _10 in
         let _2 : unit = Obj.magic _2 in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 6965 "parsing/parser.ml"
+# 6967 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
@@ -6970,15 +6972,15 @@ module Tables = struct
           let _endpos__1_ = _endpos__10_ in
           let _1 = _10 in
           
-# 2643 "parsing/parser.mly"
+# 2639 "parsing/parser.mly"
   ( extra_rhs_core_type _1 ~pos:_endpos__1_ )
-# 6976 "parsing/parser.ml"
+# 6978 "parsing/parser.ml"
           
         in
         
-# 2638 "parsing/parser.mly"
+# 2634 "parsing/parser.mly"
       ( Ptyp_arrow(Labelled _1, _3, _5) )
-# 6982 "parsing/parser.ml"
+# 6984 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7016,15 +7018,15 @@ module Tables = struct
           let _endpos__1_ = _endpos__10_ in
           let _1 = _10 in
           
-# 2643 "parsing/parser.mly"
+# 2639 "parsing/parser.mly"
   ( extra_rhs_core_type _1 ~pos:_endpos__1_ )
-# 7022 "parsing/parser.ml"
+# 7024 "parsing/parser.ml"
           
         in
         
-# 2640 "parsing/parser.mly"
+# 2636 "parsing/parser.mly"
       ( Ptyp_arrow(Nolabel, _1, _3) )
-# 7028 "parsing/parser.ml"
+# 7030 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7047,9 +7049,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.core_type) = 
-# 2621 "parsing/parser.mly"
+# 2617 "parsing/parser.mly"
       ( _1 )
-# 7053 "parsing/parser.ml"
+# 7055 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7102,9 +7104,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 2623 "parsing/parser.mly"
+# 2619 "parsing/parser.mly"
       ( Ptyp_alias(_1, _4) )
-# 7108 "parsing/parser.ml"
+# 7110 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__40_ in
@@ -7113,15 +7115,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 7119 "parsing/parser.ml"
+# 7121 "parsing/parser.ml"
           
         in
         
-# 2624 "parsing/parser.mly"
+# 2620 "parsing/parser.mly"
       ( _1 )
-# 7125 "parsing/parser.ml"
+# 7127 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7144,9 +7146,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.direction_flag) = 
-# 2954 "parsing/parser.mly"
+# 2950 "parsing/parser.mly"
                                                 ( Upto )
-# 7150 "parsing/parser.ml"
+# 7152 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7169,9 +7171,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.direction_flag) = 
-# 2955 "parsing/parser.mly"
+# 2951 "parsing/parser.mly"
                                                 ( Downto )
-# 7175 "parsing/parser.ml"
+# 7177 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7194,9 +7196,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.expression) = 
-# 1653 "parsing/parser.mly"
+# 1655 "parsing/parser.mly"
       ( _1 )
-# 7200 "parsing/parser.ml"
+# 7202 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7248,9 +7250,9 @@ module Tables = struct
         let _60 : unit = Obj.magic _60 in
         let _50 : (Parsetree.module_expr) = Obj.magic _50 in
         let _100 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 7254 "parsing/parser.ml"
+# 7256 "parsing/parser.ml"
         ) = Obj.magic _100 in
         let _30 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _30 in
         let _20 : unit = Obj.magic _20 in
@@ -7276,15 +7278,15 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 7282 "parsing/parser.ml"
+# 7284 "parsing/parser.ml"
             
           in
           
-# 1692 "parsing/parser.mly"
+# 1694 "parsing/parser.mly"
       ( Pexp_letmodule(_4, _5, _7), _3 )
-# 7288 "parsing/parser.ml"
+# 7290 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__70_ in
@@ -7293,10 +7295,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 7300 "parsing/parser.ml"
+# 7302 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7356,9 +7358,9 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1694 "parsing/parser.mly"
+# 1696 "parsing/parser.mly"
       ( Pexp_letexception(_4, _6), _3 )
-# 7362 "parsing/parser.ml"
+# 7364 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__60_ in
@@ -7367,10 +7369,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 7374 "parsing/parser.ml"
+# 7376 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7446,15 +7448,15 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 7452 "parsing/parser.ml"
+# 7454 "parsing/parser.ml"
             
           in
           
-# 1696 "parsing/parser.mly"
+# 1698 "parsing/parser.mly"
       ( Pexp_open(_3, _5, _7), _4 )
-# 7458 "parsing/parser.ml"
+# 7460 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__70_ in
@@ -7463,10 +7465,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 7470 "parsing/parser.ml"
+# 7472 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7512,9 +7514,9 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1698 "parsing/parser.mly"
+# 1700 "parsing/parser.mly"
       ( Pexp_function(List.rev _4), _2 )
-# 7518 "parsing/parser.ml"
+# 7520 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__40_ in
@@ -7523,10 +7525,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 7530 "parsing/parser.ml"
+# 7532 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7572,10 +7574,10 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1700 "parsing/parser.mly"
+# 1702 "parsing/parser.mly"
       ( let (l,o,p) = _3 in
         Pexp_fun(l, o, p, _4), _2 )
-# 7579 "parsing/parser.ml"
+# 7581 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__40_ in
@@ -7584,10 +7586,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 7591 "parsing/parser.ml"
+# 7593 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7658,18 +7660,18 @@ module Tables = struct
           let _5 =
             let xs = xs0 in
             
-# 1969 "parsing/parser.mly"
+# 1971 "parsing/parser.mly"
     ( xs )
-# 7664 "parsing/parser.ml"
+# 7666 "parsing/parser.ml"
             
           in
           let _endpos = _endpos__7_ in
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 1703 "parsing/parser.mly"
+# 1705 "parsing/parser.mly"
       ( (mk_newtypes ~loc:_sloc _5 _7).pexp_desc, _2 )
-# 7673 "parsing/parser.ml"
+# 7675 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__70_ in
@@ -7678,84 +7680,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 7685 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _60;
-          MenhirLib.EngineTypes.startp = _startpos__60_;
-          MenhirLib.EngineTypes.endp = _endpos__60_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _50;
-            MenhirLib.EngineTypes.startp = _startpos__50_;
-            MenhirLib.EngineTypes.endp = _endpos__50_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _40;
-              MenhirLib.EngineTypes.startp = _startpos__40_;
-              MenhirLib.EngineTypes.endp = _endpos__40_;
-              MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.semv = _30;
-                MenhirLib.EngineTypes.startp = _startpos__30_;
-                MenhirLib.EngineTypes.endp = _endpos__30_;
-                MenhirLib.EngineTypes.next = {
-                  MenhirLib.EngineTypes.semv = _20;
-                  MenhirLib.EngineTypes.startp = _startpos__20_;
-                  MenhirLib.EngineTypes.endp = _endpos__20_;
-                  MenhirLib.EngineTypes.next = {
-                    MenhirLib.EngineTypes.state = _menhir_s;
-                    MenhirLib.EngineTypes.semv = _10;
-                    MenhirLib.EngineTypes.startp = _startpos__10_;
-                    MenhirLib.EngineTypes.endp = _endpos__10_;
-                    MenhirLib.EngineTypes.next = _menhir_stack;
-                  };
-                };
-              };
-            };
-          };
-        } = _menhir_stack in
-        let _60 : (Parsetree.case list) = Obj.magic _60 in
-        let _50 : (unit) = Obj.magic _50 in
-        let _40 : unit = Obj.magic _40 in
-        let _30 : (Parsetree.expression) = Obj.magic _30 in
-        let _20 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _20 in
-        let _10 : unit = Obj.magic _10 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__10_ in
-        let _endpos = _endpos__60_ in
-        let _v : (Parsetree.expression) = let _1 =
-          let _6 = _60 in
-          let _5 = _50 in
-          let _4 = _40 in
-          let _3 = _30 in
-          let _2 = _20 in
-          let _1 = _10 in
-          
-# 1705 "parsing/parser.mly"
-      ( Pexp_match(_3, List.rev _6), _2 )
-# 7747 "parsing/parser.ml"
-          
-        in
-        let _endpos__1_ = _endpos__60_ in
-        let _startpos__1_ = _startpos__10_ in
-        let _endpos = _endpos__1_ in
-        let _symbolstartpos = _startpos__1_ in
-        let _sloc = (_symbolstartpos, _endpos) in
-        
-# 1655 "parsing/parser.mly"
-    ( let desc, attrs = _1 in
-      mkexp_attrs ~loc:_sloc desc attrs )
-# 7759 "parsing/parser.ml"
+# 7687 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7816,8 +7744,8 @@ module Tables = struct
           let _1 = _10 in
           
 # 1707 "parsing/parser.mly"
-      ( Pexp_try(_3, List.rev _6), _2 )
-# 7821 "parsing/parser.ml"
+      ( Pexp_match(_3, List.rev _6), _2 )
+# 7749 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__60_ in
@@ -7826,10 +7754,84 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 7833 "parsing/parser.ml"
+# 7761 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _60;
+          MenhirLib.EngineTypes.startp = _startpos__60_;
+          MenhirLib.EngineTypes.endp = _endpos__60_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _50;
+            MenhirLib.EngineTypes.startp = _startpos__50_;
+            MenhirLib.EngineTypes.endp = _endpos__50_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.semv = _40;
+              MenhirLib.EngineTypes.startp = _startpos__40_;
+              MenhirLib.EngineTypes.endp = _endpos__40_;
+              MenhirLib.EngineTypes.next = {
+                MenhirLib.EngineTypes.semv = _30;
+                MenhirLib.EngineTypes.startp = _startpos__30_;
+                MenhirLib.EngineTypes.endp = _endpos__30_;
+                MenhirLib.EngineTypes.next = {
+                  MenhirLib.EngineTypes.semv = _20;
+                  MenhirLib.EngineTypes.startp = _startpos__20_;
+                  MenhirLib.EngineTypes.endp = _endpos__20_;
+                  MenhirLib.EngineTypes.next = {
+                    MenhirLib.EngineTypes.state = _menhir_s;
+                    MenhirLib.EngineTypes.semv = _10;
+                    MenhirLib.EngineTypes.startp = _startpos__10_;
+                    MenhirLib.EngineTypes.endp = _endpos__10_;
+                    MenhirLib.EngineTypes.next = _menhir_stack;
+                  };
+                };
+              };
+            };
+          };
+        } = _menhir_stack in
+        let _60 : (Parsetree.case list) = Obj.magic _60 in
+        let _50 : (unit) = Obj.magic _50 in
+        let _40 : unit = Obj.magic _40 in
+        let _30 : (Parsetree.expression) = Obj.magic _30 in
+        let _20 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _20 in
+        let _10 : unit = Obj.magic _10 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__10_ in
+        let _endpos = _endpos__60_ in
+        let _v : (Parsetree.expression) = let _1 =
+          let _6 = _60 in
+          let _5 = _50 in
+          let _4 = _40 in
+          let _3 = _30 in
+          let _2 = _20 in
+          let _1 = _10 in
+          
+# 1709 "parsing/parser.mly"
+      ( Pexp_try(_3, List.rev _6), _2 )
+# 7823 "parsing/parser.ml"
+          
+        in
+        let _endpos__1_ = _endpos__60_ in
+        let _startpos__1_ = _startpos__10_ in
+        let _endpos = _endpos__1_ in
+        let _symbolstartpos = _startpos__1_ in
+        let _sloc = (_symbolstartpos, _endpos) in
+        
+# 1657 "parsing/parser.mly"
+    ( let desc, attrs = _1 in
+      mkexp_attrs ~loc:_sloc desc attrs )
+# 7835 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7882,9 +7884,9 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1709 "parsing/parser.mly"
+# 1711 "parsing/parser.mly"
       ( syntax_error() )
-# 7888 "parsing/parser.ml"
+# 7890 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__50_ in
@@ -7893,10 +7895,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 7900 "parsing/parser.ml"
+# 7902 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -7963,9 +7965,9 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1711 "parsing/parser.mly"
+# 1713 "parsing/parser.mly"
       ( Pexp_ifthenelse(_3, _5, Some _7), _2 )
-# 7969 "parsing/parser.ml"
+# 7971 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__70_ in
@@ -7974,10 +7976,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 7981 "parsing/parser.ml"
+# 7983 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8030,9 +8032,9 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1713 "parsing/parser.mly"
+# 1715 "parsing/parser.mly"
       ( Pexp_ifthenelse(_3, _5, None), _2 )
-# 8036 "parsing/parser.ml"
+# 8038 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__50_ in
@@ -8041,10 +8043,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 8048 "parsing/parser.ml"
+# 8050 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8104,9 +8106,9 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1715 "parsing/parser.mly"
+# 1717 "parsing/parser.mly"
       ( Pexp_while(_3, _5), _2 )
-# 8110 "parsing/parser.ml"
+# 8112 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__60_ in
@@ -8115,10 +8117,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 8122 "parsing/parser.ml"
+# 8124 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8206,9 +8208,9 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _11 in
           
-# 1718 "parsing/parser.mly"
+# 1720 "parsing/parser.mly"
       ( Pexp_for(_3, _5, _7, _6, _9), _2 )
-# 8212 "parsing/parser.ml"
+# 8214 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__100_ in
@@ -8217,63 +8219,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 8224 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _30;
-          MenhirLib.EngineTypes.startp = _startpos__30_;
-          MenhirLib.EngineTypes.endp = _endpos__30_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _20;
-            MenhirLib.EngineTypes.startp = _startpos__20_;
-            MenhirLib.EngineTypes.endp = _endpos__20_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _10;
-              MenhirLib.EngineTypes.startp = _startpos__10_;
-              MenhirLib.EngineTypes.endp = _endpos__10_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _30 : (Parsetree.expression) = Obj.magic _30 in
-        let _20 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _20 in
-        let _10 : unit = Obj.magic _10 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__10_ in
-        let _endpos = _endpos__30_ in
-        let _v : (Parsetree.expression) = let _1 =
-          let _3 = _30 in
-          let _2 = _20 in
-          let _1 = _10 in
-          
-# 1720 "parsing/parser.mly"
-      ( Pexp_assert _3, _2 )
-# 8265 "parsing/parser.ml"
-          
-        in
-        let _endpos__1_ = _endpos__30_ in
-        let _startpos__1_ = _startpos__10_ in
-        let _endpos = _endpos__1_ in
-        let _symbolstartpos = _startpos__1_ in
-        let _sloc = (_symbolstartpos, _endpos) in
-        
-# 1655 "parsing/parser.mly"
-    ( let desc, attrs = _1 in
-      mkexp_attrs ~loc:_sloc desc attrs )
-# 8277 "parsing/parser.ml"
+# 8226 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8313,8 +8262,8 @@ module Tables = struct
           let _1 = _10 in
           
 # 1722 "parsing/parser.mly"
-      ( Pexp_lazy _3, _2 )
-# 8318 "parsing/parser.ml"
+      ( Pexp_assert _3, _2 )
+# 8267 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__30_ in
@@ -8323,10 +8272,63 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 8330 "parsing/parser.ml"
+# 8279 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _30;
+          MenhirLib.EngineTypes.startp = _startpos__30_;
+          MenhirLib.EngineTypes.endp = _endpos__30_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _20;
+            MenhirLib.EngineTypes.startp = _startpos__20_;
+            MenhirLib.EngineTypes.endp = _endpos__20_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _10;
+              MenhirLib.EngineTypes.startp = _startpos__10_;
+              MenhirLib.EngineTypes.endp = _endpos__10_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
+        } = _menhir_stack in
+        let _30 : (Parsetree.expression) = Obj.magic _30 in
+        let _20 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _20 in
+        let _10 : unit = Obj.magic _10 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__10_ in
+        let _endpos = _endpos__30_ in
+        let _v : (Parsetree.expression) = let _1 =
+          let _3 = _30 in
+          let _2 = _20 in
+          let _1 = _10 in
+          
+# 1724 "parsing/parser.mly"
+      ( Pexp_lazy _3, _2 )
+# 8320 "parsing/parser.ml"
+          
+        in
+        let _endpos__1_ = _endpos__30_ in
+        let _startpos__1_ = _startpos__10_ in
+        let _endpos = _endpos__1_ in
+        let _symbolstartpos = _startpos__1_ in
+        let _sloc = (_symbolstartpos, _endpos) in
+        
+# 1657 "parsing/parser.mly"
+    ( let desc, attrs = _1 in
+      mkexp_attrs ~loc:_sloc desc attrs )
+# 8332 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8372,9 +8374,9 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1724 "parsing/parser.mly"
+# 1726 "parsing/parser.mly"
       ( Pexp_object _3, _2 )
-# 8378 "parsing/parser.ml"
+# 8380 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__40_ in
@@ -8383,10 +8385,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 8390 "parsing/parser.ml"
+# 8392 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8438,9 +8440,9 @@ module Tables = struct
           let _loc__4_ = (_startpos__4_, _endpos__4_) in
           let _loc__1_ = (_startpos__1_, _endpos__1_) in
           
-# 1726 "parsing/parser.mly"
+# 1728 "parsing/parser.mly"
       ( unclosed "object" _loc__1_ "end" _loc__4_ )
-# 8444 "parsing/parser.ml"
+# 8446 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__40_ in
@@ -8449,204 +8451,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1655 "parsing/parser.mly"
+# 1657 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 8456 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _3000;
-          MenhirLib.EngineTypes.startp = _startpos__3000_;
-          MenhirLib.EngineTypes.endp = _endpos__3000_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _10000;
-            MenhirLib.EngineTypes.startp = _startpos__10000_;
-            MenhirLib.EngineTypes.endp = _endpos__10000_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _1100;
-              MenhirLib.EngineTypes.startp = _startpos__1100_;
-              MenhirLib.EngineTypes.endp = _endpos__1100_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _3000 : (Parsetree.expression) = Obj.magic _3000 in
-        let _10000 : (
-# 556 "parsing/parser.mly"
-       (string)
-# 8488 "parsing/parser.ml"
-        ) = Obj.magic _10000 in
-        let _1100 : (Parsetree.expression) = Obj.magic _1100 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1100_ in
-        let _endpos = _endpos__3000_ in
-        let _v : (Parsetree.expression) = let _1 =
-          let _endpos__300_ = _endpos__3000_ in
-          let _startpos__110_ = _startpos__1100_ in
-          let _endpos__1000_ = _endpos__10000_ in
-          let _startpos__1000_ = _startpos__10000_ in
-          let _300 = _3000 in
-          let _1000 = _10000 in
-          let _110 = _1100 in
-          let _1 =
-            let _endpos__100_ = _endpos__1000_ in
-            let _startpos__100_ = _startpos__1000_ in
-            let _30 = _300 in
-            let _100 = _1000 in
-            let _11 = _110 in
-            let _1 =
-              let _endpos__10_ = _endpos__100_ in
-              let _startpos__10_ = _startpos__100_ in
-              let _3 = _30 in
-              let _10 = _100 in
-              let _1 = _11 in
-              let _2 =
-                let _endpos__1_ = _endpos__10_ in
-                let _startpos__1_ = _startpos__10_ in
-                let _1 = _10 in
-                let _endpos = _endpos__1_ in
-                let _symbolstartpos = _startpos__1_ in
-                let _sloc = (_symbolstartpos, _endpos) in
-                
-# 732 "parsing/parser.mly"
-   ( mkoperator ~loc:_sloc _1 )
-# 8524 "parsing/parser.ml"
-                
-              in
-              
-# 1741 "parsing/parser.mly"
-      ( mkinfix _1 _2 _3 )
-# 8530 "parsing/parser.ml"
-              
-            in
-            
-# 1729 "parsing/parser.mly"
-            ( _1 )
-# 8536 "parsing/parser.ml"
-            
-          in
-          let _endpos__1_ = _endpos__300_ in
-          let _startpos__1_ = _startpos__110_ in
-          let _endpos = _endpos__1_ in
-          let _symbolstartpos = _startpos__1_ in
-          let _sloc = (_symbolstartpos, _endpos) in
-          
-# 738 "parsing/parser.mly"
-    ( mkexp ~loc:_sloc _1 )
-# 8547 "parsing/parser.ml"
-          
-        in
-        
-# 1658 "parsing/parser.mly"
-    ( _1 )
-# 8553 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _3000;
-          MenhirLib.EngineTypes.startp = _startpos__3000_;
-          MenhirLib.EngineTypes.endp = _endpos__3000_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _10000;
-            MenhirLib.EngineTypes.startp = _startpos__10000_;
-            MenhirLib.EngineTypes.endp = _endpos__10000_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _1100;
-              MenhirLib.EngineTypes.startp = _startpos__1100_;
-              MenhirLib.EngineTypes.endp = _endpos__1100_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _3000 : (Parsetree.expression) = Obj.magic _3000 in
-        let _10000 : (
-# 557 "parsing/parser.mly"
-       (string)
-# 8585 "parsing/parser.ml"
-        ) = Obj.magic _10000 in
-        let _1100 : (Parsetree.expression) = Obj.magic _1100 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1100_ in
-        let _endpos = _endpos__3000_ in
-        let _v : (Parsetree.expression) = let _1 =
-          let _endpos__300_ = _endpos__3000_ in
-          let _startpos__110_ = _startpos__1100_ in
-          let _endpos__1000_ = _endpos__10000_ in
-          let _startpos__1000_ = _startpos__10000_ in
-          let _300 = _3000 in
-          let _1000 = _10000 in
-          let _110 = _1100 in
-          let _1 =
-            let _endpos__100_ = _endpos__1000_ in
-            let _startpos__100_ = _startpos__1000_ in
-            let _30 = _300 in
-            let _100 = _1000 in
-            let _11 = _110 in
-            let _1 =
-              let _endpos__10_ = _endpos__100_ in
-              let _startpos__10_ = _startpos__100_ in
-              let _3 = _30 in
-              let _10 = _100 in
-              let _1 = _11 in
-              let _2 =
-                let _endpos__1_ = _endpos__10_ in
-                let _startpos__1_ = _startpos__10_ in
-                let _1 = _10 in
-                let _endpos = _endpos__1_ in
-                let _symbolstartpos = _startpos__1_ in
-                let _sloc = (_symbolstartpos, _endpos) in
-                
-# 732 "parsing/parser.mly"
-   ( mkoperator ~loc:_sloc _1 )
-# 8621 "parsing/parser.ml"
-                
-              in
-              
-# 1743 "parsing/parser.mly"
-      ( mkinfix _1 _2 _3 )
-# 8627 "parsing/parser.ml"
-              
-            in
-            
-# 1729 "parsing/parser.mly"
-            ( _1 )
-# 8633 "parsing/parser.ml"
-            
-          in
-          let _endpos__1_ = _endpos__300_ in
-          let _startpos__1_ = _startpos__110_ in
-          let _endpos = _endpos__1_ in
-          let _symbolstartpos = _startpos__1_ in
-          let _sloc = (_symbolstartpos, _endpos) in
-          
-# 738 "parsing/parser.mly"
-    ( mkexp ~loc:_sloc _1 )
-# 8644 "parsing/parser.ml"
-          
-        in
-        
-# 1658 "parsing/parser.mly"
-    ( _1 )
-# 8650 "parsing/parser.ml"
+# 8458 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8678,7 +8486,7 @@ module Tables = struct
         let _10000 : (
 # 558 "parsing/parser.mly"
        (string)
-# 8682 "parsing/parser.ml"
+# 8490 "parsing/parser.ml"
         ) = Obj.magic _10000 in
         let _1100 : (Parsetree.expression) = Obj.magic _1100 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -8712,21 +8520,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 8718 "parsing/parser.ml"
+# 8526 "parsing/parser.ml"
                 
               in
               
-# 1745 "parsing/parser.mly"
+# 1743 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 8724 "parsing/parser.ml"
+# 8532 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 8730 "parsing/parser.ml"
+# 8538 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -8735,15 +8543,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 8741 "parsing/parser.ml"
+# 8549 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 8747 "parsing/parser.ml"
+# 8555 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8775,7 +8583,7 @@ module Tables = struct
         let _10000 : (
 # 559 "parsing/parser.mly"
        (string)
-# 8779 "parsing/parser.ml"
+# 8587 "parsing/parser.ml"
         ) = Obj.magic _10000 in
         let _1100 : (Parsetree.expression) = Obj.magic _1100 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -8809,21 +8617,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 8815 "parsing/parser.ml"
+# 8623 "parsing/parser.ml"
                 
               in
               
-# 1747 "parsing/parser.mly"
+# 1745 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 8821 "parsing/parser.ml"
+# 8629 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 8827 "parsing/parser.ml"
+# 8635 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -8832,15 +8640,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 8838 "parsing/parser.ml"
+# 8646 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 8844 "parsing/parser.ml"
+# 8652 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8872,7 +8680,7 @@ module Tables = struct
         let _10000 : (
 # 560 "parsing/parser.mly"
        (string)
-# 8876 "parsing/parser.ml"
+# 8684 "parsing/parser.ml"
         ) = Obj.magic _10000 in
         let _1100 : (Parsetree.expression) = Obj.magic _1100 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -8906,21 +8714,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 8912 "parsing/parser.ml"
+# 8720 "parsing/parser.ml"
                 
               in
               
-# 1749 "parsing/parser.mly"
+# 1747 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 8918 "parsing/parser.ml"
+# 8726 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 8924 "parsing/parser.ml"
+# 8732 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -8929,15 +8737,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 8935 "parsing/parser.ml"
+# 8743 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 8941 "parsing/parser.ml"
+# 8749 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -8953,94 +8761,185 @@ module Tables = struct
           MenhirLib.EngineTypes.startp = _startpos__3000_;
           MenhirLib.EngineTypes.endp = _endpos__3000_;
           MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _100000;
-            MenhirLib.EngineTypes.startp = _startpos__100000_;
-            MenhirLib.EngineTypes.endp = _endpos__100000_;
+            MenhirLib.EngineTypes.semv = _10000;
+            MenhirLib.EngineTypes.startp = _startpos__10000_;
+            MenhirLib.EngineTypes.endp = _endpos__10000_;
             MenhirLib.EngineTypes.next = {
               MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _1000;
-              MenhirLib.EngineTypes.startp = _startpos__1000_;
-              MenhirLib.EngineTypes.endp = _endpos__1000_;
+              MenhirLib.EngineTypes.semv = _1100;
+              MenhirLib.EngineTypes.startp = _startpos__1100_;
+              MenhirLib.EngineTypes.endp = _endpos__1100_;
               MenhirLib.EngineTypes.next = _menhir_stack;
             };
           };
         } = _menhir_stack in
         let _3000 : (Parsetree.expression) = Obj.magic _3000 in
-        let _100000 : unit = Obj.magic _100000 in
-        let _1000 : (Parsetree.expression) = Obj.magic _1000 in
+        let _10000 : (
+# 561 "parsing/parser.mly"
+       (string)
+# 8781 "parsing/parser.ml"
+        ) = Obj.magic _10000 in
+        let _1100 : (Parsetree.expression) = Obj.magic _1100 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1000_ in
+        let _startpos = _startpos__1100_ in
         let _endpos = _endpos__3000_ in
         let _v : (Parsetree.expression) = let _1 =
           let _endpos__300_ = _endpos__3000_ in
-          let _endpos__10000_ = _endpos__100000_ in
-          let _startpos__10000_ = _startpos__100000_ in
-          let _startpos__100_ = _startpos__1000_ in
+          let _startpos__110_ = _startpos__1100_ in
+          let _endpos__1000_ = _endpos__10000_ in
+          let _startpos__1000_ = _startpos__10000_ in
           let _300 = _3000 in
-          let _10000 = _100000 in
-          let _100 = _1000 in
+          let _1000 = _10000 in
+          let _110 = _1100 in
           let _1 =
-            let _endpos__1000_ = _endpos__10000_ in
-            let _startpos__1000_ = _startpos__10000_ in
+            let _endpos__100_ = _endpos__1000_ in
+            let _startpos__100_ = _startpos__1000_ in
             let _30 = _300 in
-            let _1000 = _10000 in
-            let _10 = _100 in
+            let _100 = _1000 in
+            let _11 = _110 in
             let _1 =
-              let _endpos__100_ = _endpos__1000_ in
-              let _startpos__100_ = _startpos__1000_ in
+              let _endpos__10_ = _endpos__100_ in
+              let _startpos__10_ = _startpos__100_ in
               let _3 = _30 in
-              let _100 = _1000 in
-              let _1 = _10 in
+              let _10 = _100 in
+              let _1 = _11 in
               let _2 =
-                let _endpos__10_ = _endpos__100_ in
-                let _startpos__10_ = _startpos__100_ in
-                let _10 = _100 in
-                let _1 =
-                  let _1 = _10 in
-                  
-# 1750 "parsing/parser.mly"
-                 ("+")
-# 9004 "parsing/parser.ml"
-                  
-                in
                 let _endpos__1_ = _endpos__10_ in
                 let _startpos__1_ = _startpos__10_ in
+                let _1 = _10 in
                 let _endpos = _endpos__1_ in
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9015 "parsing/parser.ml"
+# 8817 "parsing/parser.ml"
+                
+              in
+              
+# 1749 "parsing/parser.mly"
+      ( mkinfix _1 _2 _3 )
+# 8823 "parsing/parser.ml"
+              
+            in
+            
+# 1731 "parsing/parser.mly"
+            ( _1 )
+# 8829 "parsing/parser.ml"
+            
+          in
+          let _endpos__1_ = _endpos__300_ in
+          let _startpos__1_ = _startpos__110_ in
+          let _endpos = _endpos__1_ in
+          let _symbolstartpos = _startpos__1_ in
+          let _sloc = (_symbolstartpos, _endpos) in
+          
+# 740 "parsing/parser.mly"
+    ( mkexp ~loc:_sloc _1 )
+# 8840 "parsing/parser.ml"
+          
+        in
+        
+# 1660 "parsing/parser.mly"
+    ( _1 )
+# 8846 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _3000;
+          MenhirLib.EngineTypes.startp = _startpos__3000_;
+          MenhirLib.EngineTypes.endp = _endpos__3000_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _10000;
+            MenhirLib.EngineTypes.startp = _startpos__10000_;
+            MenhirLib.EngineTypes.endp = _endpos__10000_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _1100;
+              MenhirLib.EngineTypes.startp = _startpos__1100_;
+              MenhirLib.EngineTypes.endp = _endpos__1100_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
+        } = _menhir_stack in
+        let _3000 : (Parsetree.expression) = Obj.magic _3000 in
+        let _10000 : (
+# 562 "parsing/parser.mly"
+       (string)
+# 8878 "parsing/parser.ml"
+        ) = Obj.magic _10000 in
+        let _1100 : (Parsetree.expression) = Obj.magic _1100 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1100_ in
+        let _endpos = _endpos__3000_ in
+        let _v : (Parsetree.expression) = let _1 =
+          let _endpos__300_ = _endpos__3000_ in
+          let _startpos__110_ = _startpos__1100_ in
+          let _endpos__1000_ = _endpos__10000_ in
+          let _startpos__1000_ = _startpos__10000_ in
+          let _300 = _3000 in
+          let _1000 = _10000 in
+          let _110 = _1100 in
+          let _1 =
+            let _endpos__100_ = _endpos__1000_ in
+            let _startpos__100_ = _startpos__1000_ in
+            let _30 = _300 in
+            let _100 = _1000 in
+            let _11 = _110 in
+            let _1 =
+              let _endpos__10_ = _endpos__100_ in
+              let _startpos__10_ = _startpos__100_ in
+              let _3 = _30 in
+              let _10 = _100 in
+              let _1 = _11 in
+              let _2 =
+                let _endpos__1_ = _endpos__10_ in
+                let _startpos__1_ = _startpos__10_ in
+                let _1 = _10 in
+                let _endpos = _endpos__1_ in
+                let _symbolstartpos = _startpos__1_ in
+                let _sloc = (_symbolstartpos, _endpos) in
+                
+# 734 "parsing/parser.mly"
+   ( mkoperator ~loc:_sloc _1 )
+# 8914 "parsing/parser.ml"
                 
               in
               
 # 1751 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 9021 "parsing/parser.ml"
+# 8920 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9027 "parsing/parser.ml"
+# 8926 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
-          let _startpos__1_ = _startpos__100_ in
+          let _startpos__1_ = _startpos__110_ in
           let _endpos = _endpos__1_ in
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9038 "parsing/parser.ml"
+# 8937 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9044 "parsing/parser.ml"
+# 8943 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -9102,8 +9001,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1752 "parsing/parser.mly"
-                    ("+.")
-# 9107 "parsing/parser.ml"
+                 ("+")
+# 9006 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -9112,21 +9011,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9118 "parsing/parser.ml"
+# 9017 "parsing/parser.ml"
                 
               in
               
 # 1753 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 9124 "parsing/parser.ml"
+# 9023 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9130 "parsing/parser.ml"
+# 9029 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -9135,15 +9034,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9141 "parsing/parser.ml"
+# 9040 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9147 "parsing/parser.ml"
+# 9046 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -9205,8 +9104,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1754 "parsing/parser.mly"
-                   ("+=")
-# 9210 "parsing/parser.ml"
+                    ("+.")
+# 9109 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -9215,21 +9114,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9221 "parsing/parser.ml"
+# 9120 "parsing/parser.ml"
                 
               in
               
 # 1755 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 9227 "parsing/parser.ml"
+# 9126 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9233 "parsing/parser.ml"
+# 9132 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -9238,15 +9137,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9244 "parsing/parser.ml"
+# 9143 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9250 "parsing/parser.ml"
+# 9149 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -9308,8 +9207,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1756 "parsing/parser.mly"
-                  ("-")
-# 9313 "parsing/parser.ml"
+                   ("+=")
+# 9212 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -9318,21 +9217,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9324 "parsing/parser.ml"
+# 9223 "parsing/parser.ml"
                 
               in
               
 # 1757 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 9330 "parsing/parser.ml"
+# 9229 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9336 "parsing/parser.ml"
+# 9235 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -9341,15 +9240,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9347 "parsing/parser.ml"
+# 9246 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9353 "parsing/parser.ml"
+# 9252 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -9411,8 +9310,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1758 "parsing/parser.mly"
-                     ("-.")
-# 9416 "parsing/parser.ml"
+                  ("-")
+# 9315 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -9421,21 +9320,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9427 "parsing/parser.ml"
+# 9326 "parsing/parser.ml"
                 
               in
               
 # 1759 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 9433 "parsing/parser.ml"
+# 9332 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9439 "parsing/parser.ml"
+# 9338 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -9444,15 +9343,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9450 "parsing/parser.ml"
+# 9349 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9456 "parsing/parser.ml"
+# 9355 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -9514,8 +9413,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1760 "parsing/parser.mly"
-                 ("*")
-# 9519 "parsing/parser.ml"
+                     ("-.")
+# 9418 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -9524,21 +9423,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9530 "parsing/parser.ml"
+# 9429 "parsing/parser.ml"
                 
               in
               
 # 1761 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 9536 "parsing/parser.ml"
+# 9435 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9542 "parsing/parser.ml"
+# 9441 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -9547,15 +9446,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9553 "parsing/parser.ml"
+# 9452 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9559 "parsing/parser.ml"
+# 9458 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -9617,8 +9516,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1762 "parsing/parser.mly"
-                    ("%")
-# 9622 "parsing/parser.ml"
+                 ("*")
+# 9521 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -9627,21 +9526,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9633 "parsing/parser.ml"
+# 9532 "parsing/parser.ml"
                 
               in
               
 # 1763 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 9639 "parsing/parser.ml"
+# 9538 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9645 "parsing/parser.ml"
+# 9544 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -9650,15 +9549,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9656 "parsing/parser.ml"
+# 9555 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9662 "parsing/parser.ml"
+# 9561 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -9720,8 +9619,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1764 "parsing/parser.mly"
-                  ("=")
-# 9725 "parsing/parser.ml"
+                    ("%")
+# 9624 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -9730,21 +9629,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9736 "parsing/parser.ml"
+# 9635 "parsing/parser.ml"
                 
               in
               
 # 1765 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 9742 "parsing/parser.ml"
+# 9641 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9748 "parsing/parser.ml"
+# 9647 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -9753,15 +9652,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9759 "parsing/parser.ml"
+# 9658 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9765 "parsing/parser.ml"
+# 9664 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -9823,8 +9722,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1766 "parsing/parser.mly"
-                 ("<")
-# 9828 "parsing/parser.ml"
+                  ("=")
+# 9727 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -9833,21 +9732,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9839 "parsing/parser.ml"
+# 9738 "parsing/parser.ml"
                 
               in
               
 # 1767 "parsing/parser.mly"
-    ( mkinfix _1 _2 _3 )
-# 9845 "parsing/parser.ml"
+      ( mkinfix _1 _2 _3 )
+# 9744 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9851 "parsing/parser.ml"
+# 9750 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -9856,15 +9755,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9862 "parsing/parser.ml"
+# 9761 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9868 "parsing/parser.ml"
+# 9767 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -9926,8 +9825,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1768 "parsing/parser.mly"
-                    (">")
-# 9931 "parsing/parser.ml"
+                 ("<")
+# 9830 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -9936,21 +9835,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 9942 "parsing/parser.ml"
+# 9841 "parsing/parser.ml"
                 
               in
               
 # 1769 "parsing/parser.mly"
-      ( mkinfix _1 _2 _3 )
-# 9948 "parsing/parser.ml"
+    ( mkinfix _1 _2 _3 )
+# 9847 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 9954 "parsing/parser.ml"
+# 9853 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -9959,15 +9858,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 9965 "parsing/parser.ml"
+# 9864 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 9971 "parsing/parser.ml"
+# 9870 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10029,8 +9928,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1770 "parsing/parser.mly"
-               ("or")
-# 10034 "parsing/parser.ml"
+                    (">")
+# 9933 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -10039,21 +9938,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 10045 "parsing/parser.ml"
+# 9944 "parsing/parser.ml"
                 
               in
               
 # 1771 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 10051 "parsing/parser.ml"
+# 9950 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 10057 "parsing/parser.ml"
+# 9956 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -10062,15 +9961,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10068 "parsing/parser.ml"
+# 9967 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10074 "parsing/parser.ml"
+# 9973 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10132,8 +10031,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1772 "parsing/parser.mly"
-                   ("||")
-# 10137 "parsing/parser.ml"
+               ("or")
+# 10036 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -10142,21 +10041,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 10148 "parsing/parser.ml"
+# 10047 "parsing/parser.ml"
                 
               in
               
 # 1773 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 10154 "parsing/parser.ml"
+# 10053 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 10160 "parsing/parser.ml"
+# 10059 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -10165,15 +10064,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10171 "parsing/parser.ml"
+# 10070 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10177 "parsing/parser.ml"
+# 10076 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10235,8 +10134,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1774 "parsing/parser.mly"
-                      ("&")
-# 10240 "parsing/parser.ml"
+                   ("||")
+# 10139 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -10245,21 +10144,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 10251 "parsing/parser.ml"
+# 10150 "parsing/parser.ml"
                 
               in
               
 # 1775 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 10257 "parsing/parser.ml"
+# 10156 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 10263 "parsing/parser.ml"
+# 10162 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -10268,15 +10167,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10274 "parsing/parser.ml"
+# 10173 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10280 "parsing/parser.ml"
+# 10179 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10338,8 +10237,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1776 "parsing/parser.mly"
-                       ("&&")
-# 10343 "parsing/parser.ml"
+                      ("&")
+# 10242 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -10348,21 +10247,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 10354 "parsing/parser.ml"
+# 10253 "parsing/parser.ml"
                 
               in
               
 # 1777 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 10360 "parsing/parser.ml"
+# 10259 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 10366 "parsing/parser.ml"
+# 10265 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -10371,15 +10270,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10377 "parsing/parser.ml"
+# 10276 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10383 "parsing/parser.ml"
+# 10282 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10441,8 +10340,8 @@ module Tables = struct
                   let _1 = _10 in
                   
 # 1778 "parsing/parser.mly"
-                       (":=")
-# 10446 "parsing/parser.ml"
+                       ("&&")
+# 10345 "parsing/parser.ml"
                   
                 in
                 let _endpos__1_ = _endpos__10_ in
@@ -10451,21 +10350,21 @@ module Tables = struct
                 let _symbolstartpos = _startpos__1_ in
                 let _sloc = (_symbolstartpos, _endpos) in
                 
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 10457 "parsing/parser.ml"
+# 10356 "parsing/parser.ml"
                 
               in
               
 # 1779 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 10463 "parsing/parser.ml"
+# 10362 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 10469 "parsing/parser.ml"
+# 10368 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__300_ in
@@ -10474,15 +10373,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10480 "parsing/parser.ml"
+# 10379 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10486 "parsing/parser.ml"
+# 10385 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10494,66 +10393,98 @@ module Tables = struct
       (fun _menhir_env ->
         let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
         let {
-          MenhirLib.EngineTypes.semv = _2000;
-          MenhirLib.EngineTypes.startp = _startpos__2000_;
-          MenhirLib.EngineTypes.endp = _endpos__2000_;
+          MenhirLib.EngineTypes.semv = _3000;
+          MenhirLib.EngineTypes.startp = _startpos__3000_;
+          MenhirLib.EngineTypes.endp = _endpos__3000_;
           MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.state = _menhir_s;
-            MenhirLib.EngineTypes.semv = _1000;
-            MenhirLib.EngineTypes.startp = _startpos__1000_;
-            MenhirLib.EngineTypes.endp = _endpos__1000_;
-            MenhirLib.EngineTypes.next = _menhir_stack;
+            MenhirLib.EngineTypes.semv = _100000;
+            MenhirLib.EngineTypes.startp = _startpos__100000_;
+            MenhirLib.EngineTypes.endp = _endpos__100000_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _1000;
+              MenhirLib.EngineTypes.startp = _startpos__1000_;
+              MenhirLib.EngineTypes.endp = _endpos__1000_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
           };
         } = _menhir_stack in
-        let _2000 : (Parsetree.expression) = Obj.magic _2000 in
-        let _1000 : (string) = Obj.magic _1000 in
+        let _3000 : (Parsetree.expression) = Obj.magic _3000 in
+        let _100000 : unit = Obj.magic _100000 in
+        let _1000 : (Parsetree.expression) = Obj.magic _1000 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1000_ in
-        let _endpos = _endpos__2000_ in
+        let _endpos = _endpos__3000_ in
         let _v : (Parsetree.expression) = let _1 =
-          let _endpos__200_ = _endpos__2000_ in
-          let _endpos__100_ = _endpos__1000_ in
+          let _endpos__300_ = _endpos__3000_ in
+          let _endpos__10000_ = _endpos__100000_ in
+          let _startpos__10000_ = _startpos__100000_ in
           let _startpos__100_ = _startpos__1000_ in
-          let _200 = _2000 in
+          let _300 = _3000 in
+          let _10000 = _100000 in
           let _100 = _1000 in
           let _1 =
-            let _endpos__10_ = _endpos__100_ in
-            let _startpos__10_ = _startpos__100_ in
-            let _20 = _200 in
+            let _endpos__1000_ = _endpos__10000_ in
+            let _startpos__1000_ = _startpos__10000_ in
+            let _30 = _300 in
+            let _1000 = _10000 in
             let _10 = _100 in
             let _1 =
-              let _endpos__1_ = _endpos__10_ in
-              let _startpos__1_ = _startpos__10_ in
-              let _2 = _20 in
+              let _endpos__100_ = _endpos__1000_ in
+              let _startpos__100_ = _startpos__1000_ in
+              let _3 = _30 in
+              let _100 = _1000 in
               let _1 = _10 in
-              let _loc__1_ = (_startpos__1_, _endpos__1_) in
+              let _2 =
+                let _endpos__10_ = _endpos__100_ in
+                let _startpos__10_ = _startpos__100_ in
+                let _10 = _100 in
+                let _1 =
+                  let _1 = _10 in
+                  
+# 1780 "parsing/parser.mly"
+                       (":=")
+# 10448 "parsing/parser.ml"
+                  
+                in
+                let _endpos__1_ = _endpos__10_ in
+                let _startpos__1_ = _startpos__10_ in
+                let _endpos = _endpos__1_ in
+                let _symbolstartpos = _startpos__1_ in
+                let _sloc = (_symbolstartpos, _endpos) in
+                
+# 734 "parsing/parser.mly"
+   ( mkoperator ~loc:_sloc _1 )
+# 10459 "parsing/parser.ml"
+                
+              in
               
 # 1781 "parsing/parser.mly"
-      ( mkuminus ~oploc:_loc__1_ _1 _2 )
-# 10534 "parsing/parser.ml"
+      ( mkinfix _1 _2 _3 )
+# 10465 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 10540 "parsing/parser.ml"
+# 10471 "parsing/parser.ml"
             
           in
-          let _endpos__1_ = _endpos__200_ in
+          let _endpos__1_ = _endpos__300_ in
           let _startpos__1_ = _startpos__100_ in
           let _endpos = _endpos__1_ in
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10551 "parsing/parser.ml"
+# 10482 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10557 "parsing/parser.ml"
+# 10488 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10600,14 +10531,14 @@ module Tables = struct
               let _loc__1_ = (_startpos__1_, _endpos__1_) in
               
 # 1783 "parsing/parser.mly"
-      ( mkuplus ~oploc:_loc__1_ _1 _2 )
-# 10605 "parsing/parser.ml"
+      ( mkuminus ~oploc:_loc__1_ _1 _2 )
+# 10536 "parsing/parser.ml"
               
             in
             
-# 1729 "parsing/parser.mly"
+# 1731 "parsing/parser.mly"
             ( _1 )
-# 10611 "parsing/parser.ml"
+# 10542 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__200_ in
@@ -10616,15 +10547,86 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10622 "parsing/parser.ml"
+# 10553 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10628 "parsing/parser.ml"
+# 10559 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _2000;
+          MenhirLib.EngineTypes.startp = _startpos__2000_;
+          MenhirLib.EngineTypes.endp = _endpos__2000_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.state = _menhir_s;
+            MenhirLib.EngineTypes.semv = _1000;
+            MenhirLib.EngineTypes.startp = _startpos__1000_;
+            MenhirLib.EngineTypes.endp = _endpos__1000_;
+            MenhirLib.EngineTypes.next = _menhir_stack;
+          };
+        } = _menhir_stack in
+        let _2000 : (Parsetree.expression) = Obj.magic _2000 in
+        let _1000 : (string) = Obj.magic _1000 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1000_ in
+        let _endpos = _endpos__2000_ in
+        let _v : (Parsetree.expression) = let _1 =
+          let _endpos__200_ = _endpos__2000_ in
+          let _endpos__100_ = _endpos__1000_ in
+          let _startpos__100_ = _startpos__1000_ in
+          let _200 = _2000 in
+          let _100 = _1000 in
+          let _1 =
+            let _endpos__10_ = _endpos__100_ in
+            let _startpos__10_ = _startpos__100_ in
+            let _20 = _200 in
+            let _10 = _100 in
+            let _1 =
+              let _endpos__1_ = _endpos__10_ in
+              let _startpos__1_ = _startpos__10_ in
+              let _2 = _20 in
+              let _1 = _10 in
+              let _loc__1_ = (_startpos__1_, _endpos__1_) in
+              
+# 1785 "parsing/parser.mly"
+      ( mkuplus ~oploc:_loc__1_ _1 _2 )
+# 10607 "parsing/parser.ml"
+              
+            in
+            
+# 1731 "parsing/parser.mly"
+            ( _1 )
+# 10613 "parsing/parser.ml"
+            
+          in
+          let _endpos__1_ = _endpos__200_ in
+          let _startpos__1_ = _startpos__100_ in
+          let _endpos = _endpos__1_ in
+          let _symbolstartpos = _startpos__1_ in
+          let _sloc = (_symbolstartpos, _endpos) in
+          
+# 740 "parsing/parser.mly"
+    ( mkexp ~loc:_sloc _1 )
+# 10624 "parsing/parser.ml"
+          
+        in
+        
+# 1660 "parsing/parser.mly"
+    ( _1 )
+# 10630 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10665,21 +10667,21 @@ module Tables = struct
               let xs =
                 let xs = xs0 in
                 
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 10671 "parsing/parser.ml"
+# 10673 "parsing/parser.ml"
                 
               in
               
-# 783 "parsing/parser.mly"
+# 785 "parsing/parser.mly"
     ( xs )
-# 10677 "parsing/parser.ml"
+# 10679 "parsing/parser.ml"
               
             in
             
-# 1731 "parsing/parser.mly"
+# 1733 "parsing/parser.mly"
     ( Pexp_apply(_1, _2) )
-# 10683 "parsing/parser.ml"
+# 10685 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos_xs000_ in
@@ -10688,15 +10690,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10694 "parsing/parser.ml"
+# 10696 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10700 "parsing/parser.ml"
+# 10702 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10731,27 +10733,27 @@ module Tables = struct
                 let xs =
                   let xs = xs0 in
                   
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 10737 "parsing/parser.ml"
+# 10739 "parsing/parser.ml"
                   
                 in
                 
-# 839 "parsing/parser.mly"
+# 841 "parsing/parser.mly"
     ( xs )
-# 10743 "parsing/parser.ml"
+# 10745 "parsing/parser.ml"
                 
               in
               
-# 2064 "parsing/parser.mly"
+# 2060 "parsing/parser.mly"
     ( es )
-# 10749 "parsing/parser.ml"
+# 10751 "parsing/parser.ml"
               
             in
             
-# 1733 "parsing/parser.mly"
+# 1735 "parsing/parser.mly"
     ( Pexp_tuple(_1) )
-# 10755 "parsing/parser.ml"
+# 10757 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos_xs0000_ in
@@ -10760,15 +10762,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10766 "parsing/parser.ml"
+# 10768 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10772 "parsing/parser.ml"
+# 10774 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10815,15 +10817,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 10821 "parsing/parser.ml"
+# 10823 "parsing/parser.ml"
               
             in
             
-# 1735 "parsing/parser.mly"
+# 1737 "parsing/parser.mly"
     ( Pexp_construct(_1, Some _2) )
-# 10827 "parsing/parser.ml"
+# 10829 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -10832,15 +10834,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10838 "parsing/parser.ml"
+# 10840 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10844 "parsing/parser.ml"
+# 10846 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10877,9 +10879,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1737 "parsing/parser.mly"
+# 1739 "parsing/parser.mly"
     ( Pexp_variant(_1, Some _2) )
-# 10883 "parsing/parser.ml"
+# 10885 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -10888,15 +10890,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 10894 "parsing/parser.ml"
+# 10896 "parsing/parser.ml"
           
         in
         
-# 1658 "parsing/parser.mly"
+# 1660 "parsing/parser.mly"
     ( _1 )
-# 10900 "parsing/parser.ml"
+# 10902 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10934,9 +10936,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1660 "parsing/parser.mly"
+# 1662 "parsing/parser.mly"
     ( expr_of_let_bindings ~loc:_sloc _1 _3 )
-# 10940 "parsing/parser.ml"
+# 10942 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -10975,9 +10977,9 @@ module Tables = struct
         let _loc__2_ = (_startpos__2_, _endpos__2_) in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1662 "parsing/parser.mly"
+# 1664 "parsing/parser.mly"
       ( mkexp_cons ~loc:_sloc _loc__2_ (ghexp ~loc:_sloc (Pexp_tuple[_1;_3])) )
-# 10981 "parsing/parser.ml"
+# 10983 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11019,9 +11021,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 11025 "parsing/parser.ml"
+# 11027 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -11029,9 +11031,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1664 "parsing/parser.mly"
+# 1666 "parsing/parser.mly"
       ( mkexp ~loc:_sloc (Pexp_setinstvar(_1, _3)) )
-# 11035 "parsing/parser.ml"
+# 11037 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11085,82 +11087,18 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 11091 "parsing/parser.ml"
+# 11093 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1666 "parsing/parser.mly"
-      ( mkexp ~loc:_sloc (Pexp_setfield(_1, _3, _5)) )
-# 11100 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _7;
-          MenhirLib.EngineTypes.startp = _startpos__7_;
-          MenhirLib.EngineTypes.endp = _endpos__7_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _6;
-            MenhirLib.EngineTypes.startp = _startpos__6_;
-            MenhirLib.EngineTypes.endp = _endpos__6_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _5;
-              MenhirLib.EngineTypes.startp = _startpos__5_;
-              MenhirLib.EngineTypes.endp = _endpos__5_;
-              MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.semv = _4;
-                MenhirLib.EngineTypes.startp = _startpos__4_;
-                MenhirLib.EngineTypes.endp = _endpos__4_;
-                MenhirLib.EngineTypes.next = {
-                  MenhirLib.EngineTypes.semv = _3;
-                  MenhirLib.EngineTypes.startp = _startpos__3_;
-                  MenhirLib.EngineTypes.endp = _endpos__3_;
-                  MenhirLib.EngineTypes.next = {
-                    MenhirLib.EngineTypes.semv = _2;
-                    MenhirLib.EngineTypes.startp = _startpos__2_;
-                    MenhirLib.EngineTypes.endp = _endpos__2_;
-                    MenhirLib.EngineTypes.next = {
-                      MenhirLib.EngineTypes.state = _menhir_s;
-                      MenhirLib.EngineTypes.semv = _1;
-                      MenhirLib.EngineTypes.startp = _startpos__1_;
-                      MenhirLib.EngineTypes.endp = _endpos__1_;
-                      MenhirLib.EngineTypes.next = _menhir_stack;
-                    };
-                  };
-                };
-              };
-            };
-          };
-        } = _menhir_stack in
-        let _7 : (Parsetree.expression) = Obj.magic _7 in
-        let _6 : unit = Obj.magic _6 in
-        let _5 : unit = Obj.magic _5 in
-        let _4 : (Parsetree.expression) = Obj.magic _4 in
-        let _3 : unit = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (Parsetree.expression) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__7_ in
-        let _v : (Parsetree.expression) = let _endpos = _endpos__7_ in
-        let _symbolstartpos = _startpos__1_ in
-        let _sloc = (_symbolstartpos, _endpos) in
-        
 # 1668 "parsing/parser.mly"
-      ( array_set ~loc:_sloc _1 _4 _7 )
-# 11164 "parsing/parser.ml"
+      ( mkexp ~loc:_sloc (Pexp_setfield(_1, _3, _5)) )
+# 11102 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11223,8 +11161,8 @@ module Tables = struct
         let _sloc = (_symbolstartpos, _endpos) in
         
 # 1670 "parsing/parser.mly"
-      ( string_set ~loc:_sloc _1 _4 _7 )
-# 11228 "parsing/parser.ml"
+      ( array_set ~loc:_sloc _1 _4 _7 )
+# 11166 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11287,8 +11225,8 @@ module Tables = struct
         let _sloc = (_symbolstartpos, _endpos) in
         
 # 1672 "parsing/parser.mly"
-      ( bigarray_set ~loc:_sloc _1 _4 _7 )
-# 11292 "parsing/parser.ml"
+      ( string_set ~loc:_sloc _1 _4 _7 )
+# 11230 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11341,11 +11279,7 @@ module Tables = struct
         let _5 : unit = Obj.magic _5 in
         let _4 : (Parsetree.expression) = Obj.magic _4 in
         let _3 : unit = Obj.magic _3 in
-        let _2 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 11348 "parsing/parser.ml"
-        ) = Obj.magic _2 in
+        let _2 : unit = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
@@ -11355,8 +11289,8 @@ module Tables = struct
         let _sloc = (_symbolstartpos, _endpos) in
         
 # 1674 "parsing/parser.mly"
-      ( dotop_set ~loc:_sloc (Lident ("." ^ _2 ^ "[]<-")) _1 _4 _7 )
-# 11360 "parsing/parser.ml"
+      ( bigarray_set ~loc:_sloc _1 _4 _7 )
+# 11294 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11410,9 +11344,9 @@ module Tables = struct
         let _4 : (Parsetree.expression) = Obj.magic _4 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 11416 "parsing/parser.ml"
+# 11350 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -11423,8 +11357,8 @@ module Tables = struct
         let _sloc = (_symbolstartpos, _endpos) in
         
 # 1676 "parsing/parser.mly"
-      ( dotop_set ~loc:_sloc (Lident ("." ^ _2 ^ "()<-")) _1 _4 _7 )
-# 11428 "parsing/parser.ml"
+      ( dotop_set ~loc:_sloc (Lident ("." ^ _2 ^ "[]<-")) _1 _4 _7 )
+# 11362 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11478,9 +11412,9 @@ module Tables = struct
         let _4 : (Parsetree.expression) = Obj.magic _4 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 11484 "parsing/parser.ml"
+# 11418 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -11491,8 +11425,8 @@ module Tables = struct
         let _sloc = (_symbolstartpos, _endpos) in
         
 # 1678 "parsing/parser.mly"
-      ( dotop_set ~loc:_sloc (Lident ("." ^ _2 ^ "{}<-")) _1 _4 _7 )
-# 11496 "parsing/parser.ml"
+      ( dotop_set ~loc:_sloc (Lident ("." ^ _2 ^ "()<-")) _1 _4 _7 )
+# 11430 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11504,45 +11438,35 @@ module Tables = struct
       (fun _menhir_env ->
         let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
         let {
-          MenhirLib.EngineTypes.semv = _9;
-          MenhirLib.EngineTypes.startp = _startpos__9_;
-          MenhirLib.EngineTypes.endp = _endpos__9_;
+          MenhirLib.EngineTypes.semv = _7;
+          MenhirLib.EngineTypes.startp = _startpos__7_;
+          MenhirLib.EngineTypes.endp = _endpos__7_;
           MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _8;
-            MenhirLib.EngineTypes.startp = _startpos__8_;
-            MenhirLib.EngineTypes.endp = _endpos__8_;
+            MenhirLib.EngineTypes.semv = _6;
+            MenhirLib.EngineTypes.startp = _startpos__6_;
+            MenhirLib.EngineTypes.endp = _endpos__6_;
             MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _7;
-              MenhirLib.EngineTypes.startp = _startpos__7_;
-              MenhirLib.EngineTypes.endp = _endpos__7_;
+              MenhirLib.EngineTypes.semv = _5;
+              MenhirLib.EngineTypes.startp = _startpos__5_;
+              MenhirLib.EngineTypes.endp = _endpos__5_;
               MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.semv = _6;
-                MenhirLib.EngineTypes.startp = _startpos__6_;
-                MenhirLib.EngineTypes.endp = _endpos__6_;
+                MenhirLib.EngineTypes.semv = _4;
+                MenhirLib.EngineTypes.startp = _startpos__4_;
+                MenhirLib.EngineTypes.endp = _endpos__4_;
                 MenhirLib.EngineTypes.next = {
-                  MenhirLib.EngineTypes.semv = _5;
-                  MenhirLib.EngineTypes.startp = _startpos__5_;
-                  MenhirLib.EngineTypes.endp = _endpos__5_;
+                  MenhirLib.EngineTypes.semv = _3;
+                  MenhirLib.EngineTypes.startp = _startpos__3_;
+                  MenhirLib.EngineTypes.endp = _endpos__3_;
                   MenhirLib.EngineTypes.next = {
-                    MenhirLib.EngineTypes.semv = _4;
-                    MenhirLib.EngineTypes.startp = _startpos__4_;
-                    MenhirLib.EngineTypes.endp = _endpos__4_;
+                    MenhirLib.EngineTypes.semv = _2;
+                    MenhirLib.EngineTypes.startp = _startpos__2_;
+                    MenhirLib.EngineTypes.endp = _endpos__2_;
                     MenhirLib.EngineTypes.next = {
-                      MenhirLib.EngineTypes.semv = _3;
-                      MenhirLib.EngineTypes.startp = _startpos__3_;
-                      MenhirLib.EngineTypes.endp = _endpos__3_;
-                      MenhirLib.EngineTypes.next = {
-                        MenhirLib.EngineTypes.semv = _2;
-                        MenhirLib.EngineTypes.startp = _startpos__2_;
-                        MenhirLib.EngineTypes.endp = _endpos__2_;
-                        MenhirLib.EngineTypes.next = {
-                          MenhirLib.EngineTypes.state = _menhir_s;
-                          MenhirLib.EngineTypes.semv = _1;
-                          MenhirLib.EngineTypes.startp = _startpos__1_;
-                          MenhirLib.EngineTypes.endp = _endpos__1_;
-                          MenhirLib.EngineTypes.next = _menhir_stack;
-                        };
-                      };
+                      MenhirLib.EngineTypes.state = _menhir_s;
+                      MenhirLib.EngineTypes.semv = _1;
+                      MenhirLib.EngineTypes.startp = _startpos__1_;
+                      MenhirLib.EngineTypes.endp = _endpos__1_;
+                      MenhirLib.EngineTypes.next = _menhir_stack;
                     };
                   };
                 };
@@ -11550,29 +11474,27 @@ module Tables = struct
             };
           };
         } = _menhir_stack in
-        let _9 : (Parsetree.expression) = Obj.magic _9 in
-        let _8 : unit = Obj.magic _8 in
-        let _7 : unit = Obj.magic _7 in
-        let _6 : (Parsetree.expression) = Obj.magic _6 in
+        let _7 : (Parsetree.expression) = Obj.magic _7 in
+        let _6 : unit = Obj.magic _6 in
         let _5 : unit = Obj.magic _5 in
-        let _4 : (
-# 561 "parsing/parser.mly"
+        let _4 : (Parsetree.expression) = Obj.magic _4 in
+        let _3 : unit = Obj.magic _3 in
+        let _2 : (
+# 563 "parsing/parser.mly"
        (string)
-# 11562 "parsing/parser.ml"
-        ) = Obj.magic _4 in
-        let _3 : (Longident.t) = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
+# 11486 "parsing/parser.ml"
+        ) = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
-        let _endpos = _endpos__9_ in
-        let _v : (Parsetree.expression) = let _endpos = _endpos__9_ in
+        let _endpos = _endpos__7_ in
+        let _v : (Parsetree.expression) = let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
 # 1680 "parsing/parser.mly"
-      ( dotop_set ~loc:_sloc (Ldot(_3,"." ^ _4 ^ "[]<-")) _1 _6 _9 )
-# 11576 "parsing/parser.ml"
+      ( dotop_set ~loc:_sloc (Lident ("." ^ _2 ^ "{}<-")) _1 _4 _7 )
+# 11498 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11636,9 +11558,9 @@ module Tables = struct
         let _6 : (Parsetree.expression) = Obj.magic _6 in
         let _5 : unit = Obj.magic _5 in
         let _4 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 11642 "parsing/parser.ml"
+# 11564 "parsing/parser.ml"
         ) = Obj.magic _4 in
         let _3 : (Longident.t) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
@@ -11651,8 +11573,8 @@ module Tables = struct
         let _sloc = (_symbolstartpos, _endpos) in
         
 # 1682 "parsing/parser.mly"
-      ( dotop_set ~loc:_sloc (Ldot(_3, "." ^ _4 ^ "()<-")) _1 _6 _9 )
-# 11656 "parsing/parser.ml"
+      ( dotop_set ~loc:_sloc (Ldot(_3,"." ^ _4 ^ "[]<-")) _1 _6 _9 )
+# 11578 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11716,9 +11638,9 @@ module Tables = struct
         let _6 : (Parsetree.expression) = Obj.magic _6 in
         let _5 : unit = Obj.magic _5 in
         let _4 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 11722 "parsing/parser.ml"
+# 11644 "parsing/parser.ml"
         ) = Obj.magic _4 in
         let _3 : (Longident.t) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
@@ -11731,8 +11653,88 @@ module Tables = struct
         let _sloc = (_symbolstartpos, _endpos) in
         
 # 1684 "parsing/parser.mly"
+      ( dotop_set ~loc:_sloc (Ldot(_3, "." ^ _4 ^ "()<-")) _1 _6 _9 )
+# 11658 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _9;
+          MenhirLib.EngineTypes.startp = _startpos__9_;
+          MenhirLib.EngineTypes.endp = _endpos__9_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _8;
+            MenhirLib.EngineTypes.startp = _startpos__8_;
+            MenhirLib.EngineTypes.endp = _endpos__8_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.semv = _7;
+              MenhirLib.EngineTypes.startp = _startpos__7_;
+              MenhirLib.EngineTypes.endp = _endpos__7_;
+              MenhirLib.EngineTypes.next = {
+                MenhirLib.EngineTypes.semv = _6;
+                MenhirLib.EngineTypes.startp = _startpos__6_;
+                MenhirLib.EngineTypes.endp = _endpos__6_;
+                MenhirLib.EngineTypes.next = {
+                  MenhirLib.EngineTypes.semv = _5;
+                  MenhirLib.EngineTypes.startp = _startpos__5_;
+                  MenhirLib.EngineTypes.endp = _endpos__5_;
+                  MenhirLib.EngineTypes.next = {
+                    MenhirLib.EngineTypes.semv = _4;
+                    MenhirLib.EngineTypes.startp = _startpos__4_;
+                    MenhirLib.EngineTypes.endp = _endpos__4_;
+                    MenhirLib.EngineTypes.next = {
+                      MenhirLib.EngineTypes.semv = _3;
+                      MenhirLib.EngineTypes.startp = _startpos__3_;
+                      MenhirLib.EngineTypes.endp = _endpos__3_;
+                      MenhirLib.EngineTypes.next = {
+                        MenhirLib.EngineTypes.semv = _2;
+                        MenhirLib.EngineTypes.startp = _startpos__2_;
+                        MenhirLib.EngineTypes.endp = _endpos__2_;
+                        MenhirLib.EngineTypes.next = {
+                          MenhirLib.EngineTypes.state = _menhir_s;
+                          MenhirLib.EngineTypes.semv = _1;
+                          MenhirLib.EngineTypes.startp = _startpos__1_;
+                          MenhirLib.EngineTypes.endp = _endpos__1_;
+                          MenhirLib.EngineTypes.next = _menhir_stack;
+                        };
+                      };
+                    };
+                  };
+                };
+              };
+            };
+          };
+        } = _menhir_stack in
+        let _9 : (Parsetree.expression) = Obj.magic _9 in
+        let _8 : unit = Obj.magic _8 in
+        let _7 : unit = Obj.magic _7 in
+        let _6 : (Parsetree.expression) = Obj.magic _6 in
+        let _5 : unit = Obj.magic _5 in
+        let _4 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 11724 "parsing/parser.ml"
+        ) = Obj.magic _4 in
+        let _3 : (Longident.t) = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : (Parsetree.expression) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__9_ in
+        let _v : (Parsetree.expression) = let _endpos = _endpos__9_ in
+        let _symbolstartpos = _startpos__1_ in
+        let _sloc = (_symbolstartpos, _endpos) in
+        
+# 1686 "parsing/parser.mly"
       ( dotop_set ~loc:_sloc (Ldot(_3, "." ^ _4 ^ "{}<-")) _1 _6 _9 )
-# 11736 "parsing/parser.ml"
+# 11738 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11761,9 +11763,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.expression) = 
-# 1686 "parsing/parser.mly"
+# 1688 "parsing/parser.mly"
       ( Exp.attr _1 _2 )
-# 11767 "parsing/parser.ml"
+# 11769 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11787,9 +11789,9 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.expression) = let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 1688 "parsing/parser.mly"
+# 1690 "parsing/parser.mly"
      ( not_expecting _loc__1_ "wildcard \"_\"" )
-# 11793 "parsing/parser.ml"
+# 11795 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11805,9 +11807,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (string Asttypes.loc option * Parsetree.attributes) = 
-# 3082 "parsing/parser.mly"
+# 3078 "parsing/parser.mly"
                  ( None, [] )
-# 11811 "parsing/parser.ml"
+# 11813 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11836,9 +11838,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (string Asttypes.loc option * Parsetree.attributes) = 
-# 3083 "parsing/parser.mly"
+# 3079 "parsing/parser.mly"
                          ( None, _1 :: _2 )
-# 11842 "parsing/parser.ml"
+# 11844 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11873,9 +11875,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (string Asttypes.loc option * Parsetree.attributes) = 
-# 3084 "parsing/parser.mly"
+# 3080 "parsing/parser.mly"
                                ( Some _2, _3 )
-# 11879 "parsing/parser.ml"
+# 11881 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11916,9 +11918,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__4_ in
         let _v : (Parsetree.extension) = 
-# 3087 "parsing/parser.mly"
+# 3083 "parsing/parser.mly"
                                            ( (_2, _3) )
-# 11922 "parsing/parser.ml"
+# 11924 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -11960,9 +11962,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 11966 "parsing/parser.ml"
+# 11968 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -11970,11 +11972,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2522 "parsing/parser.mly"
+# 2518 "parsing/parser.mly"
       ( let args, res = _2 in
         let info = symbol_info _endpos in
         Te.decl _1 ~args ?res ~attrs:_3 ~loc:(make_loc _sloc) ~info )
-# 11978 "parsing/parser.ml"
+# 11980 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12022,9 +12024,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 12028 "parsing/parser.ml"
+# 12030 "parsing/parser.ml"
           
         in
         let _1 =
@@ -12035,9 +12037,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 12041 "parsing/parser.ml"
+# 12043 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -12045,10 +12047,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2534 "parsing/parser.mly"
+# 2530 "parsing/parser.mly"
       ( let info = symbol_info _endpos in
         Te.rebind _1 _3 ~attrs:_4 ~loc:(make_loc _sloc) ~info )
-# 12052 "parsing/parser.ml"
+# 12054 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12091,9 +12093,9 @@ module Tables = struct
         let _v : (Parsetree.object_field) = let _3 =
           let _1 = _11 in
           
-# 2608 "parsing/parser.mly"
+# 2604 "parsing/parser.mly"
     ( _1 )
-# 12097 "parsing/parser.ml"
+# 12099 "parsing/parser.ml"
           
         in
         let _1 =
@@ -12104,9 +12106,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 12110 "parsing/parser.ml"
+# 12112 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -12114,11 +12116,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2776 "parsing/parser.mly"
+# 2772 "parsing/parser.mly"
     ( let info = symbol_info _endpos in
       let attrs = add_info_attrs info _4 in
       Of.tag ~loc:(make_loc _sloc) ~attrs _1 _3 )
-# 12122 "parsing/parser.ml"
+# 12124 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12160,15 +12162,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 12166 "parsing/parser.ml"
+# 12168 "parsing/parser.ml"
           
         in
         
-# 2088 "parsing/parser.mly"
+# 2084 "parsing/parser.mly"
       ( (_1, _3) )
-# 12172 "parsing/parser.ml"
+# 12174 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12198,9 +12200,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 12204 "parsing/parser.ml"
+# 12206 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__10_ in
@@ -12209,9 +12211,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2090 "parsing/parser.mly"
+# 2086 "parsing/parser.mly"
       ( (_1, exp_of_label ~loc:_sloc {_1 with txt = Lident _1.txt}) )
-# 12215 "parsing/parser.ml"
+# 12217 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12266,9 +12268,9 @@ module Tables = struct
         let _v : (Parsetree.object_field) = let _3 =
           let _1 = _11 in
           
-# 2608 "parsing/parser.mly"
+# 2604 "parsing/parser.mly"
     ( _1 )
-# 12272 "parsing/parser.ml"
+# 12274 "parsing/parser.ml"
           
         in
         let _1 =
@@ -12279,9 +12281,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 12285 "parsing/parser.ml"
+# 12287 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -12289,7 +12291,7 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2783 "parsing/parser.mly"
+# 2779 "parsing/parser.mly"
     ( let info =
         match rhs_info _endpos__4_ with
         | Some _ as info_before_semi -> info_before_semi
@@ -12297,7 +12299,7 @@ module Tables = struct
       in
       let attrs = add_info_attrs info (_4 @ _6) in
       Of.tag ~loc:(make_loc _sloc) ~attrs _1 _3 )
-# 12301 "parsing/parser.ml"
+# 12303 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12341,10 +12343,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 3070 "parsing/parser.mly"
+# 3066 "parsing/parser.mly"
     ( mark_symbol_docs _sloc;
       Attr.mk ~loc:(make_loc _sloc) _2 _3 )
-# 12348 "parsing/parser.ml"
+# 12350 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12367,9 +12369,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.expression) = 
-# 2023 "parsing/parser.mly"
+# 2019 "parsing/parser.mly"
       ( _1 )
-# 12373 "parsing/parser.ml"
+# 12375 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12407,9 +12409,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2025 "parsing/parser.mly"
+# 2021 "parsing/parser.mly"
       ( mkexp_constraint ~loc:_sloc _3 _1 )
-# 12413 "parsing/parser.ml"
+# 12415 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12438,9 +12440,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.expression) = 
-# 2049 "parsing/parser.mly"
+# 2045 "parsing/parser.mly"
       ( _2 )
-# 12444 "parsing/parser.ml"
+# 12446 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12493,9 +12495,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 2051 "parsing/parser.mly"
+# 2047 "parsing/parser.mly"
       ( Pexp_constraint (_4, _2) )
-# 12499 "parsing/parser.ml"
+# 12501 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__40_ in
@@ -12504,15 +12506,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 12510 "parsing/parser.ml"
+# 12512 "parsing/parser.ml"
           
         in
         
-# 2052 "parsing/parser.mly"
+# 2048 "parsing/parser.mly"
       ( _1 )
-# 12516 "parsing/parser.ml"
+# 12518 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12544,12 +12546,12 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2055 "parsing/parser.mly"
+# 2051 "parsing/parser.mly"
       (
        let (l,o,p) = _1 in
        ghexp ~loc:_sloc (Pexp_fun(l, o, p, _2))
       )
-# 12553 "parsing/parser.ml"
+# 12555 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12598,18 +12600,18 @@ module Tables = struct
         let _v : (Parsetree.expression) = let _3 =
           let xs = xs0 in
           
-# 1969 "parsing/parser.mly"
+# 1971 "parsing/parser.mly"
     ( xs )
-# 12604 "parsing/parser.ml"
+# 12606 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2060 "parsing/parser.mly"
+# 2056 "parsing/parser.mly"
       ( mk_newtypes ~loc:_sloc _3 _5 )
-# 12613 "parsing/parser.ml"
+# 12615 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12646,9 +12648,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 938 "parsing/parser.mly"
+# 940 "parsing/parser.mly"
                         ("*")
-# 12652 "parsing/parser.ml"
+# 12654 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -12657,15 +12659,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 12663 "parsing/parser.ml"
+# 12665 "parsing/parser.ml"
           
         in
         
-# 939 "parsing/parser.mly"
+# 941 "parsing/parser.mly"
       ( _1, None )
-# 12669 "parsing/parser.ml"
+# 12671 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12719,15 +12721,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 12725 "parsing/parser.ml"
+# 12727 "parsing/parser.ml"
           
         in
         
-# 941 "parsing/parser.mly"
+# 943 "parsing/parser.mly"
       ( _2, Some _4 )
-# 12731 "parsing/parser.ml"
+# 12733 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12746,17 +12748,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 12752 "parsing/parser.ml"
+# 12754 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 945 "parsing/parser.mly"
+# 947 "parsing/parser.mly"
                ( _1 )
-# 12760 "parsing/parser.ml"
+# 12762 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12779,9 +12781,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 946 "parsing/parser.mly"
+# 948 "parsing/parser.mly"
                ( "_" )
-# 12785 "parsing/parser.ml"
+# 12787 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12810,9 +12812,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : ((string Asttypes.loc * Parsetree.module_type option) list) = 
-# 951 "parsing/parser.mly"
+# 953 "parsing/parser.mly"
       ( _2 :: _1 )
-# 12816 "parsing/parser.ml"
+# 12818 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12835,9 +12837,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : ((string Asttypes.loc * Parsetree.module_type option) list) = 
-# 953 "parsing/parser.mly"
+# 955 "parsing/parser.mly"
       ( [ _1 ] )
-# 12841 "parsing/parser.ml"
+# 12843 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12853,9 +12855,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.constructor_arguments * Parsetree.core_type option) = 
-# 2450 "parsing/parser.mly"
+# 2446 "parsing/parser.mly"
                                   ( (Pcstr_tuple [],None) )
-# 12859 "parsing/parser.ml"
+# 12861 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12884,9 +12886,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.constructor_arguments * Parsetree.core_type option) = 
-# 2451 "parsing/parser.mly"
+# 2447 "parsing/parser.mly"
                                   ( (_2,None) )
-# 12890 "parsing/parser.ml"
+# 12892 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12927,9 +12929,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__4_ in
         let _v : (Parsetree.constructor_arguments * Parsetree.core_type option) = 
-# 2453 "parsing/parser.mly"
+# 2449 "parsing/parser.mly"
                                   ( (_2,Some _4) )
-# 12933 "parsing/parser.ml"
+# 12935 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12958,9 +12960,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.constructor_arguments * Parsetree.core_type option) = 
-# 2455 "parsing/parser.mly"
+# 2451 "parsing/parser.mly"
                                   ( (Pcstr_tuple [],Some _2) )
-# 12964 "parsing/parser.ml"
+# 12966 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -12979,17 +12981,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 12985 "parsing/parser.ml"
+# 12987 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.label) = 
-# 2819 "parsing/parser.mly"
+# 2815 "parsing/parser.mly"
                               ( _1 )
-# 12993 "parsing/parser.ml"
+# 12995 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13008,17 +13010,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 13014 "parsing/parser.ml"
+# 13016 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.label) = 
-# 2820 "parsing/parser.mly"
+# 2816 "parsing/parser.mly"
                               ( _1 )
-# 13022 "parsing/parser.ml"
+# 13024 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13047,13 +13049,13 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (
-# 704 "parsing/parser.mly"
+# 706 "parsing/parser.mly"
       (Parsetree.structure)
-# 13053 "parsing/parser.ml"
+# 13055 "parsing/parser.ml"
         ) = 
-# 877 "parsing/parser.mly"
+# 879 "parsing/parser.mly"
                                          ( _1 )
-# 13057 "parsing/parser.ml"
+# 13059 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13085,9 +13087,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2794 "parsing/parser.mly"
+# 2790 "parsing/parser.mly"
     ( Of.inherit_ ~loc:(make_loc _sloc) _1 )
-# 13091 "parsing/parser.ml"
+# 13093 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13116,13 +13118,13 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (
-# 706 "parsing/parser.mly"
+# 708 "parsing/parser.mly"
       (Parsetree.signature)
-# 13122 "parsing/parser.ml"
+# 13124 "parsing/parser.ml"
         ) = 
-# 881 "parsing/parser.mly"
+# 883 "parsing/parser.mly"
                                          ( _1 )
-# 13126 "parsing/parser.ml"
+# 13128 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13163,9 +13165,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__4_ in
         let _v : (Parsetree.extension) = 
-# 3090 "parsing/parser.mly"
+# 3086 "parsing/parser.mly"
                                                   ( (_2, _3) )
-# 13169 "parsing/parser.ml"
+# 13171 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13184,17 +13186,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 13190 "parsing/parser.ml"
+# 13192 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.label) = 
-# 2797 "parsing/parser.mly"
+# 2793 "parsing/parser.mly"
                                                 ( _1 )
-# 13198 "parsing/parser.ml"
+# 13200 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13243,9 +13245,9 @@ module Tables = struct
         let _v : (Parsetree.label_declaration) = let _4 =
           let _1 = _11 in
           
-# 2608 "parsing/parser.mly"
+# 2604 "parsing/parser.mly"
     ( _1 )
-# 13249 "parsing/parser.ml"
+# 13251 "parsing/parser.ml"
           
         in
         let _2 =
@@ -13256,9 +13258,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 13262 "parsing/parser.ml"
+# 13264 "parsing/parser.ml"
           
         in
         let _startpos__2_ = _startpos__10_ in
@@ -13269,10 +13271,10 @@ module Tables = struct
           _startpos__2_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2469 "parsing/parser.mly"
+# 2465 "parsing/parser.mly"
       ( let info = symbol_info _endpos in
         Type.field _2 _4 ~mut:_1 ~attrs:_5 ~loc:(make_loc _sloc) ~info )
-# 13276 "parsing/parser.ml"
+# 13278 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13333,9 +13335,9 @@ module Tables = struct
         let _v : (Parsetree.label_declaration) = let _4 =
           let _1 = _11 in
           
-# 2608 "parsing/parser.mly"
+# 2604 "parsing/parser.mly"
     ( _1 )
-# 13339 "parsing/parser.ml"
+# 13341 "parsing/parser.ml"
           
         in
         let _2 =
@@ -13346,9 +13348,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 13352 "parsing/parser.ml"
+# 13354 "parsing/parser.ml"
           
         in
         let _startpos__2_ = _startpos__10_ in
@@ -13359,14 +13361,14 @@ module Tables = struct
           _startpos__2_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2474 "parsing/parser.mly"
+# 2470 "parsing/parser.mly"
       ( let info =
           match rhs_info _endpos__5_ with
           | Some _ as info_before_semi -> info_before_semi
           | None -> symbol_info _endpos
        in
        Type.field _2 _4 ~mut:_1 ~attrs:(_5 @ _7) ~loc:(make_loc _sloc) ~info )
-# 13370 "parsing/parser.ml"
+# 13372 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13389,9 +13391,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.label_declaration list) = 
-# 2463 "parsing/parser.mly"
+# 2459 "parsing/parser.mly"
                                                 ( [_1] )
-# 13395 "parsing/parser.ml"
+# 13397 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13414,9 +13416,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.label_declaration list) = 
-# 2464 "parsing/parser.mly"
+# 2460 "parsing/parser.mly"
                                                 ( [_1] )
-# 13420 "parsing/parser.ml"
+# 13422 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13445,9 +13447,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.label_declaration list) = 
-# 2465 "parsing/parser.mly"
+# 2461 "parsing/parser.mly"
                                                 ( _1 :: _2 )
-# 13451 "parsing/parser.ml"
+# 13453 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13472,48 +13474,17 @@ module Tables = struct
         } = _menhir_stack in
         let _2 : (Parsetree.expression) = Obj.magic _2 in
         let _1 : (
-# 565 "parsing/parser.mly"
+# 567 "parsing/parser.mly"
        (string)
-# 13478 "parsing/parser.ml"
+# 13480 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.arg_label * Parsetree.expression) = 
-# 1955 "parsing/parser.mly"
-      ( (Labelled _1, _2) )
-# 13486 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _2;
-          MenhirLib.EngineTypes.startp = _startpos__2_;
-          MenhirLib.EngineTypes.endp = _endpos__2_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.state = _menhir_s;
-            MenhirLib.EngineTypes.semv = _1;
-            MenhirLib.EngineTypes.startp = _startpos__1_;
-            MenhirLib.EngineTypes.endp = _endpos__1_;
-            MenhirLib.EngineTypes.next = _menhir_stack;
-          };
-        } = _menhir_stack in
-        let _2 : (string * Parsetree.expression) = Obj.magic _2 in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__2_ in
-        let _v : (Asttypes.arg_label * Parsetree.expression) = 
 # 1957 "parsing/parser.mly"
-      ( (Labelled (fst _2), snd _2) )
-# 13517 "parsing/parser.ml"
+      ( (Labelled _1, _2) )
+# 13488 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13543,8 +13514,39 @@ module Tables = struct
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.arg_label * Parsetree.expression) = 
 # 1959 "parsing/parser.mly"
+      ( (Labelled (fst _2), snd _2) )
+# 13519 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _2;
+          MenhirLib.EngineTypes.startp = _startpos__2_;
+          MenhirLib.EngineTypes.endp = _endpos__2_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.state = _menhir_s;
+            MenhirLib.EngineTypes.semv = _1;
+            MenhirLib.EngineTypes.startp = _startpos__1_;
+            MenhirLib.EngineTypes.endp = _endpos__1_;
+            MenhirLib.EngineTypes.next = _menhir_stack;
+          };
+        } = _menhir_stack in
+        let _2 : (string * Parsetree.expression) = Obj.magic _2 in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__2_ in
+        let _v : (Asttypes.arg_label * Parsetree.expression) = 
+# 1961 "parsing/parser.mly"
       ( (Optional (fst _2), snd _2) )
-# 13548 "parsing/parser.ml"
+# 13550 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13569,17 +13571,17 @@ module Tables = struct
         } = _menhir_stack in
         let _2 : (Parsetree.expression) = Obj.magic _2 in
         let _1 : (
-# 595 "parsing/parser.mly"
+# 597 "parsing/parser.mly"
        (string)
-# 13575 "parsing/parser.ml"
+# 13577 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.arg_label * Parsetree.expression) = 
-# 1961 "parsing/parser.mly"
+# 1963 "parsing/parser.mly"
       ( (Optional _1, _2) )
-# 13583 "parsing/parser.ml"
+# 13585 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13598,9 +13600,9 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 13604 "parsing/parser.ml"
+# 13606 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
@@ -13609,9 +13611,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1965 "parsing/parser.mly"
+# 1967 "parsing/parser.mly"
       ( (_1, mkexp ~loc:_sloc (Pexp_ident(mkrhs (Lident _1) _sloc))) )
-# 13615 "parsing/parser.ml"
+# 13617 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13634,9 +13636,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string * Parsetree.pattern) = 
-# 1634 "parsing/parser.mly"
+# 1636 "parsing/parser.mly"
       ( _1 )
-# 13640 "parsing/parser.ml"
+# 13642 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13674,10 +13676,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1636 "parsing/parser.mly"
+# 1638 "parsing/parser.mly"
       ( let (lab, pat) = _1 in
         (lab, mkpat ~loc:_sloc (Ppat_constraint(pat, _3))) )
-# 13681 "parsing/parser.ml"
+# 13683 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13696,17 +13698,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 13702 "parsing/parser.ml"
+# 13704 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2883 "parsing/parser.mly"
+# 2879 "parsing/parser.mly"
                                                 ( Lident _1 )
-# 13710 "parsing/parser.ml"
+# 13712 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13735,9 +13737,9 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _3 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 13741 "parsing/parser.ml"
+# 13743 "parsing/parser.ml"
         ) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
         let _1 : (Longident.t) = Obj.magic _1 in
@@ -13745,9 +13747,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Longident.t) = 
-# 2884 "parsing/parser.mly"
+# 2880 "parsing/parser.mly"
                                                 ( Ldot(_1, _3) )
-# 13751 "parsing/parser.ml"
+# 13753 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13766,9 +13768,9 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 13772 "parsing/parser.ml"
+# 13774 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__10_ in
@@ -13781,9 +13783,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 13787 "parsing/parser.ml"
+# 13789 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__10_ in
@@ -13792,9 +13794,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1641 "parsing/parser.mly"
+# 1643 "parsing/parser.mly"
       ( (_1.Location.txt, mkpat ~loc:_sloc (Ppat_var _1)) )
-# 13798 "parsing/parser.ml"
+# 13800 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13817,9 +13819,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.arg_label * Parsetree.expression) = 
-# 1949 "parsing/parser.mly"
+# 1951 "parsing/parser.mly"
       ( (Nolabel, _1) )
-# 13823 "parsing/parser.ml"
+# 13825 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13842,9 +13844,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.arg_label * Parsetree.expression) = 
-# 1951 "parsing/parser.mly"
+# 1953 "parsing/parser.mly"
       ( _1 )
-# 13848 "parsing/parser.ml"
+# 13850 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13891,9 +13893,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
         let _v : (Asttypes.arg_label * Parsetree.expression option * Parsetree.pattern) = 
-# 1602 "parsing/parser.mly"
+# 1604 "parsing/parser.mly"
       ( (Optional (fst _3), _4, snd _3) )
-# 13897 "parsing/parser.ml"
+# 13899 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13922,9 +13924,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.arg_label * Parsetree.expression option * Parsetree.pattern) = 
-# 1604 "parsing/parser.mly"
+# 1606 "parsing/parser.mly"
       ( (Optional (fst _2), None, snd _2) )
-# 13928 "parsing/parser.ml"
+# 13930 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -13967,17 +13969,17 @@ module Tables = struct
         let _3 : (Parsetree.pattern) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
         let _1 : (
-# 595 "parsing/parser.mly"
+# 597 "parsing/parser.mly"
        (string)
-# 13973 "parsing/parser.ml"
+# 13975 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
         let _v : (Asttypes.arg_label * Parsetree.expression option * Parsetree.pattern) = 
-# 1606 "parsing/parser.mly"
+# 1608 "parsing/parser.mly"
       ( (Optional _1, _4, _3) )
-# 13981 "parsing/parser.ml"
+# 13983 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14002,17 +14004,17 @@ module Tables = struct
         } = _menhir_stack in
         let _2 : (Parsetree.pattern) = Obj.magic _2 in
         let _1 : (
-# 595 "parsing/parser.mly"
+# 597 "parsing/parser.mly"
        (string)
-# 14008 "parsing/parser.ml"
+# 14010 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.arg_label * Parsetree.expression option * Parsetree.pattern) = 
-# 1608 "parsing/parser.mly"
+# 1610 "parsing/parser.mly"
       ( (Optional _1, None, _2) )
-# 14016 "parsing/parser.ml"
+# 14018 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14053,9 +14055,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__4_ in
         let _v : (Asttypes.arg_label * Parsetree.expression option * Parsetree.pattern) = 
-# 1610 "parsing/parser.mly"
+# 1612 "parsing/parser.mly"
       ( (Labelled (fst _3), None, snd _3) )
-# 14059 "parsing/parser.ml"
+# 14061 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14084,9 +14086,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.arg_label * Parsetree.expression option * Parsetree.pattern) = 
-# 1612 "parsing/parser.mly"
+# 1614 "parsing/parser.mly"
       ( (Labelled (fst _2), None, snd _2) )
-# 14090 "parsing/parser.ml"
+# 14092 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14111,17 +14113,17 @@ module Tables = struct
         } = _menhir_stack in
         let _2 : (Parsetree.pattern) = Obj.magic _2 in
         let _1 : (
-# 565 "parsing/parser.mly"
+# 567 "parsing/parser.mly"
        (string)
-# 14117 "parsing/parser.ml"
+# 14119 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.arg_label * Parsetree.expression option * Parsetree.pattern) = 
-# 1614 "parsing/parser.mly"
+# 1616 "parsing/parser.mly"
       ( (Labelled _1, None, _2) )
-# 14125 "parsing/parser.ml"
+# 14127 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14144,9 +14146,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.arg_label * Parsetree.expression option * Parsetree.pattern) = 
-# 1616 "parsing/parser.mly"
+# 1618 "parsing/parser.mly"
       ( (Nolabel, None, _1) )
-# 14150 "parsing/parser.ml"
+# 14152 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14194,9 +14196,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 14200 "parsing/parser.ml"
+# 14202 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -14204,9 +14206,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2076 "parsing/parser.mly"
+# 2072 "parsing/parser.mly"
       ( (_1, mkexp_opt_constraint ~loc:_sloc _4 _2) )
-# 14210 "parsing/parser.ml"
+# 14212 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14242,9 +14244,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 14248 "parsing/parser.ml"
+# 14250 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -14252,11 +14254,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2078 "parsing/parser.mly"
+# 2074 "parsing/parser.mly"
       ( (_1,
          mkexp_opt_constraint ~loc:_sloc
            (exp_of_longident ~loc:_sloc _1) _2) )
-# 14260 "parsing/parser.ml"
+# 14262 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14304,9 +14306,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 14310 "parsing/parser.ml"
+# 14312 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -14314,9 +14316,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2277 "parsing/parser.mly"
+# 2273 "parsing/parser.mly"
      ( (_1, mkpat_opt_constraint ~loc:_sloc _4 _2) )
-# 14320 "parsing/parser.ml"
+# 14322 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14352,9 +14354,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 14358 "parsing/parser.ml"
+# 14360 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -14362,11 +14364,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2279 "parsing/parser.mly"
+# 2275 "parsing/parser.mly"
      ( let label = {_1 with txt = Longident.last _1.txt} in
        (_1, mkpat_opt_constraint ~loc:_sloc
               (pat_of_label ~loc:_sloc label) _2) )
-# 14370 "parsing/parser.ml"
+# 14372 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14389,9 +14391,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : ((Longident.t Asttypes.loc * Parsetree.pattern) list * Asttypes.closed_flag) = 
-# 2269 "parsing/parser.mly"
+# 2265 "parsing/parser.mly"
                 ( [_1], Closed )
-# 14395 "parsing/parser.ml"
+# 14397 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14420,9 +14422,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : ((Longident.t Asttypes.loc * Parsetree.pattern) list * Asttypes.closed_flag) = 
-# 2270 "parsing/parser.mly"
+# 2266 "parsing/parser.mly"
                      ( [_1], Closed )
-# 14426 "parsing/parser.ml"
+# 14428 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14463,9 +14465,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__4_ in
         let _v : ((Longident.t Asttypes.loc * Parsetree.pattern) list * Asttypes.closed_flag) = 
-# 2271 "parsing/parser.mly"
+# 2267 "parsing/parser.mly"
                                          ( [_1], Open )
-# 14469 "parsing/parser.ml"
+# 14471 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14500,9 +14502,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : ((Longident.t Asttypes.loc * Parsetree.pattern) list * Asttypes.closed_flag) = 
-# 2273 "parsing/parser.mly"
+# 2269 "parsing/parser.mly"
       ( let (fields, closed) = _3 in _1 :: fields, closed )
-# 14506 "parsing/parser.ml"
+# 14508 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14541,7 +14543,7 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _5 : (Parsetree.attributes) = Obj.magic _5 in
-        let _4 : (Parsetree.pattern * Parsetree.expression) = Obj.magic _4 in
+        let _4 : (Parsetree.pattern * Parsetree.core_type option * Parsetree.expression) = Obj.magic _4 in
         let _3 : (Asttypes.rec_flag) = Obj.magic _3 in
         let _2 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
@@ -14552,10 +14554,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2014 "parsing/parser.mly"
+# 2010 "parsing/parser.mly"
       ( let (ext, attr) = _2 in
         mklbs ~loc:_sloc ext _3 (mklb ~loc:_sloc true _4 (attr@_5)) )
-# 14559 "parsing/parser.ml"
+# 14561 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14583,7 +14585,7 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__10_ in
         let _endpos = _endpos__2_ in
-        let _v : (Parsetree.pattern * Parsetree.expression) = let _1 =
+        let _v : (Parsetree.pattern * Parsetree.core_type option * Parsetree.expression) = let _1 =
           let _endpos__1_ = _endpos__10_ in
           let _startpos__1_ = _startpos__10_ in
           let _1 = _10 in
@@ -14591,15 +14593,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 1972 "parsing/parser.mly"
+# 1974 "parsing/parser.mly"
               ( mkpatvar ~loc:_sloc _1 )
-# 14597 "parsing/parser.ml"
+# 14599 "parsing/parser.ml"
           
         in
         
-# 1975 "parsing/parser.mly"
-      ( (_1, _2) )
-# 14603 "parsing/parser.ml"
+# 1977 "parsing/parser.mly"
+      ( (_1, None, _2) )
+# 14605 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14639,7 +14641,7 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__10_ in
         let _endpos = _endpos__4_ in
-        let _v : (Parsetree.pattern * Parsetree.expression) = let _1 =
+        let _v : (Parsetree.pattern * Parsetree.core_type option * Parsetree.expression) = let _1 =
           let _endpos__1_ = _endpos__10_ in
           let _startpos__1_ = _startpos__10_ in
           let _1 = _10 in
@@ -14647,9 +14649,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 1972 "parsing/parser.mly"
+# 1974 "parsing/parser.mly"
               ( mkpatvar ~loc:_sloc _1 )
-# 14653 "parsing/parser.ml"
+# 14655 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -14657,7 +14659,7 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1977 "parsing/parser.mly"
+# 1979 "parsing/parser.mly"
       ( let v = _1 in (* PR#7344 *)
         let t =
           match _2 with
@@ -14667,9 +14669,7 @@ module Tables = struct
         in
         let loc = Location.(t.ptyp_loc.loc_start, t.ptyp_loc.loc_end) in
         let typ = ghtyp ~loc (Ptyp_poly([],t)) in
-        let patloc = (_startpos__1_, _endpos__2_) in
-        (ghpat ~loc:patloc (Ppat_constraint(v, typ)),
-         mkexp_constraint ~loc:_sloc _4 _2) )
+        (v, Some typ, mkexp_constraint ~loc:_sloc _4 _2) )
 # 14674 "parsing/parser.ml"
          in
         {
@@ -14728,26 +14728,26 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__10_ in
         let _endpos = _endpos__7_ in
-        let _v : (Parsetree.pattern * Parsetree.expression) = let _3 =
+        let _v : (Parsetree.pattern * Parsetree.core_type option * Parsetree.expression) = let _3 =
           let xs00 = xs000 in
           let _1 =
             let xs0 = xs00 in
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
 # 14741 "parsing/parser.ml"
               
             in
             
-# 783 "parsing/parser.mly"
+# 785 "parsing/parser.mly"
     ( xs )
 # 14747 "parsing/parser.ml"
             
           in
           
-# 2590 "parsing/parser.mly"
+# 2586 "parsing/parser.mly"
     ( _1 )
 # 14753 "parsing/parser.ml"
           
@@ -14761,20 +14761,16 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 1972 "parsing/parser.mly"
+# 1974 "parsing/parser.mly"
               ( mkpatvar ~loc:_sloc _1 )
 # 14767 "parsing/parser.ml"
           
         in
-        let _startpos__1_ = _startpos__10_ in
         
-# 1992 "parsing/parser.mly"
+# 1993 "parsing/parser.mly"
       ( let typloc = (_startpos__3_, _endpos__5_) in
-        let patloc = (_startpos__1_, _endpos__5_) in
-        (ghpat ~loc:patloc
-           (Ppat_constraint(_1, ghtyp ~loc:typloc (Ptyp_poly(_3,_5)))),
-         _7) )
-# 14778 "parsing/parser.ml"
+        (_1, Some (ghtyp ~loc:typloc (Ptyp_poly(_3,_5))), _7) )
+# 14774 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14838,12 +14834,12 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__10_ in
         let _endpos = _endpos__8_ in
-        let _v : (Parsetree.pattern * Parsetree.expression) = let _4 =
+        let _v : (Parsetree.pattern * Parsetree.core_type option * Parsetree.expression) = let _4 =
           let xs = xs0 in
           
-# 1969 "parsing/parser.mly"
+# 1971 "parsing/parser.mly"
     ( xs )
-# 14847 "parsing/parser.ml"
+# 14843 "parsing/parser.ml"
           
         in
         let _1 =
@@ -14854,9 +14850,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 1972 "parsing/parser.mly"
+# 1974 "parsing/parser.mly"
               ( mkpatvar ~loc:_sloc _1 )
-# 14860 "parsing/parser.ml"
+# 14856 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -14864,12 +14860,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1998 "parsing/parser.mly"
+# 1996 "parsing/parser.mly"
       ( let exp, poly =
           wrap_type_annotation ~loc:_sloc _4 _6 _8 in
-        let loc = (_startpos__1_, _endpos__6_) in
-        (ghpat ~loc (Ppat_constraint(_1, poly)), exp) )
-# 14873 "parsing/parser.ml"
+        (_1, Some poly, exp) )
+# 14868 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14903,10 +14898,10 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
-        let _v : (Parsetree.pattern * Parsetree.expression) = 
-# 2003 "parsing/parser.mly"
-      ( (_1, _3) )
-# 14910 "parsing/parser.ml"
+        let _v : (Parsetree.pattern * Parsetree.core_type option * Parsetree.expression) = 
+# 2000 "parsing/parser.mly"
+      ( (_1, None, _3) )
+# 14905 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14952,11 +14947,10 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
-        let _v : (Parsetree.pattern * Parsetree.expression) = 
-# 2005 "parsing/parser.mly"
-      ( let loc = (_startpos__1_, _endpos__3_) in
-        (ghpat ~loc (Ppat_constraint(_1, _3)), _5) )
-# 14960 "parsing/parser.ml"
+        let _v : (Parsetree.pattern * Parsetree.core_type option * Parsetree.expression) = 
+# 2002 "parsing/parser.mly"
+      ( (_1, Some _3, _5) )
+# 14954 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -14979,9 +14973,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (let_bindings) = 
-# 2009 "parsing/parser.mly"
+# 2005 "parsing/parser.mly"
                                                 ( _1 )
-# 14985 "parsing/parser.ml"
+# 14979 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15010,9 +15004,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (let_bindings) = 
-# 2010 "parsing/parser.mly"
+# 2006 "parsing/parser.mly"
                                                 ( addlb _1 _2 )
-# 15016 "parsing/parser.ml"
+# 15010 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15054,9 +15048,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 15060 "parsing/parser.ml"
+# 15054 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -15064,10 +15058,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2446 "parsing/parser.mly"
+# 2442 "parsing/parser.mly"
       ( let args, res = _2 in
         Te.decl _1 ~args ?res ~attrs:_3 ~loc:(make_loc _sloc) )
-# 15071 "parsing/parser.ml"
+# 15065 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15090,9 +15084,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.pattern) = 
-# 1645 "parsing/parser.mly"
+# 1647 "parsing/parser.mly"
       ( _1 )
-# 15096 "parsing/parser.ml"
+# 15090 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15137,9 +15131,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1647 "parsing/parser.mly"
+# 1649 "parsing/parser.mly"
       ( Ppat_constraint(_1, _3) )
-# 15143 "parsing/parser.ml"
+# 15137 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -15148,15 +15142,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 15154 "parsing/parser.ml"
+# 15148 "parsing/parser.ml"
           
         in
         
-# 1648 "parsing/parser.mly"
+# 1650 "parsing/parser.mly"
       ( _1 )
-# 15160 "parsing/parser.ml"
+# 15154 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15191,9 +15185,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.case) = 
-# 2041 "parsing/parser.mly"
+# 2037 "parsing/parser.mly"
       ( Exp.case _1 _3 )
-# 15197 "parsing/parser.ml"
+# 15191 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15240,9 +15234,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
         let _v : (Parsetree.case) = 
-# 2043 "parsing/parser.mly"
+# 2039 "parsing/parser.mly"
       ( Exp.case _1 ~guard:_3 _5 )
-# 15246 "parsing/parser.ml"
+# 15240 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15278,9 +15272,9 @@ module Tables = struct
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.case) = let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
-# 2045 "parsing/parser.mly"
+# 2041 "parsing/parser.mly"
       ( Exp.case _1 (Exp.unreachable ~loc:(make_loc _loc__3_) ()) )
-# 15284 "parsing/parser.ml"
+# 15278 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15303,9 +15297,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.case list) = 
-# 2036 "parsing/parser.mly"
+# 2032 "parsing/parser.mly"
                ( [_1] )
-# 15309 "parsing/parser.ml"
+# 15303 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15340,9 +15334,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.case list) = 
-# 2037 "parsing/parser.mly"
+# 2033 "parsing/parser.mly"
                                ( _3 :: _1 )
-# 15346 "parsing/parser.ml"
+# 15340 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15370,41 +15364,91 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
+        let _v : (Parsetree.object_field list * Asttypes.closed_flag) = 
+# 2761 "parsing/parser.mly"
+      ( let (f, c) = _2 in (_1 :: f, c) )
+# 15371 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _2;
+          MenhirLib.EngineTypes.startp = _startpos__2_;
+          MenhirLib.EngineTypes.endp = _endpos__2_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.state = _menhir_s;
+            MenhirLib.EngineTypes.semv = _1;
+            MenhirLib.EngineTypes.startp = _startpos__1_;
+            MenhirLib.EngineTypes.endp = _endpos__1_;
+            MenhirLib.EngineTypes.next = _menhir_stack;
+          };
+        } = _menhir_stack in
+        let _2 : (Parsetree.object_field list * Asttypes.closed_flag) = Obj.magic _2 in
+        let _1 : (Parsetree.object_field) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__2_ in
+        let _v : (Parsetree.object_field list * Asttypes.closed_flag) = 
+# 2763 "parsing/parser.mly"
+      ( let (f, c) = _2 in (_1 :: f, c) )
+# 15402 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (Parsetree.object_field) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.object_field list * Asttypes.closed_flag) = 
+# 2764 "parsing/parser.mly"
+                         ( [_1], Closed )
+# 15427 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (Parsetree.object_field) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
         let _v : (Parsetree.object_field list * Asttypes.closed_flag) = 
 # 2765 "parsing/parser.mly"
-      ( let (f, c) = _2 in (_1 :: f, c) )
-# 15377 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _2;
-          MenhirLib.EngineTypes.startp = _startpos__2_;
-          MenhirLib.EngineTypes.endp = _endpos__2_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.state = _menhir_s;
-            MenhirLib.EngineTypes.semv = _1;
-            MenhirLib.EngineTypes.startp = _startpos__1_;
-            MenhirLib.EngineTypes.endp = _endpos__1_;
-            MenhirLib.EngineTypes.next = _menhir_stack;
-          };
-        } = _menhir_stack in
-        let _2 : (Parsetree.object_field list * Asttypes.closed_flag) = Obj.magic _2 in
-        let _1 : (Parsetree.object_field) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__2_ in
-        let _v : (Parsetree.object_field list * Asttypes.closed_flag) = 
-# 2767 "parsing/parser.mly"
-      ( let (f, c) = _2 in (_1 :: f, c) )
-# 15408 "parsing/parser.ml"
+                         ( [_1], Closed )
+# 15452 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15427,59 +15471,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.object_field list * Asttypes.closed_flag) = 
-# 2768 "parsing/parser.mly"
+# 2766 "parsing/parser.mly"
                          ( [_1], Closed )
-# 15433 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (Parsetree.object_field) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.object_field list * Asttypes.closed_flag) = 
-# 2769 "parsing/parser.mly"
-                         ( [_1], Closed )
-# 15458 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (Parsetree.object_field) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.object_field list * Asttypes.closed_flag) = 
-# 2770 "parsing/parser.mly"
-                         ( [_1], Closed )
-# 15483 "parsing/parser.ml"
+# 15477 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15505,9 +15499,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2771 "parsing/parser.mly"
+# 2767 "parsing/parser.mly"
                          ( [Of.inherit_ ~loc:(make_loc _sloc) _1], Closed )
-# 15511 "parsing/parser.ml"
+# 15505 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15530,9 +15524,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.object_field list * Asttypes.closed_flag) = 
-# 2772 "parsing/parser.mly"
+# 2768 "parsing/parser.mly"
                          ( [], Open )
-# 15536 "parsing/parser.ml"
+# 15530 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15595,9 +15589,9 @@ module Tables = struct
   Parsetree.attributes) = let _7 =
           let _1 = _11 in
           
-# 2604 "parsing/parser.mly"
+# 2600 "parsing/parser.mly"
     ( _1 )
-# 15601 "parsing/parser.ml"
+# 15595 "parsing/parser.ml"
           
         in
         let _5 =
@@ -15608,16 +15602,16 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 15614 "parsing/parser.ml"
+# 15608 "parsing/parser.ml"
           
         in
         
-# 1422 "parsing/parser.mly"
+# 1424 "parsing/parser.mly"
       ( if _1 = Override then syntax_error ();
         (_5, Private, Cfk_virtual _7), _2 )
-# 15621 "parsing/parser.ml"
+# 15615 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15680,9 +15674,9 @@ module Tables = struct
   Parsetree.attributes) = let _7 =
           let _1 = _11 in
           
-# 2604 "parsing/parser.mly"
+# 2600 "parsing/parser.mly"
     ( _1 )
-# 15686 "parsing/parser.ml"
+# 15680 "parsing/parser.ml"
           
         in
         let _5 =
@@ -15693,16 +15687,16 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 15699 "parsing/parser.ml"
+# 15693 "parsing/parser.ml"
           
         in
         
-# 1425 "parsing/parser.mly"
+# 1427 "parsing/parser.mly"
       ( if _1 = Override then syntax_error ();
         (_5, _4, Cfk_virtual _7), _2 )
-# 15706 "parsing/parser.ml"
+# 15700 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15758,18 +15752,18 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 15764 "parsing/parser.ml"
+# 15758 "parsing/parser.ml"
           
         in
         
-# 1428 "parsing/parser.mly"
+# 1430 "parsing/parser.mly"
       ( let e = _5 in
         let loc = Location.(e.pexp_loc.loc_start, e.pexp_loc.loc_end) in
         (_4, _3,
         Cfk_concrete (_1, ghexp ~loc (Pexp_poly (e, None)))), _2 )
-# 15773 "parsing/parser.ml"
+# 15767 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15838,9 +15832,9 @@ module Tables = struct
   Parsetree.attributes) = let _6 =
           let _1 = _11 in
           
-# 2604 "parsing/parser.mly"
+# 2600 "parsing/parser.mly"
     ( _1 )
-# 15844 "parsing/parser.ml"
+# 15838 "parsing/parser.ml"
           
         in
         let _startpos__6_ = _startpos__11_ in
@@ -15852,18 +15846,18 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 15858 "parsing/parser.ml"
+# 15852 "parsing/parser.ml"
           
         in
         
-# 1434 "parsing/parser.mly"
+# 1436 "parsing/parser.mly"
       ( let poly_exp =
           let loc = (_startpos__6_, _endpos__8_) in
           ghexp ~loc (Pexp_poly(_8, Some _6)) in
         (_4, _3, Cfk_concrete (_1, poly_exp)), _2 )
-# 15867 "parsing/parser.ml"
+# 15861 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -15950,9 +15944,9 @@ module Tables = struct
   Parsetree.attributes) = let _7 =
           let xs = xs0 in
           
-# 1969 "parsing/parser.mly"
+# 1971 "parsing/parser.mly"
     ( xs )
-# 15956 "parsing/parser.ml"
+# 15950 "parsing/parser.ml"
           
         in
         let _startpos__7_ = _startpos_xs0_ in
@@ -15964,9 +15958,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 15970 "parsing/parser.ml"
+# 15964 "parsing/parser.ml"
           
         in
         let _startpos__4_ = _startpos__12_ in
@@ -15983,7 +15977,7 @@ module Tables = struct
               _startpos__4_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1440 "parsing/parser.mly"
+# 1442 "parsing/parser.mly"
       ( let poly_exp_loc = (_startpos__7_, _endpos__11_) in
         let poly_exp =
           let exp, poly =
@@ -15994,7 +15988,7 @@ module Tables = struct
           ghexp ~loc:poly_exp_loc (Pexp_poly(exp, Some poly)) in
         (_4, _3,
         Cfk_concrete (_1, poly_exp)), _2 )
-# 15998 "parsing/parser.ml"
+# 15992 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16013,17 +16007,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 16019 "parsing/parser.ml"
+# 16013 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2895 "parsing/parser.mly"
+# 2891 "parsing/parser.mly"
                                                 ( Lident _1 )
-# 16027 "parsing/parser.ml"
+# 16021 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16052,9 +16046,9 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _3 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 16058 "parsing/parser.ml"
+# 16052 "parsing/parser.ml"
         ) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
         let _1 : (Longident.t) = Obj.magic _1 in
@@ -16062,9 +16056,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Longident.t) = 
-# 2896 "parsing/parser.mly"
+# 2892 "parsing/parser.mly"
                                                 ( Ldot(_1, _3) )
-# 16068 "parsing/parser.ml"
+# 16062 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16108,9 +16102,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2898 "parsing/parser.mly"
+# 2894 "parsing/parser.mly"
       ( lapply ~loc:_sloc _1 _3 )
-# 16114 "parsing/parser.ml"
+# 16108 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16129,17 +16123,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 16135 "parsing/parser.ml"
+# 16129 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2891 "parsing/parser.mly"
+# 2887 "parsing/parser.mly"
                                                 ( Lident _1 )
-# 16143 "parsing/parser.ml"
+# 16137 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16168,9 +16162,9 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _3 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 16174 "parsing/parser.ml"
+# 16168 "parsing/parser.ml"
         ) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
         let _1 : (Longident.t) = Obj.magic _1 in
@@ -16178,9 +16172,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Longident.t) = 
-# 2892 "parsing/parser.mly"
+# 2888 "parsing/parser.mly"
                                                 ( Ldot(_1, _3) )
-# 16184 "parsing/parser.ml"
+# 16178 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16227,9 +16221,9 @@ module Tables = struct
         let _100 : (Longident.t) = Obj.magic _100 in
         let _4 : unit = Obj.magic _4 in
         let _10 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 16233 "parsing/parser.ml"
+# 16227 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _2 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
@@ -16248,9 +16242,9 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 16254 "parsing/parser.ml"
+# 16248 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -16259,9 +16253,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 1229 "parsing/parser.mly"
+# 1231 "parsing/parser.mly"
   ( Mty.alias ~loc:(make_loc _sloc) _1 )
-# 16265 "parsing/parser.ml"
+# 16259 "parsing/parser.ml"
           
         in
         let _3 =
@@ -16272,20 +16266,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 16278 "parsing/parser.ml"
+# 16272 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__6_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1233 "parsing/parser.mly"
+# 1235 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Md.mk _3 _5 ~attrs:(attrs@_6) ~loc:(make_loc _sloc) ~docs, ext )
-# 16289 "parsing/parser.ml"
+# 16283 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16326,9 +16320,9 @@ module Tables = struct
         let _5 : (Parsetree.attributes) = Obj.magic _5 in
         let _4 : (Parsetree.module_expr) = Obj.magic _4 in
         let _10 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 16332 "parsing/parser.ml"
+# 16326 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _2 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
@@ -16343,20 +16337,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 16349 "parsing/parser.ml"
+# 16343 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1092 "parsing/parser.mly"
+# 1094 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Mb.mk _3 _4 ~attrs:(attrs@_5) ~loc:(make_loc _sloc) ~docs, ext )
-# 16360 "parsing/parser.ml"
+# 16354 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16385,9 +16379,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.module_expr) = 
-# 1082 "parsing/parser.mly"
+# 1084 "parsing/parser.mly"
       ( _2 )
-# 16391 "parsing/parser.ml"
+# 16385 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16440,9 +16434,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1085 "parsing/parser.mly"
+# 1087 "parsing/parser.mly"
         ( Pmod_constraint(_4, _2) )
-# 16446 "parsing/parser.ml"
+# 16440 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__40_ in
@@ -16451,15 +16445,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 746 "parsing/parser.mly"
+# 748 "parsing/parser.mly"
     ( mkmod ~loc:_sloc _1 )
-# 16457 "parsing/parser.ml"
+# 16451 "parsing/parser.ml"
           
         in
         
-# 1088 "parsing/parser.mly"
+# 1090 "parsing/parser.mly"
     ( _1 )
-# 16463 "parsing/parser.ml"
+# 16457 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16496,9 +16490,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1087 "parsing/parser.mly"
+# 1089 "parsing/parser.mly"
         ( Pmod_functor(fst _1, snd _1, _2) )
-# 16502 "parsing/parser.ml"
+# 16496 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -16507,15 +16501,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 746 "parsing/parser.mly"
+# 748 "parsing/parser.mly"
     ( mkmod ~loc:_sloc _1 )
-# 16513 "parsing/parser.ml"
+# 16507 "parsing/parser.ml"
           
         in
         
-# 1088 "parsing/parser.mly"
+# 1090 "parsing/parser.mly"
     ( _1 )
-# 16519 "parsing/parser.ml"
+# 16513 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16556,9 +16550,9 @@ module Tables = struct
         let _5 : (Parsetree.attributes) = Obj.magic _5 in
         let _4 : (Parsetree.module_type) = Obj.magic _4 in
         let _10 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 16562 "parsing/parser.ml"
+# 16556 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _2 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
@@ -16573,20 +16567,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 16579 "parsing/parser.ml"
+# 16573 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1224 "parsing/parser.mly"
+# 1226 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Md.mk _3 _4 ~attrs:(attrs@_5) ~loc:(make_loc _sloc) ~docs, ext )
-# 16590 "parsing/parser.ml"
+# 16584 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16615,9 +16609,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.module_type) = 
-# 1215 "parsing/parser.mly"
+# 1217 "parsing/parser.mly"
       ( _2 )
-# 16621 "parsing/parser.ml"
+# 16615 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16654,10 +16648,10 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1217 "parsing/parser.mly"
+# 1219 "parsing/parser.mly"
       ( let (name,typ) = _1 in
         Pmty_functor(name, typ, _2) )
-# 16661 "parsing/parser.ml"
+# 16655 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -16666,15 +16660,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 748 "parsing/parser.mly"
+# 750 "parsing/parser.mly"
     ( mkmty ~loc:_sloc _1 )
-# 16672 "parsing/parser.ml"
+# 16666 "parsing/parser.ml"
           
         in
         
-# 1219 "parsing/parser.mly"
+# 1221 "parsing/parser.mly"
       ( _1 )
-# 16678 "parsing/parser.ml"
+# 16672 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16718,9 +16712,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 958 "parsing/parser.mly"
+# 960 "parsing/parser.mly"
       ( mkmod ~loc:_sloc ~attrs:_2 (Pmod_structure(_3)) )
-# 16724 "parsing/parser.ml"
+# 16718 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16763,9 +16757,9 @@ module Tables = struct
         let _v : (Parsetree.module_expr) = let _loc__4_ = (_startpos__4_, _endpos__4_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 960 "parsing/parser.mly"
+# 962 "parsing/parser.mly"
       ( unclosed "struct" _loc__1_ "end" _loc__4_ )
-# 16769 "parsing/parser.ml"
+# 16763 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16815,13 +16809,13 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 962 "parsing/parser.mly"
+# 964 "parsing/parser.mly"
       ( let modexp =
           List.fold_left
             (fun acc (n, t) -> mkmod ~loc:_sloc (Pmod_functor(n, t, acc)))
             _5 _3
         in wrap_mod_attrs ~loc:_sloc modexp _2 )
-# 16825 "parsing/parser.ml"
+# 16819 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16844,9 +16838,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.module_expr) = 
-# 968 "parsing/parser.mly"
+# 970 "parsing/parser.mly"
       ( _1 )
-# 16850 "parsing/parser.ml"
+# 16844 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16875,9 +16869,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.module_expr) = 
-# 970 "parsing/parser.mly"
+# 972 "parsing/parser.mly"
       ( Mod.attr _1 _2 )
-# 16881 "parsing/parser.ml"
+# 16875 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16915,15 +16909,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 16921 "parsing/parser.ml"
+# 16915 "parsing/parser.ml"
               
             in
             
-# 976 "parsing/parser.mly"
+# 978 "parsing/parser.mly"
     ( Pmod_ident _1 )
-# 16927 "parsing/parser.ml"
+# 16921 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -16932,15 +16926,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 746 "parsing/parser.mly"
+# 748 "parsing/parser.mly"
     ( mkmod ~loc:_sloc _1 )
-# 16938 "parsing/parser.ml"
+# 16932 "parsing/parser.ml"
           
         in
         
-# 972 "parsing/parser.mly"
+# 974 "parsing/parser.mly"
       ( _1 )
-# 16944 "parsing/parser.ml"
+# 16938 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -16977,9 +16971,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 978 "parsing/parser.mly"
+# 980 "parsing/parser.mly"
     ( Pmod_apply(_1, _2) )
-# 16983 "parsing/parser.ml"
+# 16977 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -16988,15 +16982,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 746 "parsing/parser.mly"
+# 748 "parsing/parser.mly"
     ( mkmod ~loc:_sloc _1 )
-# 16994 "parsing/parser.ml"
+# 16988 "parsing/parser.ml"
           
         in
         
-# 972 "parsing/parser.mly"
+# 974 "parsing/parser.mly"
       ( _1 )
-# 17000 "parsing/parser.ml"
+# 16994 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17046,10 +17040,10 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 980 "parsing/parser.mly"
+# 982 "parsing/parser.mly"
     ( (* TODO review mkmod location *)
       Pmod_apply(_1, mkmod ~loc:_sloc (Pmod_structure [])) )
-# 17053 "parsing/parser.ml"
+# 17047 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -17058,15 +17052,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 746 "parsing/parser.mly"
+# 748 "parsing/parser.mly"
     ( mkmod ~loc:_sloc _1 )
-# 17064 "parsing/parser.ml"
+# 17058 "parsing/parser.ml"
           
         in
         
-# 972 "parsing/parser.mly"
+# 974 "parsing/parser.mly"
       ( _1 )
-# 17070 "parsing/parser.ml"
+# 17064 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17095,9 +17089,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 983 "parsing/parser.mly"
+# 985 "parsing/parser.mly"
     ( Pmod_extension _1 )
-# 17101 "parsing/parser.ml"
+# 17095 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -17106,15 +17100,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 746 "parsing/parser.mly"
+# 748 "parsing/parser.mly"
     ( mkmod ~loc:_sloc _1 )
-# 17112 "parsing/parser.ml"
+# 17106 "parsing/parser.ml"
           
         in
         
-# 972 "parsing/parser.mly"
+# 974 "parsing/parser.mly"
       ( _1 )
-# 17118 "parsing/parser.ml"
+# 17112 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17158,9 +17152,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1120 "parsing/parser.mly"
+# 1122 "parsing/parser.mly"
       ( mkmty ~loc:_sloc ~attrs:_2 (Pmty_signature (_3)) )
-# 17164 "parsing/parser.ml"
+# 17158 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17203,9 +17197,9 @@ module Tables = struct
         let _v : (Parsetree.module_type) = let _loc__4_ = (_startpos__4_, _endpos__4_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 1122 "parsing/parser.mly"
+# 1124 "parsing/parser.mly"
       ( unclosed "sig" _loc__1_ "end" _loc__4_ )
-# 17209 "parsing/parser.ml"
+# 17203 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17255,13 +17249,13 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1125 "parsing/parser.mly"
+# 1127 "parsing/parser.mly"
       ( let mty =
           List.fold_left
             (fun acc (n, t) -> mkmty ~loc:_sloc (Pmty_functor(n, t, acc)))
             _5 _3
         in wrap_mty_attrs ~loc:_sloc mty _2 )
-# 17265 "parsing/parser.ml"
+# 17259 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17311,9 +17305,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1131 "parsing/parser.mly"
+# 1133 "parsing/parser.mly"
       ( mkmty ~loc:_sloc ~attrs:_4 (Pmty_typeof _5) )
-# 17317 "parsing/parser.ml"
+# 17311 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17348,9 +17342,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.module_type) = 
-# 1133 "parsing/parser.mly"
+# 1135 "parsing/parser.mly"
       ( _2 )
-# 17354 "parsing/parser.ml"
+# 17348 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17387,9 +17381,9 @@ module Tables = struct
         let _v : (Parsetree.module_type) = let _loc__3_ = (_startpos__3_, _endpos__3_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 1135 "parsing/parser.mly"
+# 1137 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__3_ )
-# 17393 "parsing/parser.ml"
+# 17387 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17418,9 +17412,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.module_type) = 
-# 1137 "parsing/parser.mly"
+# 1139 "parsing/parser.mly"
       ( Mty.attr _1 _2 )
-# 17424 "parsing/parser.ml"
+# 17418 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17458,15 +17452,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 17464 "parsing/parser.ml"
+# 17458 "parsing/parser.ml"
               
             in
             
-# 1143 "parsing/parser.mly"
+# 1145 "parsing/parser.mly"
       ( Pmty_ident _1 )
-# 17470 "parsing/parser.ml"
+# 17464 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -17475,15 +17469,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 748 "parsing/parser.mly"
+# 750 "parsing/parser.mly"
     ( mkmty ~loc:_sloc _1 )
-# 17481 "parsing/parser.ml"
+# 17475 "parsing/parser.ml"
           
         in
         
-# 1139 "parsing/parser.mly"
+# 1141 "parsing/parser.mly"
       ( _1 )
-# 17487 "parsing/parser.ml"
+# 17481 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17528,9 +17522,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1146 "parsing/parser.mly"
+# 1148 "parsing/parser.mly"
       ( Pmty_functor(mknoloc "_", Some _1, _3) )
-# 17534 "parsing/parser.ml"
+# 17528 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -17539,15 +17533,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 748 "parsing/parser.mly"
+# 750 "parsing/parser.mly"
     ( mkmty ~loc:_sloc _1 )
-# 17545 "parsing/parser.ml"
+# 17539 "parsing/parser.ml"
           
         in
         
-# 1139 "parsing/parser.mly"
+# 1141 "parsing/parser.mly"
       ( _1 )
-# 17551 "parsing/parser.ml"
+# 17545 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17592,9 +17586,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1148 "parsing/parser.mly"
+# 1150 "parsing/parser.mly"
       ( Pmty_with(_1, List.rev _3) )
-# 17598 "parsing/parser.ml"
+# 17592 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -17603,15 +17597,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 748 "parsing/parser.mly"
+# 750 "parsing/parser.mly"
     ( mkmty ~loc:_sloc _1 )
-# 17609 "parsing/parser.ml"
+# 17603 "parsing/parser.ml"
           
         in
         
-# 1139 "parsing/parser.mly"
+# 1141 "parsing/parser.mly"
       ( _1 )
-# 17615 "parsing/parser.ml"
+# 17609 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17640,9 +17634,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 1152 "parsing/parser.mly"
+# 1154 "parsing/parser.mly"
       ( Pmty_extension _1 )
-# 17646 "parsing/parser.ml"
+# 17640 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -17651,15 +17645,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 748 "parsing/parser.mly"
+# 750 "parsing/parser.mly"
     ( mkmty ~loc:_sloc _1 )
-# 17657 "parsing/parser.ml"
+# 17651 "parsing/parser.ml"
           
         in
         
-# 1139 "parsing/parser.mly"
+# 1141 "parsing/parser.mly"
       ( _1 )
-# 17663 "parsing/parser.ml"
+# 17657 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17719,20 +17713,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 17725 "parsing/parser.ml"
+# 17719 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__6_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1263 "parsing/parser.mly"
+# 1265 "parsing/parser.mly"
       ( let (ext, attrs) = _3 in
         let docs = symbol_docs _sloc in
         Mtd.mk _4 ?typ:_5 ~attrs:(attrs@_6) ~loc:(make_loc _sloc) ~docs, ext )
-# 17736 "parsing/parser.ml"
+# 17730 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17748,9 +17742,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.module_type option) = 
-# 1257 "parsing/parser.mly"
+# 1259 "parsing/parser.mly"
                               ( None )
-# 17754 "parsing/parser.ml"
+# 17748 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17779,9 +17773,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.module_type option) = 
-# 1258 "parsing/parser.mly"
+# 1260 "parsing/parser.mly"
                               ( Some _2 )
-# 17785 "parsing/parser.ml"
+# 17779 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17804,9 +17798,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2901 "parsing/parser.mly"
+# 2897 "parsing/parser.mly"
                                                 ( Lident _1 )
-# 17810 "parsing/parser.ml"
+# 17804 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17841,9 +17835,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Longident.t) = 
-# 2902 "parsing/parser.mly"
+# 2898 "parsing/parser.mly"
                                                 ( Ldot(_1, _3) )
-# 17847 "parsing/parser.ml"
+# 17841 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17859,9 +17853,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Asttypes.mutable_flag) = 
-# 2962 "parsing/parser.mly"
+# 2958 "parsing/parser.mly"
                                                 ( Immutable )
-# 17865 "parsing/parser.ml"
+# 17859 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17884,9 +17878,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.mutable_flag) = 
-# 2963 "parsing/parser.mly"
+# 2959 "parsing/parser.mly"
                                                 ( Mutable )
-# 17890 "parsing/parser.ml"
+# 17884 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17915,9 +17909,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.label) = 
-# 2943 "parsing/parser.mly"
+# 2939 "parsing/parser.mly"
                                                 ( _2 )
-# 17921 "parsing/parser.ml"
+# 17915 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17936,9 +17930,9 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 17942 "parsing/parser.ml"
+# 17936 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__10_ in
@@ -17951,15 +17945,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 17957 "parsing/parser.ml"
+# 17951 "parsing/parser.ml"
           
         in
         
 # 209 "menhir/standard.mly"
     ( [ x ] )
-# 17963 "parsing/parser.ml"
+# 17957 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -17984,9 +17978,9 @@ module Tables = struct
         } = _menhir_stack in
         let xs : (string Asttypes.loc list) = Obj.magic xs in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 17990 "parsing/parser.ml"
+# 17984 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__10_ in
@@ -17999,15 +17993,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 18005 "parsing/parser.ml"
+# 17999 "parsing/parser.ml"
           
         in
         
 # 211 "menhir/standard.mly"
     ( x :: xs )
-# 18011 "parsing/parser.ml"
+# 18005 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18023,9 +18017,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Asttypes.rec_flag) = 
-# 2950 "parsing/parser.mly"
+# 2946 "parsing/parser.mly"
                                                 ( Recursive )
-# 18029 "parsing/parser.ml"
+# 18023 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18048,9 +18042,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.rec_flag) = 
-# 2951 "parsing/parser.mly"
+# 2947 "parsing/parser.mly"
                                                 ( Nonrecursive )
-# 18054 "parsing/parser.ml"
+# 18048 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18104,21 +18098,21 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 18110 "parsing/parser.ml"
+# 18104 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1202 "parsing/parser.mly"
+# 1204 "parsing/parser.mly"
       ( let (ext, attrs) = _3 in
         let docs = symbol_docs _sloc in
         Opn.mk _4 ~override:_2 ~attrs:(attrs@_5) ~loc:(make_loc _sloc) ~docs
         , ext )
-# 18122 "parsing/parser.ml"
+# 18116 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18137,75 +18131,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 602 "parsing/parser.mly"
+# 604 "parsing/parser.mly"
        (string)
-# 18143 "parsing/parser.ml"
+# 18137 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2830 "parsing/parser.mly"
+# 2826 "parsing/parser.mly"
                                                 ( _1 )
-# 18151 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (
-# 556 "parsing/parser.mly"
-       (string)
-# 18172 "parsing/parser.ml"
-        ) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 2831 "parsing/parser.mly"
-                                                ( _1 )
-# 18180 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (
-# 557 "parsing/parser.mly"
-       (string)
-# 18201 "parsing/parser.ml"
-        ) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 2832 "parsing/parser.mly"
-                                                ( _1 )
-# 18209 "parsing/parser.ml"
+# 18145 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18226,15 +18162,15 @@ module Tables = struct
         let _1 : (
 # 558 "parsing/parser.mly"
        (string)
-# 18230 "parsing/parser.ml"
+# 18166 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2833 "parsing/parser.mly"
+# 2827 "parsing/parser.mly"
                                                 ( _1 )
-# 18238 "parsing/parser.ml"
+# 18174 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18255,15 +18191,15 @@ module Tables = struct
         let _1 : (
 # 559 "parsing/parser.mly"
        (string)
-# 18259 "parsing/parser.ml"
+# 18195 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2834 "parsing/parser.mly"
+# 2828 "parsing/parser.mly"
                                                 ( _1 )
-# 18267 "parsing/parser.ml"
+# 18203 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18284,279 +18220,15 @@ module Tables = struct
         let _1 : (
 # 560 "parsing/parser.mly"
        (string)
-# 18288 "parsing/parser.ml"
+# 18224 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2835 "parsing/parser.mly"
+# 2829 "parsing/parser.mly"
                                                 ( _1 )
-# 18296 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _3;
-          MenhirLib.EngineTypes.startp = _startpos__3_;
-          MenhirLib.EngineTypes.endp = _endpos__3_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _2;
-            MenhirLib.EngineTypes.startp = _startpos__2_;
-            MenhirLib.EngineTypes.endp = _endpos__2_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _1;
-              MenhirLib.EngineTypes.startp = _startpos__1_;
-              MenhirLib.EngineTypes.endp = _endpos__1_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _3 : unit = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 18329 "parsing/parser.ml"
-        ) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__3_ in
-        let _v : (string) = 
-# 2836 "parsing/parser.mly"
-                                                ( "."^ _1 ^"()" )
-# 18337 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _4;
-          MenhirLib.EngineTypes.startp = _startpos__4_;
-          MenhirLib.EngineTypes.endp = _endpos__4_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _3;
-            MenhirLib.EngineTypes.startp = _startpos__3_;
-            MenhirLib.EngineTypes.endp = _endpos__3_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _2;
-              MenhirLib.EngineTypes.startp = _startpos__2_;
-              MenhirLib.EngineTypes.endp = _endpos__2_;
-              MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.state = _menhir_s;
-                MenhirLib.EngineTypes.semv = _1;
-                MenhirLib.EngineTypes.startp = _startpos__1_;
-                MenhirLib.EngineTypes.endp = _endpos__1_;
-                MenhirLib.EngineTypes.next = _menhir_stack;
-              };
-            };
-          };
-        } = _menhir_stack in
-        let _4 : unit = Obj.magic _4 in
-        let _3 : unit = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 18376 "parsing/parser.ml"
-        ) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__4_ in
-        let _v : (string) = 
-# 2837 "parsing/parser.mly"
-                                                ( "."^ _1 ^ "()<-" )
-# 18384 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _3;
-          MenhirLib.EngineTypes.startp = _startpos__3_;
-          MenhirLib.EngineTypes.endp = _endpos__3_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _2;
-            MenhirLib.EngineTypes.startp = _startpos__2_;
-            MenhirLib.EngineTypes.endp = _endpos__2_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _1;
-              MenhirLib.EngineTypes.startp = _startpos__1_;
-              MenhirLib.EngineTypes.endp = _endpos__1_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _3 : unit = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 18417 "parsing/parser.ml"
-        ) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__3_ in
-        let _v : (string) = 
-# 2838 "parsing/parser.mly"
-                                                ( "."^ _1 ^"[]" )
-# 18425 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _4;
-          MenhirLib.EngineTypes.startp = _startpos__4_;
-          MenhirLib.EngineTypes.endp = _endpos__4_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _3;
-            MenhirLib.EngineTypes.startp = _startpos__3_;
-            MenhirLib.EngineTypes.endp = _endpos__3_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _2;
-              MenhirLib.EngineTypes.startp = _startpos__2_;
-              MenhirLib.EngineTypes.endp = _endpos__2_;
-              MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.state = _menhir_s;
-                MenhirLib.EngineTypes.semv = _1;
-                MenhirLib.EngineTypes.startp = _startpos__1_;
-                MenhirLib.EngineTypes.endp = _endpos__1_;
-                MenhirLib.EngineTypes.next = _menhir_stack;
-              };
-            };
-          };
-        } = _menhir_stack in
-        let _4 : unit = Obj.magic _4 in
-        let _3 : unit = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 18464 "parsing/parser.ml"
-        ) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__4_ in
-        let _v : (string) = 
-# 2839 "parsing/parser.mly"
-                                                ( "."^ _1 ^ "[]<-" )
-# 18472 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _3;
-          MenhirLib.EngineTypes.startp = _startpos__3_;
-          MenhirLib.EngineTypes.endp = _endpos__3_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _2;
-            MenhirLib.EngineTypes.startp = _startpos__2_;
-            MenhirLib.EngineTypes.endp = _endpos__2_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _1;
-              MenhirLib.EngineTypes.startp = _startpos__1_;
-              MenhirLib.EngineTypes.endp = _endpos__1_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _3 : unit = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 18505 "parsing/parser.ml"
-        ) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__3_ in
-        let _v : (string) = 
-# 2840 "parsing/parser.mly"
-                                                ( "."^ _1 ^"{}" )
-# 18513 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _4;
-          MenhirLib.EngineTypes.startp = _startpos__4_;
-          MenhirLib.EngineTypes.endp = _endpos__4_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _3;
-            MenhirLib.EngineTypes.startp = _startpos__3_;
-            MenhirLib.EngineTypes.endp = _endpos__3_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _2;
-              MenhirLib.EngineTypes.startp = _startpos__2_;
-              MenhirLib.EngineTypes.endp = _endpos__2_;
-              MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.state = _menhir_s;
-                MenhirLib.EngineTypes.semv = _1;
-                MenhirLib.EngineTypes.startp = _startpos__1_;
-                MenhirLib.EngineTypes.endp = _endpos__1_;
-                MenhirLib.EngineTypes.next = _menhir_stack;
-              };
-            };
-          };
-        } = _menhir_stack in
-        let _4 : unit = Obj.magic _4 in
-        let _3 : unit = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 18552 "parsing/parser.ml"
-        ) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__4_ in
-        let _v : (string) = 
-# 2841 "parsing/parser.mly"
-                                                ( "."^ _1 ^ "{}<-" )
-# 18560 "parsing/parser.ml"
+# 18232 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18575,17 +18247,439 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 613 "parsing/parser.mly"
+# 561 "parsing/parser.mly"
        (string)
-# 18581 "parsing/parser.ml"
+# 18253 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2842 "parsing/parser.mly"
+# 2830 "parsing/parser.mly"
                                                 ( _1 )
-# 18589 "parsing/parser.ml"
+# 18261 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (
+# 562 "parsing/parser.mly"
+       (string)
+# 18282 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2831 "parsing/parser.mly"
+                                                ( _1 )
+# 18290 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _3;
+          MenhirLib.EngineTypes.startp = _startpos__3_;
+          MenhirLib.EngineTypes.endp = _endpos__3_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _2;
+            MenhirLib.EngineTypes.startp = _startpos__2_;
+            MenhirLib.EngineTypes.endp = _endpos__2_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _1;
+              MenhirLib.EngineTypes.startp = _startpos__1_;
+              MenhirLib.EngineTypes.endp = _endpos__1_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
+        } = _menhir_stack in
+        let _3 : unit = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 18323 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__3_ in
+        let _v : (string) = 
+# 2832 "parsing/parser.mly"
+                                                ( "."^ _1 ^"()" )
+# 18331 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _4;
+          MenhirLib.EngineTypes.startp = _startpos__4_;
+          MenhirLib.EngineTypes.endp = _endpos__4_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _3;
+            MenhirLib.EngineTypes.startp = _startpos__3_;
+            MenhirLib.EngineTypes.endp = _endpos__3_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.semv = _2;
+              MenhirLib.EngineTypes.startp = _startpos__2_;
+              MenhirLib.EngineTypes.endp = _endpos__2_;
+              MenhirLib.EngineTypes.next = {
+                MenhirLib.EngineTypes.state = _menhir_s;
+                MenhirLib.EngineTypes.semv = _1;
+                MenhirLib.EngineTypes.startp = _startpos__1_;
+                MenhirLib.EngineTypes.endp = _endpos__1_;
+                MenhirLib.EngineTypes.next = _menhir_stack;
+              };
+            };
+          };
+        } = _menhir_stack in
+        let _4 : unit = Obj.magic _4 in
+        let _3 : unit = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 18370 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__4_ in
+        let _v : (string) = 
+# 2833 "parsing/parser.mly"
+                                                ( "."^ _1 ^ "()<-" )
+# 18378 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _3;
+          MenhirLib.EngineTypes.startp = _startpos__3_;
+          MenhirLib.EngineTypes.endp = _endpos__3_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _2;
+            MenhirLib.EngineTypes.startp = _startpos__2_;
+            MenhirLib.EngineTypes.endp = _endpos__2_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _1;
+              MenhirLib.EngineTypes.startp = _startpos__1_;
+              MenhirLib.EngineTypes.endp = _endpos__1_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
+        } = _menhir_stack in
+        let _3 : unit = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 18411 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__3_ in
+        let _v : (string) = 
+# 2834 "parsing/parser.mly"
+                                                ( "."^ _1 ^"[]" )
+# 18419 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _4;
+          MenhirLib.EngineTypes.startp = _startpos__4_;
+          MenhirLib.EngineTypes.endp = _endpos__4_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _3;
+            MenhirLib.EngineTypes.startp = _startpos__3_;
+            MenhirLib.EngineTypes.endp = _endpos__3_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.semv = _2;
+              MenhirLib.EngineTypes.startp = _startpos__2_;
+              MenhirLib.EngineTypes.endp = _endpos__2_;
+              MenhirLib.EngineTypes.next = {
+                MenhirLib.EngineTypes.state = _menhir_s;
+                MenhirLib.EngineTypes.semv = _1;
+                MenhirLib.EngineTypes.startp = _startpos__1_;
+                MenhirLib.EngineTypes.endp = _endpos__1_;
+                MenhirLib.EngineTypes.next = _menhir_stack;
+              };
+            };
+          };
+        } = _menhir_stack in
+        let _4 : unit = Obj.magic _4 in
+        let _3 : unit = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 18458 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__4_ in
+        let _v : (string) = 
+# 2835 "parsing/parser.mly"
+                                                ( "."^ _1 ^ "[]<-" )
+# 18466 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _3;
+          MenhirLib.EngineTypes.startp = _startpos__3_;
+          MenhirLib.EngineTypes.endp = _endpos__3_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _2;
+            MenhirLib.EngineTypes.startp = _startpos__2_;
+            MenhirLib.EngineTypes.endp = _endpos__2_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _1;
+              MenhirLib.EngineTypes.startp = _startpos__1_;
+              MenhirLib.EngineTypes.endp = _endpos__1_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
+        } = _menhir_stack in
+        let _3 : unit = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 18499 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__3_ in
+        let _v : (string) = 
+# 2836 "parsing/parser.mly"
+                                                ( "."^ _1 ^"{}" )
+# 18507 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _4;
+          MenhirLib.EngineTypes.startp = _startpos__4_;
+          MenhirLib.EngineTypes.endp = _endpos__4_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _3;
+            MenhirLib.EngineTypes.startp = _startpos__3_;
+            MenhirLib.EngineTypes.endp = _endpos__3_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.semv = _2;
+              MenhirLib.EngineTypes.startp = _startpos__2_;
+              MenhirLib.EngineTypes.endp = _endpos__2_;
+              MenhirLib.EngineTypes.next = {
+                MenhirLib.EngineTypes.state = _menhir_s;
+                MenhirLib.EngineTypes.semv = _1;
+                MenhirLib.EngineTypes.startp = _startpos__1_;
+                MenhirLib.EngineTypes.endp = _endpos__1_;
+                MenhirLib.EngineTypes.next = _menhir_stack;
+              };
+            };
+          };
+        } = _menhir_stack in
+        let _4 : unit = Obj.magic _4 in
+        let _3 : unit = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 18546 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__4_ in
+        let _v : (string) = 
+# 2837 "parsing/parser.mly"
+                                                ( "."^ _1 ^ "{}<-" )
+# 18554 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (
+# 615 "parsing/parser.mly"
+       (string)
+# 18575 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2838 "parsing/parser.mly"
+                                                ( _1 )
+# 18583 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2839 "parsing/parser.mly"
+                                                ( "!" )
+# 18608 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2840 "parsing/parser.mly"
+                                                ( "+" )
+# 18633 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2841 "parsing/parser.mly"
+                                                ( "+." )
+# 18658 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2842 "parsing/parser.mly"
+                                                ( "-" )
+# 18683 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18609,8 +18703,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2843 "parsing/parser.mly"
-                                                ( "!" )
-# 18614 "parsing/parser.ml"
+                                                ( "-." )
+# 18708 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18634,8 +18728,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2844 "parsing/parser.mly"
-                                                ( "+" )
-# 18639 "parsing/parser.ml"
+                                                ( "*" )
+# 18733 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18659,8 +18753,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2845 "parsing/parser.mly"
-                                                ( "+." )
-# 18664 "parsing/parser.ml"
+                                                ( "=" )
+# 18758 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18684,8 +18778,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2846 "parsing/parser.mly"
-                                                ( "-" )
-# 18689 "parsing/parser.ml"
+                                                ( "<" )
+# 18783 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18709,8 +18803,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2847 "parsing/parser.mly"
-                                                ( "-." )
-# 18714 "parsing/parser.ml"
+                                                ( ">" )
+# 18808 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18734,8 +18828,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2848 "parsing/parser.mly"
-                                                ( "*" )
-# 18739 "parsing/parser.ml"
+                                                ( "or" )
+# 18833 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18759,8 +18853,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2849 "parsing/parser.mly"
-                                                ( "=" )
-# 18764 "parsing/parser.ml"
+                                                ( "||" )
+# 18858 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18784,8 +18878,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2850 "parsing/parser.mly"
-                                                ( "<" )
-# 18789 "parsing/parser.ml"
+                                                ( "&" )
+# 18883 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18809,8 +18903,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2851 "parsing/parser.mly"
-                                                ( ">" )
-# 18814 "parsing/parser.ml"
+                                                ( "&&" )
+# 18908 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18834,8 +18928,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2852 "parsing/parser.mly"
-                                                ( "or" )
-# 18839 "parsing/parser.ml"
+                                                ( ":=" )
+# 18933 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18859,8 +18953,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2853 "parsing/parser.mly"
-                                                ( "||" )
-# 18864 "parsing/parser.ml"
+                                                ( "+=" )
+# 18958 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -18884,108 +18978,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 2854 "parsing/parser.mly"
-                                                ( "&" )
-# 18889 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 2855 "parsing/parser.mly"
-                                                ( "&&" )
-# 18914 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 2856 "parsing/parser.mly"
-                                                ( ":=" )
-# 18939 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 2857 "parsing/parser.mly"
-                                                ( "+=" )
-# 18964 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 2858 "parsing/parser.mly"
                                                 ( "%" )
-# 18989 "parsing/parser.ml"
+# 18983 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19008,9 +19002,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (bool) = 
-# 2724 "parsing/parser.mly"
+# 2720 "parsing/parser.mly"
                                                 ( true )
-# 19014 "parsing/parser.ml"
+# 19008 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19026,9 +19020,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (bool) = 
-# 2725 "parsing/parser.mly"
+# 2721 "parsing/parser.mly"
                                                 ( false )
-# 19032 "parsing/parser.ml"
+# 19026 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19044,9 +19038,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (unit) = 
-# 2981 "parsing/parser.mly"
+# 2977 "parsing/parser.mly"
                                                 ( () )
-# 19050 "parsing/parser.ml"
+# 19044 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19069,9 +19063,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (unit) = 
-# 2982 "parsing/parser.mly"
+# 2978 "parsing/parser.mly"
                                                 ( () )
-# 19075 "parsing/parser.ml"
+# 19069 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19087,9 +19081,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.expression option) = 
-# 1629 "parsing/parser.mly"
+# 1631 "parsing/parser.mly"
                                         ( None )
-# 19093 "parsing/parser.ml"
+# 19087 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19118,9 +19112,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.expression option) = 
-# 1630 "parsing/parser.mly"
+# 1632 "parsing/parser.mly"
                                         ( Some _2 )
-# 19124 "parsing/parser.ml"
+# 19118 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19149,9 +19143,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type option) = 
-# 2284 "parsing/parser.mly"
+# 2280 "parsing/parser.mly"
                     ( Some _2 )
-# 19155 "parsing/parser.ml"
+# 19149 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19167,9 +19161,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.core_type option) = 
-# 2285 "parsing/parser.mly"
+# 2281 "parsing/parser.mly"
                 ( None )
-# 19173 "parsing/parser.ml"
+# 19167 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19185,9 +19179,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (unit) = 
-# 2985 "parsing/parser.mly"
+# 2981 "parsing/parser.mly"
                                                 ( () )
-# 19191 "parsing/parser.ml"
+# 19185 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19210,9 +19204,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (unit) = 
-# 2986 "parsing/parser.mly"
+# 2982 "parsing/parser.mly"
                                                 ( () )
-# 19216 "parsing/parser.ml"
+# 19210 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19235,9 +19229,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : ((Parsetree.core_type option * Parsetree.core_type option) option) = 
-# 2104 "parsing/parser.mly"
+# 2100 "parsing/parser.mly"
                     ( Some _1 )
-# 19241 "parsing/parser.ml"
+# 19235 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19253,9 +19247,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : ((Parsetree.core_type option * Parsetree.core_type option) option) = 
-# 2105 "parsing/parser.mly"
+# 2101 "parsing/parser.mly"
                 ( None )
-# 19259 "parsing/parser.ml"
+# 19253 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19284,9 +19278,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type * Asttypes.variance) = 
-# 2377 "parsing/parser.mly"
+# 2373 "parsing/parser.mly"
                                                 ( _2, _1 )
-# 19290 "parsing/parser.ml"
+# 19284 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19302,9 +19296,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : ((Parsetree.core_type * Asttypes.variance) list) = 
-# 2372 "parsing/parser.mly"
+# 2368 "parsing/parser.mly"
                                                 ( [] )
-# 19308 "parsing/parser.ml"
+# 19302 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19327,9 +19321,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : ((Parsetree.core_type * Asttypes.variance) list) = 
-# 2373 "parsing/parser.mly"
+# 2369 "parsing/parser.mly"
                                                 ( [_1] )
-# 19333 "parsing/parser.ml"
+# 19327 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19370,27 +19364,27 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 19376 "parsing/parser.ml"
+# 19370 "parsing/parser.ml"
               
             in
             
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 19382 "parsing/parser.ml"
+# 19376 "parsing/parser.ml"
             
           in
           
-# 2381 "parsing/parser.mly"
+# 2377 "parsing/parser.mly"
     ( tys )
-# 19388 "parsing/parser.ml"
+# 19382 "parsing/parser.ml"
           
         in
         
-# 2374 "parsing/parser.mly"
+# 2370 "parsing/parser.mly"
                                                 ( _2 )
-# 19394 "parsing/parser.ml"
+# 19388 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19427,9 +19421,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 2385 "parsing/parser.mly"
+# 2381 "parsing/parser.mly"
                     ( Ptyp_var _2 )
-# 19433 "parsing/parser.ml"
+# 19427 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -19438,15 +19432,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 19444 "parsing/parser.ml"
+# 19438 "parsing/parser.ml"
           
         in
         
-# 2387 "parsing/parser.mly"
+# 2383 "parsing/parser.mly"
       ( _1 )
-# 19450 "parsing/parser.ml"
+# 19444 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19475,9 +19469,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 2386 "parsing/parser.mly"
+# 2382 "parsing/parser.mly"
                     ( Ptyp_any )
-# 19481 "parsing/parser.ml"
+# 19475 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -19486,15 +19480,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 19492 "parsing/parser.ml"
+# 19486 "parsing/parser.ml"
           
         in
         
-# 2387 "parsing/parser.mly"
+# 2383 "parsing/parser.mly"
       ( _1 )
-# 19498 "parsing/parser.ml"
+# 19492 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19510,9 +19504,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Asttypes.override_flag) = 
-# 2977 "parsing/parser.mly"
+# 2973 "parsing/parser.mly"
                                                 ( Fresh )
-# 19516 "parsing/parser.ml"
+# 19510 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19535,9 +19529,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.override_flag) = 
-# 2978 "parsing/parser.mly"
+# 2974 "parsing/parser.mly"
                                                 ( Override )
-# 19541 "parsing/parser.ml"
+# 19535 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19566,9 +19560,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 2702 "parsing/parser.mly"
+# 2698 "parsing/parser.mly"
       ( Ptyp_package (package_type_of_module_type _1) )
-# 19572 "parsing/parser.ml"
+# 19566 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -19577,15 +19571,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 19583 "parsing/parser.ml"
+# 19577 "parsing/parser.ml"
           
         in
         
-# 2703 "parsing/parser.mly"
+# 2699 "parsing/parser.mly"
       ( _1 )
-# 19589 "parsing/parser.ml"
+# 19583 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19646,9 +19640,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 988 "parsing/parser.mly"
+# 990 "parsing/parser.mly"
       ( Pmod_constraint(_2, _4) )
-# 19652 "parsing/parser.ml"
+# 19646 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -19657,15 +19651,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 746 "parsing/parser.mly"
+# 748 "parsing/parser.mly"
     ( mkmod ~loc:_sloc _1 )
-# 19663 "parsing/parser.ml"
+# 19657 "parsing/parser.ml"
           
         in
         
-# 989 "parsing/parser.mly"
+# 991 "parsing/parser.mly"
       ( _1 )
-# 19669 "parsing/parser.ml"
+# 19663 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19714,9 +19708,9 @@ module Tables = struct
         let _v : (Parsetree.module_expr) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 991 "parsing/parser.mly"
+# 993 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__5_ )
-# 19720 "parsing/parser.ml"
+# 19714 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19751,9 +19745,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.module_expr) = 
-# 993 "parsing/parser.mly"
+# 995 "parsing/parser.mly"
       ( _2 (* TODO consider reloc *) )
-# 19757 "parsing/parser.ml"
+# 19751 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19790,9 +19784,9 @@ module Tables = struct
         let _v : (Parsetree.module_expr) = let _loc__3_ = (_startpos__3_, _endpos__3_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 995 "parsing/parser.mly"
+# 997 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__3_ )
-# 19796 "parsing/parser.ml"
+# 19790 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19842,9 +19836,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 997 "parsing/parser.mly"
+# 999 "parsing/parser.mly"
       ( mkmod ~loc:_sloc ~attrs:_3 (Pmod_unpack _4))
-# 19848 "parsing/parser.ml"
+# 19842 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19906,12 +19900,12 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 999 "parsing/parser.mly"
+# 1001 "parsing/parser.mly"
       ( let constr_loc = (_startpos__4_, _endpos__6_) in
         mkmod ~loc:_sloc ~attrs:_3
           (Pmod_unpack(
                ghexp ~loc:constr_loc (Pexp_constraint(_4, _6)))) )
-# 19915 "parsing/parser.ml"
+# 19909 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -19985,12 +19979,12 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1005 "parsing/parser.mly"
+# 1007 "parsing/parser.mly"
       ( let constr_loc = (_startpos__4_, _endpos__8_) in
         mkmod ~loc:_sloc ~attrs:_3
           (Pmod_unpack(
                ghexp ~loc:constr_loc (Pexp_coerce(_4, Some _6, _8)))) )
-# 19994 "parsing/parser.ml"
+# 19988 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20052,69 +20046,12 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1010 "parsing/parser.mly"
+# 1012 "parsing/parser.mly"
       ( let constr_loc = (_startpos__4_, _endpos__6_) in
         mkmod ~loc:_sloc ~attrs:_3
           (Pmod_unpack(
                ghexp ~loc:constr_loc (Pexp_coerce(_4, None, _6)))) )
-# 20061 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _6;
-          MenhirLib.EngineTypes.startp = _startpos__6_;
-          MenhirLib.EngineTypes.endp = _endpos__6_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _5;
-            MenhirLib.EngineTypes.startp = _startpos__5_;
-            MenhirLib.EngineTypes.endp = _endpos__5_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _4;
-              MenhirLib.EngineTypes.startp = _startpos__4_;
-              MenhirLib.EngineTypes.endp = _endpos__4_;
-              MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.semv = _3;
-                MenhirLib.EngineTypes.startp = _startpos__3_;
-                MenhirLib.EngineTypes.endp = _endpos__3_;
-                MenhirLib.EngineTypes.next = {
-                  MenhirLib.EngineTypes.semv = _2;
-                  MenhirLib.EngineTypes.startp = _startpos__2_;
-                  MenhirLib.EngineTypes.endp = _endpos__2_;
-                  MenhirLib.EngineTypes.next = {
-                    MenhirLib.EngineTypes.state = _menhir_s;
-                    MenhirLib.EngineTypes.semv = _1;
-                    MenhirLib.EngineTypes.startp = _startpos__1_;
-                    MenhirLib.EngineTypes.endp = _endpos__1_;
-                    MenhirLib.EngineTypes.next = _menhir_stack;
-                  };
-                };
-              };
-            };
-          };
-        } = _menhir_stack in
-        let _6 : unit = Obj.magic _6 in
-        let _5 : unit = Obj.magic _5 in
-        let _4 : (Parsetree.expression) = Obj.magic _4 in
-        let _3 : (Parsetree.attributes) = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__6_ in
-        let _v : (Parsetree.module_expr) = let _loc__6_ = (_startpos__6_, _endpos__6_) in
-        let _loc__1_ = (_startpos__1_, _endpos__1_) in
-        
-# 1015 "parsing/parser.mly"
-      ( unclosed "(" _loc__1_ ")" _loc__6_ )
-# 20118 "parsing/parser.ml"
+# 20055 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20171,7 +20108,64 @@ module Tables = struct
         
 # 1017 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__6_ )
-# 20175 "parsing/parser.ml"
+# 20112 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _6;
+          MenhirLib.EngineTypes.startp = _startpos__6_;
+          MenhirLib.EngineTypes.endp = _endpos__6_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _5;
+            MenhirLib.EngineTypes.startp = _startpos__5_;
+            MenhirLib.EngineTypes.endp = _endpos__5_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.semv = _4;
+              MenhirLib.EngineTypes.startp = _startpos__4_;
+              MenhirLib.EngineTypes.endp = _endpos__4_;
+              MenhirLib.EngineTypes.next = {
+                MenhirLib.EngineTypes.semv = _3;
+                MenhirLib.EngineTypes.startp = _startpos__3_;
+                MenhirLib.EngineTypes.endp = _endpos__3_;
+                MenhirLib.EngineTypes.next = {
+                  MenhirLib.EngineTypes.semv = _2;
+                  MenhirLib.EngineTypes.startp = _startpos__2_;
+                  MenhirLib.EngineTypes.endp = _endpos__2_;
+                  MenhirLib.EngineTypes.next = {
+                    MenhirLib.EngineTypes.state = _menhir_s;
+                    MenhirLib.EngineTypes.semv = _1;
+                    MenhirLib.EngineTypes.startp = _startpos__1_;
+                    MenhirLib.EngineTypes.endp = _endpos__1_;
+                    MenhirLib.EngineTypes.next = _menhir_stack;
+                  };
+                };
+              };
+            };
+          };
+        } = _menhir_stack in
+        let _6 : unit = Obj.magic _6 in
+        let _5 : unit = Obj.magic _5 in
+        let _4 : (Parsetree.expression) = Obj.magic _4 in
+        let _3 : (Parsetree.attributes) = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__6_ in
+        let _v : (Parsetree.module_expr) = let _loc__6_ = (_startpos__6_, _endpos__6_) in
+        let _loc__1_ = (_startpos__1_, _endpos__1_) in
+        
+# 1019 "parsing/parser.mly"
+      ( unclosed "(" _loc__1_ ")" _loc__6_ )
+# 20169 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20220,9 +20214,9 @@ module Tables = struct
         let _v : (Parsetree.module_expr) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 1019 "parsing/parser.mly"
+# 1021 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__5_ )
-# 20226 "parsing/parser.ml"
+# 20220 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20246,9 +20240,9 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 20252 "parsing/parser.ml"
+# 20246 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -20262,15 +20256,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 20268 "parsing/parser.ml"
+# 20262 "parsing/parser.ml"
           
         in
         
-# 1399 "parsing/parser.mly"
+# 1401 "parsing/parser.mly"
           ( Some _2 )
-# 20274 "parsing/parser.ml"
+# 20268 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20286,9 +20280,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (string Asttypes.loc option) = 
-# 1401 "parsing/parser.mly"
+# 1403 "parsing/parser.mly"
           ( None )
-# 20292 "parsing/parser.ml"
+# 20286 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20317,13 +20311,13 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (
-# 712 "parsing/parser.mly"
+# 714 "parsing/parser.mly"
       (Parsetree.core_type)
-# 20323 "parsing/parser.ml"
+# 20317 "parsing/parser.ml"
         ) = 
-# 924 "parsing/parser.mly"
+# 926 "parsing/parser.mly"
                   ( _1 )
-# 20327 "parsing/parser.ml"
+# 20321 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20352,13 +20346,13 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (
-# 714 "parsing/parser.mly"
+# 716 "parsing/parser.mly"
       (Parsetree.expression)
-# 20358 "parsing/parser.ml"
+# 20352 "parsing/parser.ml"
         ) = 
-# 928 "parsing/parser.mly"
+# 930 "parsing/parser.mly"
                  ( _1 )
-# 20362 "parsing/parser.ml"
+# 20356 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20387,13 +20381,13 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (
-# 716 "parsing/parser.mly"
+# 718 "parsing/parser.mly"
       (Parsetree.pattern)
-# 20393 "parsing/parser.ml"
+# 20387 "parsing/parser.ml"
         ) = 
-# 932 "parsing/parser.mly"
+# 934 "parsing/parser.mly"
                 ( _1 )
-# 20397 "parsing/parser.ml"
+# 20391 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20432,9 +20426,9 @@ module Tables = struct
         let _loc__2_ = (_startpos__2_, _endpos__2_) in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2112 "parsing/parser.mly"
+# 2108 "parsing/parser.mly"
       ( mkpat_cons ~loc:_sloc _loc__2_ (ghpat ~loc:_sloc (Ppat_tuple[_1;_3])) )
-# 20438 "parsing/parser.ml"
+# 20432 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20472,9 +20466,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2114 "parsing/parser.mly"
+# 2110 "parsing/parser.mly"
       ( mkpat_attrs ~loc:_sloc (Ppat_exception _3) _2)
-# 20478 "parsing/parser.ml"
+# 20472 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20503,9 +20497,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.pattern) = 
-# 2116 "parsing/parser.mly"
+# 2112 "parsing/parser.mly"
       ( Pat.attr _1 _2 )
-# 20509 "parsing/parser.ml"
+# 20503 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20528,9 +20522,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.pattern) = 
-# 2118 "parsing/parser.mly"
+# 2114 "parsing/parser.mly"
       ( _1 )
-# 20534 "parsing/parser.ml"
+# 20528 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20585,15 +20579,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 20591 "parsing/parser.ml"
+# 20585 "parsing/parser.ml"
               
             in
             
-# 2124 "parsing/parser.mly"
+# 2120 "parsing/parser.mly"
       ( Ppat_alias(_1, _3) )
-# 20597 "parsing/parser.ml"
+# 20591 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -20602,15 +20596,131 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 20608 "parsing/parser.ml"
+# 20602 "parsing/parser.ml"
           
         in
         
-# 2120 "parsing/parser.mly"
+# 2116 "parsing/parser.mly"
       ( _1 )
-# 20614 "parsing/parser.ml"
+# 20608 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _300;
+          MenhirLib.EngineTypes.startp = _startpos__300_;
+          MenhirLib.EngineTypes.endp = _endpos__300_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _200;
+            MenhirLib.EngineTypes.startp = _startpos__200_;
+            MenhirLib.EngineTypes.endp = _endpos__200_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _100;
+              MenhirLib.EngineTypes.startp = _startpos__100_;
+              MenhirLib.EngineTypes.endp = _endpos__100_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
+        } = _menhir_stack in
+        let _300 : unit = Obj.magic _300 in
+        let _200 : unit = Obj.magic _200 in
+        let _100 : (Parsetree.pattern) = Obj.magic _100 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__100_ in
+        let _endpos = _endpos__300_ in
+        let _v : (Parsetree.pattern) = let _1 =
+          let _endpos__30_ = _endpos__300_ in
+          let _startpos__30_ = _startpos__300_ in
+          let _startpos__10_ = _startpos__100_ in
+          let _30 = _300 in
+          let _20 = _200 in
+          let _10 = _100 in
+          let _1 =
+            let _endpos__3_ = _endpos__30_ in
+            let _startpos__3_ = _startpos__30_ in
+            let _3 = _30 in
+            let _2 = _20 in
+            let _1 = _10 in
+            let _loc__3_ = (_startpos__3_, _endpos__3_) in
+            
+# 2122 "parsing/parser.mly"
+      ( expecting _loc__3_ "identifier" )
+# 20659 "parsing/parser.ml"
+            
+          in
+          let _endpos__1_ = _endpos__30_ in
+          let _startpos__1_ = _startpos__10_ in
+          let _endpos = _endpos__1_ in
+          let _symbolstartpos = _startpos__1_ in
+          let _sloc = (_symbolstartpos, _endpos) in
+          
+# 742 "parsing/parser.mly"
+    ( mkpat ~loc:_sloc _1 )
+# 20670 "parsing/parser.ml"
+          
+        in
+        
+# 2116 "parsing/parser.mly"
+      ( _1 )
+# 20676 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _100;
+          MenhirLib.EngineTypes.startp = _startpos__100_;
+          MenhirLib.EngineTypes.endp = _endpos__100_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _100 : (Parsetree.pattern list) = Obj.magic _100 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__100_ in
+        let _endpos = _endpos__100_ in
+        let _v : (Parsetree.pattern) = let _1 =
+          let _endpos__10_ = _endpos__100_ in
+          let _startpos__10_ = _startpos__100_ in
+          let _10 = _100 in
+          let _1 =
+            let _1 = _10 in
+            
+# 2124 "parsing/parser.mly"
+      ( Ppat_tuple(List.rev _1) )
+# 20707 "parsing/parser.ml"
+            
+          in
+          let _endpos__1_ = _endpos__10_ in
+          let _startpos__1_ = _startpos__10_ in
+          let _endpos = _endpos__1_ in
+          let _symbolstartpos = _startpos__1_ in
+          let _sloc = (_symbolstartpos, _endpos) in
+          
+# 742 "parsing/parser.mly"
+    ( mkpat ~loc:_sloc _1 )
+# 20718 "parsing/parser.ml"
+          
+        in
+        
+# 2116 "parsing/parser.mly"
+      ( _1 )
+# 20724 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20660,8 +20770,8 @@ module Tables = struct
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
 # 2126 "parsing/parser.mly"
-      ( expecting _loc__3_ "identifier" )
-# 20665 "parsing/parser.ml"
+      ( expecting _loc__3_ "pattern" )
+# 20775 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -20670,15 +20780,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 20676 "parsing/parser.ml"
+# 20786 "parsing/parser.ml"
           
         in
         
-# 2120 "parsing/parser.mly"
+# 2116 "parsing/parser.mly"
       ( _1 )
-# 20682 "parsing/parser.ml"
+# 20792 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20690,43 +20800,59 @@ module Tables = struct
       (fun _menhir_env ->
         let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
         let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _100;
-          MenhirLib.EngineTypes.startp = _startpos__100_;
-          MenhirLib.EngineTypes.endp = _endpos__100_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
+          MenhirLib.EngineTypes.semv = _300;
+          MenhirLib.EngineTypes.startp = _startpos__300_;
+          MenhirLib.EngineTypes.endp = _endpos__300_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _200;
+            MenhirLib.EngineTypes.startp = _startpos__200_;
+            MenhirLib.EngineTypes.endp = _endpos__200_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _100;
+              MenhirLib.EngineTypes.startp = _startpos__100_;
+              MenhirLib.EngineTypes.endp = _endpos__100_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
         } = _menhir_stack in
-        let _100 : (Parsetree.pattern list) = Obj.magic _100 in
+        let _300 : (Parsetree.pattern) = Obj.magic _300 in
+        let _200 : unit = Obj.magic _200 in
+        let _100 : (Parsetree.pattern) = Obj.magic _100 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__100_ in
-        let _endpos = _endpos__100_ in
+        let _endpos = _endpos__300_ in
         let _v : (Parsetree.pattern) = let _1 =
-          let _endpos__10_ = _endpos__100_ in
+          let _endpos__30_ = _endpos__300_ in
           let _startpos__10_ = _startpos__100_ in
+          let _30 = _300 in
+          let _20 = _200 in
           let _10 = _100 in
           let _1 =
+            let _3 = _30 in
+            let _2 = _20 in
             let _1 = _10 in
             
 # 2128 "parsing/parser.mly"
-      ( Ppat_tuple(List.rev _1) )
-# 20713 "parsing/parser.ml"
+      ( Ppat_or(_1, _3) )
+# 20839 "parsing/parser.ml"
             
           in
-          let _endpos__1_ = _endpos__10_ in
+          let _endpos__1_ = _endpos__30_ in
           let _startpos__1_ = _startpos__10_ in
           let _endpos = _endpos__1_ in
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 20724 "parsing/parser.ml"
+# 20850 "parsing/parser.ml"
           
         in
         
-# 2120 "parsing/parser.mly"
+# 2116 "parsing/parser.mly"
       ( _1 )
-# 20730 "parsing/parser.ml"
+# 20856 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20777,7 +20903,7 @@ module Tables = struct
             
 # 2130 "parsing/parser.mly"
       ( expecting _loc__3_ "pattern" )
-# 20781 "parsing/parser.ml"
+# 20907 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -20786,147 +20912,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 20792 "parsing/parser.ml"
+# 20918 "parsing/parser.ml"
           
         in
         
-# 2120 "parsing/parser.mly"
+# 2116 "parsing/parser.mly"
       ( _1 )
-# 20798 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _300;
-          MenhirLib.EngineTypes.startp = _startpos__300_;
-          MenhirLib.EngineTypes.endp = _endpos__300_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _200;
-            MenhirLib.EngineTypes.startp = _startpos__200_;
-            MenhirLib.EngineTypes.endp = _endpos__200_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _100;
-              MenhirLib.EngineTypes.startp = _startpos__100_;
-              MenhirLib.EngineTypes.endp = _endpos__100_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _300 : (Parsetree.pattern) = Obj.magic _300 in
-        let _200 : unit = Obj.magic _200 in
-        let _100 : (Parsetree.pattern) = Obj.magic _100 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__100_ in
-        let _endpos = _endpos__300_ in
-        let _v : (Parsetree.pattern) = let _1 =
-          let _endpos__30_ = _endpos__300_ in
-          let _startpos__10_ = _startpos__100_ in
-          let _30 = _300 in
-          let _20 = _200 in
-          let _10 = _100 in
-          let _1 =
-            let _3 = _30 in
-            let _2 = _20 in
-            let _1 = _10 in
-            
-# 2132 "parsing/parser.mly"
-      ( Ppat_or(_1, _3) )
-# 20845 "parsing/parser.ml"
-            
-          in
-          let _endpos__1_ = _endpos__30_ in
-          let _startpos__1_ = _startpos__10_ in
-          let _endpos = _endpos__1_ in
-          let _symbolstartpos = _startpos__1_ in
-          let _sloc = (_symbolstartpos, _endpos) in
-          
-# 740 "parsing/parser.mly"
-    ( mkpat ~loc:_sloc _1 )
-# 20856 "parsing/parser.ml"
-          
-        in
-        
-# 2120 "parsing/parser.mly"
-      ( _1 )
-# 20862 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _300;
-          MenhirLib.EngineTypes.startp = _startpos__300_;
-          MenhirLib.EngineTypes.endp = _endpos__300_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _200;
-            MenhirLib.EngineTypes.startp = _startpos__200_;
-            MenhirLib.EngineTypes.endp = _endpos__200_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _100;
-              MenhirLib.EngineTypes.startp = _startpos__100_;
-              MenhirLib.EngineTypes.endp = _endpos__100_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _300 : unit = Obj.magic _300 in
-        let _200 : unit = Obj.magic _200 in
-        let _100 : (Parsetree.pattern) = Obj.magic _100 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__100_ in
-        let _endpos = _endpos__300_ in
-        let _v : (Parsetree.pattern) = let _1 =
-          let _endpos__30_ = _endpos__300_ in
-          let _startpos__30_ = _startpos__300_ in
-          let _startpos__10_ = _startpos__100_ in
-          let _30 = _300 in
-          let _20 = _200 in
-          let _10 = _100 in
-          let _1 =
-            let _endpos__3_ = _endpos__30_ in
-            let _startpos__3_ = _startpos__30_ in
-            let _3 = _30 in
-            let _2 = _20 in
-            let _1 = _10 in
-            let _loc__3_ = (_startpos__3_, _endpos__3_) in
-            
-# 2134 "parsing/parser.mly"
-      ( expecting _loc__3_ "pattern" )
-# 20913 "parsing/parser.ml"
-            
-          in
-          let _endpos__1_ = _endpos__30_ in
-          let _startpos__1_ = _startpos__10_ in
-          let _endpos = _endpos__1_ in
-          let _symbolstartpos = _startpos__1_ in
-          let _sloc = (_symbolstartpos, _endpos) in
-          
-# 740 "parsing/parser.mly"
-    ( mkpat ~loc:_sloc _1 )
 # 20924 "parsing/parser.ml"
-          
-        in
-        
-# 2120 "parsing/parser.mly"
-      ( _1 )
-# 20930 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20961,9 +20955,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.pattern list) = 
-# 2255 "parsing/parser.mly"
+# 2251 "parsing/parser.mly"
                                                 ( _3 :: _1 )
-# 20967 "parsing/parser.ml"
+# 20961 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -20998,9 +20992,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.pattern list) = 
-# 2256 "parsing/parser.mly"
+# 2252 "parsing/parser.mly"
                                                 ( [_3; _1] )
-# 21004 "parsing/parser.ml"
+# 20998 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21036,9 +21030,9 @@ module Tables = struct
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.pattern list) = let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
-# 2257 "parsing/parser.mly"
+# 2253 "parsing/parser.mly"
                                                 ( expecting _loc__3_ "pattern" )
-# 21042 "parsing/parser.ml"
+# 21036 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21061,9 +21055,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.pattern) = 
-# 2164 "parsing/parser.mly"
+# 2160 "parsing/parser.mly"
       ( _1 )
-# 21067 "parsing/parser.ml"
+# 21061 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21110,15 +21104,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 21116 "parsing/parser.ml"
+# 21110 "parsing/parser.ml"
               
             in
             
-# 2167 "parsing/parser.mly"
+# 2163 "parsing/parser.mly"
         ( Ppat_construct(_1, Some _2) )
-# 21122 "parsing/parser.ml"
+# 21116 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -21127,15 +21121,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 21133 "parsing/parser.ml"
+# 21127 "parsing/parser.ml"
           
         in
         
-# 2170 "parsing/parser.mly"
+# 2166 "parsing/parser.mly"
       ( _1 )
-# 21139 "parsing/parser.ml"
+# 21133 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21172,9 +21166,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 2169 "parsing/parser.mly"
+# 2165 "parsing/parser.mly"
         ( Ppat_variant(_1, Some _2) )
-# 21178 "parsing/parser.ml"
+# 21172 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -21183,15 +21177,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 21189 "parsing/parser.ml"
+# 21183 "parsing/parser.ml"
           
         in
         
-# 2170 "parsing/parser.mly"
+# 2166 "parsing/parser.mly"
       ( _1 )
-# 21195 "parsing/parser.ml"
+# 21189 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21229,9 +21223,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2172 "parsing/parser.mly"
+# 2168 "parsing/parser.mly"
       ( mkpat_attrs ~loc:_sloc (Ppat_lazy _3) _2)
-# 21235 "parsing/parser.ml"
+# 21229 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21270,9 +21264,9 @@ module Tables = struct
         let _loc__2_ = (_startpos__2_, _endpos__2_) in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2139 "parsing/parser.mly"
+# 2135 "parsing/parser.mly"
       ( mkpat_cons ~loc:_sloc _loc__2_ (ghpat ~loc:_sloc (Ppat_tuple[_1;_3])) )
-# 21276 "parsing/parser.ml"
+# 21270 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21301,9 +21295,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.pattern) = 
-# 2141 "parsing/parser.mly"
+# 2137 "parsing/parser.mly"
       ( Pat.attr _1 _2 )
-# 21307 "parsing/parser.ml"
+# 21301 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21326,9 +21320,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.pattern) = 
-# 2143 "parsing/parser.mly"
+# 2139 "parsing/parser.mly"
       ( _1 )
-# 21332 "parsing/parser.ml"
+# 21326 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21383,15 +21377,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 21389 "parsing/parser.ml"
+# 21383 "parsing/parser.ml"
               
             in
             
-# 2149 "parsing/parser.mly"
+# 2145 "parsing/parser.mly"
       ( Ppat_alias(_1, _3) )
-# 21395 "parsing/parser.ml"
+# 21389 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -21400,15 +21394,131 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 21406 "parsing/parser.ml"
+# 21400 "parsing/parser.ml"
           
         in
         
-# 2145 "parsing/parser.mly"
+# 2141 "parsing/parser.mly"
       ( _1 )
-# 21412 "parsing/parser.ml"
+# 21406 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _300;
+          MenhirLib.EngineTypes.startp = _startpos__300_;
+          MenhirLib.EngineTypes.endp = _endpos__300_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _200;
+            MenhirLib.EngineTypes.startp = _startpos__200_;
+            MenhirLib.EngineTypes.endp = _endpos__200_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _100;
+              MenhirLib.EngineTypes.startp = _startpos__100_;
+              MenhirLib.EngineTypes.endp = _endpos__100_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
+        } = _menhir_stack in
+        let _300 : unit = Obj.magic _300 in
+        let _200 : unit = Obj.magic _200 in
+        let _100 : (Parsetree.pattern) = Obj.magic _100 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__100_ in
+        let _endpos = _endpos__300_ in
+        let _v : (Parsetree.pattern) = let _1 =
+          let _endpos__30_ = _endpos__300_ in
+          let _startpos__30_ = _startpos__300_ in
+          let _startpos__10_ = _startpos__100_ in
+          let _30 = _300 in
+          let _20 = _200 in
+          let _10 = _100 in
+          let _1 =
+            let _endpos__3_ = _endpos__30_ in
+            let _startpos__3_ = _startpos__30_ in
+            let _3 = _30 in
+            let _2 = _20 in
+            let _1 = _10 in
+            let _loc__3_ = (_startpos__3_, _endpos__3_) in
+            
+# 2147 "parsing/parser.mly"
+      ( expecting _loc__3_ "identifier" )
+# 21457 "parsing/parser.ml"
+            
+          in
+          let _endpos__1_ = _endpos__30_ in
+          let _startpos__1_ = _startpos__10_ in
+          let _endpos = _endpos__1_ in
+          let _symbolstartpos = _startpos__1_ in
+          let _sloc = (_symbolstartpos, _endpos) in
+          
+# 742 "parsing/parser.mly"
+    ( mkpat ~loc:_sloc _1 )
+# 21468 "parsing/parser.ml"
+          
+        in
+        
+# 2141 "parsing/parser.mly"
+      ( _1 )
+# 21474 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _100;
+          MenhirLib.EngineTypes.startp = _startpos__100_;
+          MenhirLib.EngineTypes.endp = _endpos__100_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _100 : (Parsetree.pattern list) = Obj.magic _100 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__100_ in
+        let _endpos = _endpos__100_ in
+        let _v : (Parsetree.pattern) = let _1 =
+          let _endpos__10_ = _endpos__100_ in
+          let _startpos__10_ = _startpos__100_ in
+          let _10 = _100 in
+          let _1 =
+            let _1 = _10 in
+            
+# 2149 "parsing/parser.mly"
+      ( Ppat_tuple(List.rev _1) )
+# 21505 "parsing/parser.ml"
+            
+          in
+          let _endpos__1_ = _endpos__10_ in
+          let _startpos__1_ = _startpos__10_ in
+          let _endpos = _endpos__1_ in
+          let _symbolstartpos = _startpos__1_ in
+          let _sloc = (_symbolstartpos, _endpos) in
+          
+# 742 "parsing/parser.mly"
+    ( mkpat ~loc:_sloc _1 )
+# 21516 "parsing/parser.ml"
+          
+        in
+        
+# 2141 "parsing/parser.mly"
+      ( _1 )
+# 21522 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21458,8 +21568,8 @@ module Tables = struct
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
 # 2151 "parsing/parser.mly"
-      ( expecting _loc__3_ "identifier" )
-# 21463 "parsing/parser.ml"
+      ( expecting _loc__3_ "pattern" )
+# 21573 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -21468,15 +21578,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 21474 "parsing/parser.ml"
+# 21584 "parsing/parser.ml"
           
         in
         
-# 2145 "parsing/parser.mly"
+# 2141 "parsing/parser.mly"
       ( _1 )
-# 21480 "parsing/parser.ml"
+# 21590 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21488,43 +21598,59 @@ module Tables = struct
       (fun _menhir_env ->
         let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
         let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _100;
-          MenhirLib.EngineTypes.startp = _startpos__100_;
-          MenhirLib.EngineTypes.endp = _endpos__100_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
+          MenhirLib.EngineTypes.semv = _300;
+          MenhirLib.EngineTypes.startp = _startpos__300_;
+          MenhirLib.EngineTypes.endp = _endpos__300_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _200;
+            MenhirLib.EngineTypes.startp = _startpos__200_;
+            MenhirLib.EngineTypes.endp = _endpos__200_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _100;
+              MenhirLib.EngineTypes.startp = _startpos__100_;
+              MenhirLib.EngineTypes.endp = _endpos__100_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
         } = _menhir_stack in
-        let _100 : (Parsetree.pattern list) = Obj.magic _100 in
+        let _300 : (Parsetree.pattern) = Obj.magic _300 in
+        let _200 : unit = Obj.magic _200 in
+        let _100 : (Parsetree.pattern) = Obj.magic _100 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__100_ in
-        let _endpos = _endpos__100_ in
+        let _endpos = _endpos__300_ in
         let _v : (Parsetree.pattern) = let _1 =
-          let _endpos__10_ = _endpos__100_ in
+          let _endpos__30_ = _endpos__300_ in
           let _startpos__10_ = _startpos__100_ in
+          let _30 = _300 in
+          let _20 = _200 in
           let _10 = _100 in
           let _1 =
+            let _3 = _30 in
+            let _2 = _20 in
             let _1 = _10 in
             
 # 2153 "parsing/parser.mly"
-      ( Ppat_tuple(List.rev _1) )
-# 21511 "parsing/parser.ml"
+      ( Ppat_or(_1, _3) )
+# 21637 "parsing/parser.ml"
             
           in
-          let _endpos__1_ = _endpos__10_ in
+          let _endpos__1_ = _endpos__30_ in
           let _startpos__1_ = _startpos__10_ in
           let _endpos = _endpos__1_ in
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 21522 "parsing/parser.ml"
+# 21648 "parsing/parser.ml"
           
         in
         
-# 2145 "parsing/parser.mly"
+# 2141 "parsing/parser.mly"
       ( _1 )
-# 21528 "parsing/parser.ml"
+# 21654 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21575,7 +21701,7 @@ module Tables = struct
             
 # 2155 "parsing/parser.mly"
       ( expecting _loc__3_ "pattern" )
-# 21579 "parsing/parser.ml"
+# 21705 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -21584,147 +21710,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 21590 "parsing/parser.ml"
+# 21716 "parsing/parser.ml"
           
         in
         
-# 2145 "parsing/parser.mly"
+# 2141 "parsing/parser.mly"
       ( _1 )
-# 21596 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _300;
-          MenhirLib.EngineTypes.startp = _startpos__300_;
-          MenhirLib.EngineTypes.endp = _endpos__300_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _200;
-            MenhirLib.EngineTypes.startp = _startpos__200_;
-            MenhirLib.EngineTypes.endp = _endpos__200_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _100;
-              MenhirLib.EngineTypes.startp = _startpos__100_;
-              MenhirLib.EngineTypes.endp = _endpos__100_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _300 : (Parsetree.pattern) = Obj.magic _300 in
-        let _200 : unit = Obj.magic _200 in
-        let _100 : (Parsetree.pattern) = Obj.magic _100 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__100_ in
-        let _endpos = _endpos__300_ in
-        let _v : (Parsetree.pattern) = let _1 =
-          let _endpos__30_ = _endpos__300_ in
-          let _startpos__10_ = _startpos__100_ in
-          let _30 = _300 in
-          let _20 = _200 in
-          let _10 = _100 in
-          let _1 =
-            let _3 = _30 in
-            let _2 = _20 in
-            let _1 = _10 in
-            
-# 2157 "parsing/parser.mly"
-      ( Ppat_or(_1, _3) )
-# 21643 "parsing/parser.ml"
-            
-          in
-          let _endpos__1_ = _endpos__30_ in
-          let _startpos__1_ = _startpos__10_ in
-          let _endpos = _endpos__1_ in
-          let _symbolstartpos = _startpos__1_ in
-          let _sloc = (_symbolstartpos, _endpos) in
-          
-# 740 "parsing/parser.mly"
-    ( mkpat ~loc:_sloc _1 )
-# 21654 "parsing/parser.ml"
-          
-        in
-        
-# 2145 "parsing/parser.mly"
-      ( _1 )
-# 21660 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _300;
-          MenhirLib.EngineTypes.startp = _startpos__300_;
-          MenhirLib.EngineTypes.endp = _endpos__300_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _200;
-            MenhirLib.EngineTypes.startp = _startpos__200_;
-            MenhirLib.EngineTypes.endp = _endpos__200_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _100;
-              MenhirLib.EngineTypes.startp = _startpos__100_;
-              MenhirLib.EngineTypes.endp = _endpos__100_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _300 : unit = Obj.magic _300 in
-        let _200 : unit = Obj.magic _200 in
-        let _100 : (Parsetree.pattern) = Obj.magic _100 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__100_ in
-        let _endpos = _endpos__300_ in
-        let _v : (Parsetree.pattern) = let _1 =
-          let _endpos__30_ = _endpos__300_ in
-          let _startpos__30_ = _startpos__300_ in
-          let _startpos__10_ = _startpos__100_ in
-          let _30 = _300 in
-          let _20 = _200 in
-          let _10 = _100 in
-          let _1 =
-            let _endpos__3_ = _endpos__30_ in
-            let _startpos__3_ = _startpos__30_ in
-            let _3 = _30 in
-            let _2 = _20 in
-            let _1 = _10 in
-            let _loc__3_ = (_startpos__3_, _endpos__3_) in
-            
-# 2159 "parsing/parser.mly"
-      ( expecting _loc__3_ "pattern" )
-# 21711 "parsing/parser.ml"
-            
-          in
-          let _endpos__1_ = _endpos__30_ in
-          let _startpos__1_ = _startpos__10_ in
-          let _endpos = _endpos__1_ in
-          let _symbolstartpos = _startpos__1_ in
-          let _sloc = (_symbolstartpos, _endpos) in
-          
-# 740 "parsing/parser.mly"
-    ( mkpat ~loc:_sloc _1 )
 # 21722 "parsing/parser.ml"
-          
-        in
-        
-# 2145 "parsing/parser.mly"
-      ( _1 )
-# 21728 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21759,9 +21753,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.pattern list) = 
-# 2260 "parsing/parser.mly"
+# 2256 "parsing/parser.mly"
                                                 ( _3 :: _1 )
-# 21765 "parsing/parser.ml"
+# 21759 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21796,9 +21790,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.pattern list) = 
-# 2261 "parsing/parser.mly"
+# 2257 "parsing/parser.mly"
                                                 ( [_3; _1] )
-# 21802 "parsing/parser.ml"
+# 21796 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21834,9 +21828,9 @@ module Tables = struct
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.pattern list) = let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
-# 2262 "parsing/parser.mly"
+# 2258 "parsing/parser.mly"
                                                 ( expecting _loc__3_ "pattern" )
-# 21840 "parsing/parser.ml"
+# 21834 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21866,15 +21860,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 21872 "parsing/parser.ml"
+# 21866 "parsing/parser.ml"
           
         in
         
-# 1621 "parsing/parser.mly"
+# 1623 "parsing/parser.mly"
       ( _1 )
-# 21878 "parsing/parser.ml"
+# 21872 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21893,9 +21887,9 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 21899 "parsing/parser.ml"
+# 21893 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__10_ in
@@ -21908,15 +21902,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 21914 "parsing/parser.ml"
+# 21908 "parsing/parser.ml"
           
         in
         
-# 1624 "parsing/parser.mly"
+# 1626 "parsing/parser.mly"
                       ( Ppat_var _1 )
-# 21920 "parsing/parser.ml"
+# 21914 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21939,9 +21933,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.pattern_desc) = 
-# 1625 "parsing/parser.mly"
+# 1627 "parsing/parser.mly"
                       ( Ppat_any )
-# 21945 "parsing/parser.ml"
+# 21939 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21964,9 +21958,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.payload) = 
-# 3093 "parsing/parser.mly"
+# 3089 "parsing/parser.mly"
               ( PStr _1 )
-# 21970 "parsing/parser.ml"
+# 21964 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -21995,9 +21989,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.payload) = 
-# 3094 "parsing/parser.mly"
+# 3090 "parsing/parser.mly"
                     ( PSig _2 )
-# 22001 "parsing/parser.ml"
+# 21995 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22026,9 +22020,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.payload) = 
-# 3095 "parsing/parser.mly"
+# 3091 "parsing/parser.mly"
                     ( PTyp _2 )
-# 22032 "parsing/parser.ml"
+# 22026 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22057,9 +22051,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.payload) = 
-# 3096 "parsing/parser.mly"
+# 3092 "parsing/parser.mly"
                      ( PPat (_2, None) )
-# 22063 "parsing/parser.ml"
+# 22057 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22100,9 +22094,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__4_ in
         let _v : (Parsetree.payload) = 
-# 3097 "parsing/parser.mly"
+# 3093 "parsing/parser.mly"
                                    ( PPat (_2, Some _4) )
-# 22106 "parsing/parser.ml"
+# 22100 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22125,9 +22119,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.core_type) = 
-# 2598 "parsing/parser.mly"
+# 2594 "parsing/parser.mly"
     ( _1 )
-# 22131 "parsing/parser.ml"
+# 22125 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22178,27 +22172,27 @@ module Tables = struct
                 let xs =
                   let xs = xs0 in
                   
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
+# 22178 "parsing/parser.ml"
+                  
+                in
+                
+# 785 "parsing/parser.mly"
+    ( xs )
 # 22184 "parsing/parser.ml"
-                  
-                in
-                
-# 783 "parsing/parser.mly"
-    ( xs )
-# 22190 "parsing/parser.ml"
                 
               in
               
-# 2590 "parsing/parser.mly"
+# 2586 "parsing/parser.mly"
     ( _1 )
-# 22196 "parsing/parser.ml"
+# 22190 "parsing/parser.ml"
               
             in
             
-# 2594 "parsing/parser.mly"
+# 2590 "parsing/parser.mly"
     ( Ptyp_poly(_1, _3) )
-# 22202 "parsing/parser.ml"
+# 22196 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -22207,15 +22201,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 22213 "parsing/parser.ml"
+# 22207 "parsing/parser.ml"
           
         in
         
-# 2600 "parsing/parser.mly"
+# 2596 "parsing/parser.mly"
     ( _1 )
-# 22219 "parsing/parser.ml"
+# 22213 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22238,9 +22232,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.core_type) = 
-# 2598 "parsing/parser.mly"
+# 2594 "parsing/parser.mly"
     ( _1 )
-# 22244 "parsing/parser.ml"
+# 22238 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22291,27 +22285,27 @@ module Tables = struct
                 let xs =
                   let xs = xs0 in
                   
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 22297 "parsing/parser.ml"
+# 22291 "parsing/parser.ml"
                   
                 in
                 
-# 783 "parsing/parser.mly"
+# 785 "parsing/parser.mly"
     ( xs )
-# 22303 "parsing/parser.ml"
+# 22297 "parsing/parser.ml"
                 
               in
               
-# 2590 "parsing/parser.mly"
+# 2586 "parsing/parser.mly"
     ( _1 )
-# 22309 "parsing/parser.ml"
+# 22303 "parsing/parser.ml"
               
             in
             
-# 2594 "parsing/parser.mly"
+# 2590 "parsing/parser.mly"
     ( Ptyp_poly(_1, _3) )
-# 22315 "parsing/parser.ml"
+# 22309 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -22320,15 +22314,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 22326 "parsing/parser.ml"
+# 22320 "parsing/parser.ml"
           
         in
         
-# 2600 "parsing/parser.mly"
+# 2596 "parsing/parser.mly"
     ( _1 )
-# 22332 "parsing/parser.ml"
+# 22326 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22372,9 +22366,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 3066 "parsing/parser.mly"
+# 3062 "parsing/parser.mly"
     ( Attr.mk ~loc:(make_loc _sloc) _2 _3 )
-# 22378 "parsing/parser.ml"
+# 22372 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22390,9 +22384,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.attributes) = 
-# 3074 "parsing/parser.mly"
+# 3070 "parsing/parser.mly"
                  ( [] )
-# 22396 "parsing/parser.ml"
+# 22390 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22421,9 +22415,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.attributes) = 
-# 3075 "parsing/parser.mly"
+# 3071 "parsing/parser.mly"
                                              ( _1 :: _2 )
-# 22427 "parsing/parser.ml"
+# 22421 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22495,21 +22489,21 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 22501 "parsing/parser.ml"
+# 22495 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__8_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2306 "parsing/parser.mly"
+# 2302 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Val.mk _3 _5 ~prim:_7 ~attrs:(attrs@_8) ~loc:(make_loc _sloc) ~docs
         , ext )
-# 22513 "parsing/parser.ml"
+# 22507 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22528,17 +22522,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 616 "parsing/parser.mly"
+# 618 "parsing/parser.mly"
        (string * string option)
-# 22534 "parsing/parser.ml"
+# 22528 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string list) = 
-# 2300 "parsing/parser.mly"
+# 2296 "parsing/parser.mly"
                                                 ( [fst _1] )
-# 22542 "parsing/parser.ml"
+# 22536 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22563,17 +22557,17 @@ module Tables = struct
         } = _menhir_stack in
         let _2 : (string list) = Obj.magic _2 in
         let _1 : (
-# 616 "parsing/parser.mly"
+# 618 "parsing/parser.mly"
        (string * string option)
-# 22569 "parsing/parser.ml"
+# 22563 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (string list) = 
-# 2301 "parsing/parser.mly"
+# 2297 "parsing/parser.mly"
                                                 ( fst _1 :: _2 )
-# 22577 "parsing/parser.ml"
+# 22571 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22589,9 +22583,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Asttypes.private_flag) = 
-# 2958 "parsing/parser.mly"
+# 2954 "parsing/parser.mly"
                                                 ( Public )
-# 22595 "parsing/parser.ml"
+# 22589 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22614,9 +22608,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.private_flag) = 
-# 2959 "parsing/parser.mly"
+# 2955 "parsing/parser.mly"
                                                 ( Private )
-# 22620 "parsing/parser.ml"
+# 22614 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22631,122 +22625,122 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
+        let _v : (Asttypes.private_flag * Asttypes.virtual_flag) = 
+# 2966 "parsing/parser.mly"
+                 ( Public, Concrete )
+# 22632 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Asttypes.private_flag * Asttypes.virtual_flag) = 
+# 2967 "parsing/parser.mly"
+            ( Private, Concrete )
+# 22657 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Asttypes.private_flag * Asttypes.virtual_flag) = 
+# 2968 "parsing/parser.mly"
+            ( Public, Virtual )
+# 22682 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _2;
+          MenhirLib.EngineTypes.startp = _startpos__2_;
+          MenhirLib.EngineTypes.endp = _endpos__2_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.state = _menhir_s;
+            MenhirLib.EngineTypes.semv = _1;
+            MenhirLib.EngineTypes.startp = _startpos__1_;
+            MenhirLib.EngineTypes.endp = _endpos__1_;
+            MenhirLib.EngineTypes.next = _menhir_stack;
+          };
+        } = _menhir_stack in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__2_ in
+        let _v : (Asttypes.private_flag * Asttypes.virtual_flag) = 
+# 2969 "parsing/parser.mly"
+                    ( Private, Virtual )
+# 22713 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _2;
+          MenhirLib.EngineTypes.startp = _startpos__2_;
+          MenhirLib.EngineTypes.endp = _endpos__2_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.state = _menhir_s;
+            MenhirLib.EngineTypes.semv = _1;
+            MenhirLib.EngineTypes.startp = _startpos__1_;
+            MenhirLib.EngineTypes.endp = _endpos__1_;
+            MenhirLib.EngineTypes.next = _menhir_stack;
+          };
+        } = _menhir_stack in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__2_ in
         let _v : (Asttypes.private_flag * Asttypes.virtual_flag) = 
 # 2970 "parsing/parser.mly"
-                 ( Public, Concrete )
-# 22638 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Asttypes.private_flag * Asttypes.virtual_flag) = 
-# 2971 "parsing/parser.mly"
-            ( Private, Concrete )
-# 22663 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Asttypes.private_flag * Asttypes.virtual_flag) = 
-# 2972 "parsing/parser.mly"
-            ( Public, Virtual )
-# 22688 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _2;
-          MenhirLib.EngineTypes.startp = _startpos__2_;
-          MenhirLib.EngineTypes.endp = _endpos__2_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.state = _menhir_s;
-            MenhirLib.EngineTypes.semv = _1;
-            MenhirLib.EngineTypes.startp = _startpos__1_;
-            MenhirLib.EngineTypes.endp = _endpos__1_;
-            MenhirLib.EngineTypes.next = _menhir_stack;
-          };
-        } = _menhir_stack in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__2_ in
-        let _v : (Asttypes.private_flag * Asttypes.virtual_flag) = 
-# 2973 "parsing/parser.mly"
                     ( Private, Virtual )
-# 22719 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _2;
-          MenhirLib.EngineTypes.startp = _startpos__2_;
-          MenhirLib.EngineTypes.endp = _endpos__2_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.state = _menhir_s;
-            MenhirLib.EngineTypes.semv = _1;
-            MenhirLib.EngineTypes.startp = _startpos__1_;
-            MenhirLib.EngineTypes.endp = _endpos__1_;
-            MenhirLib.EngineTypes.next = _menhir_stack;
-          };
-        } = _menhir_stack in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__2_ in
-        let _v : (Asttypes.private_flag * Asttypes.virtual_flag) = 
-# 2974 "parsing/parser.mly"
-                    ( Private, Virtual )
-# 22750 "parsing/parser.ml"
+# 22744 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22762,9 +22756,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Asttypes.rec_flag) = 
-# 2946 "parsing/parser.mly"
+# 2942 "parsing/parser.mly"
                                                 ( Nonrecursive )
-# 22768 "parsing/parser.ml"
+# 22762 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22787,9 +22781,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.rec_flag) = 
-# 2947 "parsing/parser.mly"
+# 2943 "parsing/parser.mly"
                                                 ( Recursive )
-# 22793 "parsing/parser.ml"
+# 22787 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22835,9 +22829,9 @@ module Tables = struct
         let _6 : (Parsetree.attributes) = Obj.magic _6 in
         let _5 : (Parsetree.module_expr) = Obj.magic _5 in
         let _10 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 22841 "parsing/parser.ml"
+# 22835 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _2 in
@@ -22853,20 +22847,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 22859 "parsing/parser.ml"
+# 22853 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__6_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1105 "parsing/parser.mly"
+# 1107 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Mb.mk _4 _5 ~attrs:(attrs@_6) ~loc:(make_loc _sloc) ~docs, ext )
-# 22870 "parsing/parser.ml"
+# 22864 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22889,9 +22883,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.module_binding list * string Asttypes.loc option) = 
-# 1098 "parsing/parser.mly"
+# 1100 "parsing/parser.mly"
       ( let (b, ext) = _1 in ([b], ext) )
-# 22895 "parsing/parser.ml"
+# 22889 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22920,9 +22914,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.module_binding list * string Asttypes.loc option) = 
-# 1100 "parsing/parser.mly"
+# 1102 "parsing/parser.mly"
       ( let (l, ext) = _1 in (_2 :: l, ext) )
-# 22926 "parsing/parser.ml"
+# 22920 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -22974,9 +22968,9 @@ module Tables = struct
         let _6 : (Parsetree.module_type) = Obj.magic _6 in
         let _5 : unit = Obj.magic _5 in
         let _10 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 22980 "parsing/parser.ml"
+# 22974 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _2 in
@@ -22992,20 +22986,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 22998 "parsing/parser.ml"
+# 22992 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1246 "parsing/parser.mly"
+# 1248 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Md.mk _4 _6 ~attrs:(attrs@_7) ~loc:(make_loc _sloc) ~docs, ext )
-# 23009 "parsing/parser.ml"
+# 23003 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23028,9 +23022,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.module_declaration list * string Asttypes.loc option) = 
-# 1239 "parsing/parser.mly"
+# 1241 "parsing/parser.mly"
       ( let (body, ext) = _1 in ([body], ext) )
-# 23034 "parsing/parser.ml"
+# 23028 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23059,9 +23053,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.module_declaration list * string Asttypes.loc option) = 
-# 1241 "parsing/parser.mly"
+# 1243 "parsing/parser.mly"
       ( let (l, ext) = _1 in (_2 :: l, ext) )
-# 23065 "parsing/parser.ml"
+# 23059 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23099,15 +23093,15 @@ module Tables = struct
   (Longident.t Asttypes.loc * Parsetree.expression) list) = let _3 =
           let xs = xs0 in
           
-# 2072 "parsing/parser.mly"
+# 2068 "parsing/parser.mly"
     ( xs )
-# 23105 "parsing/parser.ml"
+# 23099 "parsing/parser.ml"
           
         in
         
-# 2067 "parsing/parser.mly"
+# 2063 "parsing/parser.mly"
                                                 ( (Some _1, _3) )
-# 23111 "parsing/parser.ml"
+# 23105 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23133,15 +23127,15 @@ module Tables = struct
   (Longident.t Asttypes.loc * Parsetree.expression) list) = let _1 =
           let xs = xs0 in
           
-# 2072 "parsing/parser.mly"
+# 2068 "parsing/parser.mly"
     ( xs )
-# 23139 "parsing/parser.ml"
+# 23133 "parsing/parser.ml"
           
         in
         
-# 2068 "parsing/parser.mly"
+# 2064 "parsing/parser.mly"
                                                 ( (None, _1) )
-# 23145 "parsing/parser.ml"
+# 23139 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23164,9 +23158,9 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_x_ in
         let _v : ((Asttypes.arg_label * Parsetree.expression) list) = 
-# 773 "parsing/parser.mly"
+# 775 "parsing/parser.mly"
     ( [ x ] )
-# 23170 "parsing/parser.ml"
+# 23164 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23195,9 +23189,9 @@ module Tables = struct
         let _startpos = _startpos_xs_ in
         let _endpos = _endpos_x_ in
         let _v : ((Asttypes.arg_label * Parsetree.expression) list) = 
-# 775 "parsing/parser.mly"
+# 777 "parsing/parser.mly"
     ( x :: xs )
-# 23201 "parsing/parser.ml"
+# 23195 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23220,9 +23214,9 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_x_ in
         let _v : (Asttypes.label list) = 
-# 773 "parsing/parser.mly"
+# 775 "parsing/parser.mly"
     ( [ x ] )
-# 23226 "parsing/parser.ml"
+# 23220 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23251,9 +23245,9 @@ module Tables = struct
         let _startpos = _startpos_xs_ in
         let _endpos = _endpos_x_ in
         let _v : (Asttypes.label list) = 
-# 775 "parsing/parser.mly"
+# 777 "parsing/parser.mly"
     ( x :: xs )
-# 23257 "parsing/parser.ml"
+# 23251 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23294,21 +23288,21 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 23300 "parsing/parser.ml"
+# 23294 "parsing/parser.ml"
             
           in
           
-# 2586 "parsing/parser.mly"
+# 2582 "parsing/parser.mly"
     ( _2 )
-# 23306 "parsing/parser.ml"
+# 23300 "parsing/parser.ml"
           
         in
         
-# 773 "parsing/parser.mly"
+# 775 "parsing/parser.mly"
     ( [ x ] )
-# 23312 "parsing/parser.ml"
+# 23306 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23355,21 +23349,21 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 23361 "parsing/parser.ml"
+# 23355 "parsing/parser.ml"
             
           in
           
-# 2586 "parsing/parser.mly"
+# 2582 "parsing/parser.mly"
     ( _2 )
-# 23367 "parsing/parser.ml"
+# 23361 "parsing/parser.ml"
           
         in
         
-# 775 "parsing/parser.mly"
+# 777 "parsing/parser.mly"
     ( x :: xs )
-# 23373 "parsing/parser.ml"
+# 23367 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23394,15 +23388,15 @@ module Tables = struct
         let _v : (Parsetree.core_type list) = let xs =
           let x = x0 in
           
-# 799 "parsing/parser.mly"
+# 801 "parsing/parser.mly"
     ( [ x ] )
-# 23400 "parsing/parser.ml"
+# 23394 "parsing/parser.ml"
           
         in
         
-# 807 "parsing/parser.mly"
+# 809 "parsing/parser.mly"
     ( xs )
-# 23406 "parsing/parser.ml"
+# 23400 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23441,15 +23435,15 @@ module Tables = struct
           let _2 = _20 in
           let xs = xs0 in
           
-# 803 "parsing/parser.mly"
+# 805 "parsing/parser.mly"
     ( x :: xs )
-# 23447 "parsing/parser.ml"
+# 23441 "parsing/parser.ml"
           
         in
         
-# 807 "parsing/parser.mly"
+# 809 "parsing/parser.mly"
     ( xs )
-# 23453 "parsing/parser.ml"
+# 23447 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23474,15 +23468,15 @@ module Tables = struct
         let _v : (Parsetree.row_field list) = let xs =
           let x = x0 in
           
-# 799 "parsing/parser.mly"
+# 801 "parsing/parser.mly"
     ( [ x ] )
-# 23480 "parsing/parser.ml"
+# 23474 "parsing/parser.ml"
           
         in
         
-# 807 "parsing/parser.mly"
+# 809 "parsing/parser.mly"
     ( xs )
-# 23486 "parsing/parser.ml"
+# 23480 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23521,15 +23515,15 @@ module Tables = struct
           let _2 = _20 in
           let xs = xs0 in
           
-# 803 "parsing/parser.mly"
+# 805 "parsing/parser.mly"
     ( x :: xs )
+# 23521 "parsing/parser.ml"
+          
+        in
+        
+# 809 "parsing/parser.mly"
+    ( xs )
 # 23527 "parsing/parser.ml"
-          
-        in
-        
-# 807 "parsing/parser.mly"
-    ( xs )
-# 23533 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23554,15 +23548,15 @@ module Tables = struct
         let _v : (Parsetree.core_type list) = let xs =
           let x = x0 in
           
-# 799 "parsing/parser.mly"
+# 801 "parsing/parser.mly"
     ( [ x ] )
+# 23554 "parsing/parser.ml"
+          
+        in
+        
+# 809 "parsing/parser.mly"
+    ( xs )
 # 23560 "parsing/parser.ml"
-          
-        in
-        
-# 807 "parsing/parser.mly"
-    ( xs )
-# 23566 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23601,15 +23595,15 @@ module Tables = struct
           let _2 = _20 in
           let xs = xs0 in
           
-# 803 "parsing/parser.mly"
+# 805 "parsing/parser.mly"
     ( x :: xs )
+# 23601 "parsing/parser.ml"
+          
+        in
+        
+# 809 "parsing/parser.mly"
+    ( xs )
 # 23607 "parsing/parser.ml"
-          
-        in
-        
-# 807 "parsing/parser.mly"
-    ( xs )
-# 23613 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23634,15 +23628,15 @@ module Tables = struct
         let _v : ((Parsetree.core_type * Asttypes.variance) list) = let xs =
           let x = x0 in
           
-# 799 "parsing/parser.mly"
+# 801 "parsing/parser.mly"
     ( [ x ] )
+# 23634 "parsing/parser.ml"
+          
+        in
+        
+# 809 "parsing/parser.mly"
+    ( xs )
 # 23640 "parsing/parser.ml"
-          
-        in
-        
-# 807 "parsing/parser.mly"
-    ( xs )
-# 23646 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23681,15 +23675,15 @@ module Tables = struct
           let _2 = _20 in
           let xs = xs0 in
           
-# 803 "parsing/parser.mly"
+# 805 "parsing/parser.mly"
     ( x :: xs )
-# 23687 "parsing/parser.ml"
+# 23681 "parsing/parser.ml"
           
         in
         
-# 807 "parsing/parser.mly"
+# 809 "parsing/parser.mly"
     ( xs )
-# 23693 "parsing/parser.ml"
+# 23687 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23714,15 +23708,15 @@ module Tables = struct
         let _v : ((Parsetree.core_type * Asttypes.variance) list) = let xs =
           let x = x0 in
           
-# 799 "parsing/parser.mly"
+# 801 "parsing/parser.mly"
     ( [ x ] )
-# 23720 "parsing/parser.ml"
+# 23714 "parsing/parser.ml"
           
         in
         
-# 807 "parsing/parser.mly"
+# 809 "parsing/parser.mly"
     ( xs )
-# 23726 "parsing/parser.ml"
+# 23720 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23761,15 +23755,15 @@ module Tables = struct
           let _2 = _20 in
           let xs = xs0 in
           
-# 803 "parsing/parser.mly"
+# 805 "parsing/parser.mly"
     ( x :: xs )
-# 23767 "parsing/parser.ml"
+# 23761 "parsing/parser.ml"
           
         in
         
-# 807 "parsing/parser.mly"
+# 809 "parsing/parser.mly"
     ( xs )
-# 23773 "parsing/parser.ml"
+# 23767 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23794,15 +23788,15 @@ module Tables = struct
         let _v : (Parsetree.core_type list) = let xs =
           let x = x0 in
           
-# 799 "parsing/parser.mly"
+# 801 "parsing/parser.mly"
     ( [ x ] )
-# 23800 "parsing/parser.ml"
+# 23794 "parsing/parser.ml"
           
         in
         
-# 807 "parsing/parser.mly"
+# 809 "parsing/parser.mly"
     ( xs )
-# 23806 "parsing/parser.ml"
+# 23800 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23841,15 +23835,15 @@ module Tables = struct
           let _2 = _20 in
           let xs = xs0 in
           
-# 803 "parsing/parser.mly"
+# 805 "parsing/parser.mly"
     ( x :: xs )
-# 23847 "parsing/parser.ml"
+# 23841 "parsing/parser.ml"
           
         in
         
-# 807 "parsing/parser.mly"
+# 809 "parsing/parser.mly"
     ( xs )
-# 23853 "parsing/parser.ml"
+# 23847 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23884,9 +23878,9 @@ module Tables = struct
         let _startpos = _startpos_xs_ in
         let _endpos = _endpos_x_ in
         let _v : (Parsetree.expression list) = 
-# 826 "parsing/parser.mly"
+# 828 "parsing/parser.mly"
     ( x :: xs )
-# 23890 "parsing/parser.ml"
+# 23884 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23921,9 +23915,9 @@ module Tables = struct
         let _startpos = _startpos_x1_ in
         let _endpos = _endpos_x2_ in
         let _v : (Parsetree.expression list) = 
-# 830 "parsing/parser.mly"
+# 832 "parsing/parser.mly"
     ( [ x2; x1 ] )
-# 23927 "parsing/parser.ml"
+# 23921 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23946,9 +23940,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.row_field) = 
-# 2710 "parsing/parser.mly"
+# 2706 "parsing/parser.mly"
                        ( _1 )
-# 23952 "parsing/parser.ml"
+# 23946 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -23974,9 +23968,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2711 "parsing/parser.mly"
+# 2707 "parsing/parser.mly"
                        ( Rf.inherit_ ~loc:(make_loc _sloc) _1 )
-# 23980 "parsing/parser.ml"
+# 23974 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24002,13 +23996,13 @@ module Tables = struct
           
 # 124 "menhir/standard.mly"
     ( None )
-# 24006 "parsing/parser.ml"
+# 24000 "parsing/parser.ml"
           
         in
         
-# 847 "parsing/parser.mly"
+# 849 "parsing/parser.mly"
     ( [x] )
-# 24012 "parsing/parser.ml"
+# 24006 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24041,13 +24035,13 @@ module Tables = struct
           
 # 126 "menhir/standard.mly"
     ( Some x )
-# 24045 "parsing/parser.ml"
+# 24039 "parsing/parser.ml"
           
         in
         
-# 847 "parsing/parser.mly"
+# 849 "parsing/parser.mly"
     ( [x] )
-# 24051 "parsing/parser.ml"
+# 24045 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24082,9 +24076,9 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_xs_ in
         let _v : (Parsetree.expression list) = 
-# 851 "parsing/parser.mly"
+# 853 "parsing/parser.mly"
     ( x :: xs )
-# 24088 "parsing/parser.ml"
+# 24082 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24110,13 +24104,13 @@ module Tables = struct
           
 # 124 "menhir/standard.mly"
     ( None )
-# 24114 "parsing/parser.ml"
+# 24108 "parsing/parser.ml"
           
         in
         
-# 847 "parsing/parser.mly"
+# 849 "parsing/parser.mly"
     ( [x] )
-# 24120 "parsing/parser.ml"
+# 24114 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24149,13 +24143,13 @@ module Tables = struct
           
 # 126 "menhir/standard.mly"
     ( Some x )
-# 24153 "parsing/parser.ml"
+# 24147 "parsing/parser.ml"
           
         in
         
-# 847 "parsing/parser.mly"
+# 849 "parsing/parser.mly"
     ( [x] )
-# 24159 "parsing/parser.ml"
+# 24153 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24190,9 +24184,9 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_xs_ in
         let _v : ((Asttypes.label Asttypes.loc * Parsetree.expression) list) = 
-# 851 "parsing/parser.mly"
+# 853 "parsing/parser.mly"
     ( x :: xs )
-# 24196 "parsing/parser.ml"
+# 24190 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24218,13 +24212,13 @@ module Tables = struct
           
 # 124 "menhir/standard.mly"
     ( None )
-# 24222 "parsing/parser.ml"
+# 24216 "parsing/parser.ml"
           
         in
         
-# 847 "parsing/parser.mly"
+# 849 "parsing/parser.mly"
     ( [x] )
-# 24228 "parsing/parser.ml"
+# 24222 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24257,13 +24251,13 @@ module Tables = struct
           
 # 126 "menhir/standard.mly"
     ( Some x )
-# 24261 "parsing/parser.ml"
+# 24255 "parsing/parser.ml"
           
         in
         
-# 847 "parsing/parser.mly"
+# 849 "parsing/parser.mly"
     ( [x] )
-# 24267 "parsing/parser.ml"
+# 24261 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24298,9 +24292,9 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_xs_ in
         let _v : ((Longident.t Asttypes.loc * Parsetree.expression) list) = 
-# 851 "parsing/parser.mly"
+# 853 "parsing/parser.mly"
     ( x :: xs )
-# 24304 "parsing/parser.ml"
+# 24298 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24326,13 +24320,13 @@ module Tables = struct
           
 # 124 "menhir/standard.mly"
     ( None )
-# 24330 "parsing/parser.ml"
+# 24324 "parsing/parser.ml"
           
         in
         
-# 847 "parsing/parser.mly"
+# 849 "parsing/parser.mly"
     ( [x] )
-# 24336 "parsing/parser.ml"
+# 24330 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24365,13 +24359,13 @@ module Tables = struct
           
 # 126 "menhir/standard.mly"
     ( Some x )
-# 24369 "parsing/parser.ml"
+# 24363 "parsing/parser.ml"
           
         in
         
-# 847 "parsing/parser.mly"
+# 849 "parsing/parser.mly"
     ( [x] )
-# 24375 "parsing/parser.ml"
+# 24369 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24406,9 +24400,9 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_xs_ in
         let _v : (Parsetree.pattern list) = 
-# 851 "parsing/parser.mly"
+# 853 "parsing/parser.mly"
     ( x :: xs )
-# 24412 "parsing/parser.ml"
+# 24406 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24431,9 +24425,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.expression) = 
-# 1590 "parsing/parser.mly"
+# 1592 "parsing/parser.mly"
                                   ( _1 )
-# 24437 "parsing/parser.ml"
+# 24431 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24462,9 +24456,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.expression) = 
-# 1591 "parsing/parser.mly"
+# 1593 "parsing/parser.mly"
                                   ( _1 )
-# 24468 "parsing/parser.ml"
+# 24462 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24509,9 +24503,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1593 "parsing/parser.mly"
+# 1595 "parsing/parser.mly"
     ( Pexp_sequence(_1, _3) )
-# 24515 "parsing/parser.ml"
+# 24509 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -24520,15 +24514,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 24526 "parsing/parser.ml"
+# 24520 "parsing/parser.ml"
           
         in
         
-# 1594 "parsing/parser.mly"
+# 1596 "parsing/parser.mly"
     ( _1 )
-# 24532 "parsing/parser.ml"
+# 24526 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24578,11 +24572,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1596 "parsing/parser.mly"
+# 1598 "parsing/parser.mly"
     ( let seq = mkexp ~loc:_sloc (Pexp_sequence (_1, _5)) in
       let payload = PStr [mkstrexp seq []] in
       mkexp ~loc:_sloc (Pexp_extension (_4, payload)) )
-# 24586 "parsing/parser.ml"
+# 24580 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24642,16 +24636,16 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 24648 "parsing/parser.ml"
+# 24642 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__6_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2436 "parsing/parser.mly"
+# 2432 "parsing/parser.mly"
       ( let args, res = _4 in
         let (ext,attrs) = _2 in
         let docs = symbol_docs _sloc in
@@ -24659,7 +24653,7 @@ module Tables = struct
           (Te.decl _3 ~args ?res
                       ~attrs:(attrs @ _5) ~loc:(make_loc _sloc) ~docs)
         , ext )
-# 24663 "parsing/parser.ml"
+# 24657 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24682,9 +24676,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.extension_constructor list) = 
-# 2515 "parsing/parser.mly"
+# 2511 "parsing/parser.mly"
                                                           ( [_1] )
-# 24688 "parsing/parser.ml"
+# 24682 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24707,9 +24701,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.extension_constructor list) = 
-# 2516 "parsing/parser.mly"
+# 2512 "parsing/parser.mly"
                                                           ( [_1] )
-# 24713 "parsing/parser.ml"
+# 24707 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24738,9 +24732,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.extension_constructor list) = 
-# 2518 "parsing/parser.mly"
+# 2514 "parsing/parser.mly"
       ( _2 :: _1 )
-# 24744 "parsing/parser.ml"
+# 24738 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24784,11 +24778,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1209 "parsing/parser.mly"
+# 1211 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Incl.mk _3 ~attrs:(attrs@_4) ~loc:(make_loc _sloc) ~docs, ext )
-# 24792 "parsing/parser.ml"
+# 24786 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24866,9 +24860,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 24872 "parsing/parser.ml"
+# 24866 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__9_ in
@@ -24876,13 +24870,13 @@ module Tables = struct
         let _loc__3_ = (_startpos__3_, _endpos__3_) in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2498 "parsing/parser.mly"
+# 2494 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         if _3 <> Recursive then not_expecting _loc__3_ "nonrec flag";
         let docs = symbol_docs _sloc in
         Te.mk _5 (List.rev _8) ~params:_4 ~priv:_7 ~attrs:(attrs@_9) ~docs
         , ext )
-# 24886 "parsing/parser.ml"
+# 24880 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24911,15 +24905,15 @@ module Tables = struct
           let _endpos = _endpos__1_ in
           let _startpos = _startpos__1_ in
           
-# 721 "parsing/parser.mly"
+# 723 "parsing/parser.mly"
                               ( extra_sig _startpos _endpos _1 )
-# 24917 "parsing/parser.ml"
+# 24911 "parsing/parser.ml"
           
         in
         
-# 1155 "parsing/parser.mly"
+# 1157 "parsing/parser.mly"
                                       ( _1 )
-# 24923 "parsing/parser.ml"
+# 24917 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24945,10 +24939,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1163 "parsing/parser.mly"
+# 1165 "parsing/parser.mly"
       ( let item, ext = _1 in
         wrap_sig_ext ~loc:_sloc (mksig ~loc:_sloc item) ext )
-# 24952 "parsing/parser.ml"
+# 24946 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -24980,10 +24974,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1166 "parsing/parser.mly"
+# 1168 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mksig ~loc:_sloc (Psig_extension (_1, (add_docs_attrs docs _2))) )
-# 24987 "parsing/parser.ml"
+# 24981 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25012,9 +25006,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 1169 "parsing/parser.mly"
+# 1171 "parsing/parser.mly"
       ( Psig_attribute _1 )
-# 25018 "parsing/parser.ml"
+# 25012 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -25023,40 +25017,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 744 "parsing/parser.mly"
+# 746 "parsing/parser.mly"
     ( mksig ~loc:_sloc _1 )
-# 25029 "parsing/parser.ml"
+# 25023 "parsing/parser.ml"
           
         in
         
-# 1170 "parsing/parser.mly"
+# 1172 "parsing/parser.mly"
       ( _1 )
-# 25035 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (Parsetree.value_description * string Asttypes.loc option) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1174 "parsing/parser.mly"
-      ( let (body, ext) = _1 in (Psig_value body, ext) )
-# 25060 "parsing/parser.ml"
+# 25029 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25081,7 +25050,32 @@ module Tables = struct
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
 # 1176 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Psig_value body, ext) )
-# 25085 "parsing/parser.ml"
+# 25054 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (Parsetree.value_description * string Asttypes.loc option) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
+# 1178 "parsing/parser.mly"
+      ( let (body, ext) = _1 in (Psig_value body, ext) )
+# 25079 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25105,9 +25099,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1178 "parsing/parser.mly"
+# 1180 "parsing/parser.mly"
       ( let (nr, l, ext) = _1 in (Psig_type (nr, List.rev l), ext) )
-# 25111 "parsing/parser.ml"
+# 25105 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25130,9 +25124,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1180 "parsing/parser.mly"
+# 1182 "parsing/parser.mly"
       ( let (l, ext) = _1 in (Psig_typext l, ext) )
-# 25136 "parsing/parser.ml"
+# 25130 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25155,34 +25149,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1182 "parsing/parser.mly"
-      ( let (l, ext) = _1 in (Psig_exception l, ext) )
-# 25161 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (Parsetree.module_declaration * string Asttypes.loc option) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
 # 1184 "parsing/parser.mly"
-      ( let (body, ext) = _1 in (Psig_module body, ext) )
-# 25186 "parsing/parser.ml"
+      ( let (l, ext) = _1 in (Psig_exception l, ext) )
+# 25155 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25207,7 +25176,32 @@ module Tables = struct
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
 # 1186 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Psig_module body, ext) )
-# 25211 "parsing/parser.ml"
+# 25180 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (Parsetree.module_declaration * string Asttypes.loc option) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
+# 1188 "parsing/parser.mly"
+      ( let (body, ext) = _1 in (Psig_module body, ext) )
+# 25205 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25230,9 +25224,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1188 "parsing/parser.mly"
+# 1190 "parsing/parser.mly"
       ( let (l, ext) = _1 in (Psig_recmodule (List.rev l), ext) )
-# 25236 "parsing/parser.ml"
+# 25230 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25255,9 +25249,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1190 "parsing/parser.mly"
+# 1192 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Psig_modtype body, ext) )
-# 25261 "parsing/parser.ml"
+# 25255 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25280,9 +25274,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1192 "parsing/parser.mly"
+# 1194 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Psig_open body, ext) )
-# 25286 "parsing/parser.ml"
+# 25280 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25305,9 +25299,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1194 "parsing/parser.mly"
+# 1196 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Psig_include body, ext) )
-# 25311 "parsing/parser.ml"
+# 25305 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25330,9 +25324,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1196 "parsing/parser.mly"
+# 1198 "parsing/parser.mly"
       ( let (l, ext) = _1 in (Psig_class (List.rev l), ext) )
-# 25336 "parsing/parser.ml"
+# 25330 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25355,9 +25349,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.signature_item_desc * string Asttypes.loc option) = 
-# 1198 "parsing/parser.mly"
+# 1200 "parsing/parser.mly"
       ( let (l, ext) = _1 in (Psig_class_type (List.rev l), ext) )
-# 25361 "parsing/parser.ml"
+# 25355 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25373,9 +25367,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.signature_item list) = 
-# 1157 "parsing/parser.mly"
+# 1159 "parsing/parser.mly"
                                    ( [] )
-# 25379 "parsing/parser.ml"
+# 25373 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25404,9 +25398,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.signature_item list) = 
-# 1158 "parsing/parser.mly"
+# 1160 "parsing/parser.mly"
                                    ( text_sig _startpos__1_ @ _2 )
-# 25410 "parsing/parser.ml"
+# 25404 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25435,9 +25429,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.signature_item list) = 
-# 1159 "parsing/parser.mly"
+# 1161 "parsing/parser.mly"
                                    ( text_sig _startpos__1_ @ _1 :: _2 )
-# 25441 "parsing/parser.ml"
+# 25435 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25460,9 +25454,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.constant) = 
-# 2809 "parsing/parser.mly"
+# 2805 "parsing/parser.mly"
                  ( _1 )
-# 25466 "parsing/parser.ml"
+# 25460 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25486,18 +25480,18 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _2 : (
-# 564 "parsing/parser.mly"
+# 566 "parsing/parser.mly"
        (string * char option)
-# 25492 "parsing/parser.ml"
+# 25486 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.constant) = 
-# 2810 "parsing/parser.mly"
+# 2806 "parsing/parser.mly"
                  ( let (n, m) = _2 in Pconst_integer("-" ^ n, m) )
-# 25501 "parsing/parser.ml"
+# 25495 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25521,18 +25515,18 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _2 : (
-# 545 "parsing/parser.mly"
+# 547 "parsing/parser.mly"
        (string * char option)
-# 25527 "parsing/parser.ml"
+# 25521 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.constant) = 
-# 2811 "parsing/parser.mly"
+# 2807 "parsing/parser.mly"
                  ( let (f, m) = _2 in Pconst_float("-" ^ f, m) )
-# 25536 "parsing/parser.ml"
+# 25530 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25556,18 +25550,18 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _2 : (
-# 564 "parsing/parser.mly"
+# 566 "parsing/parser.mly"
        (string * char option)
-# 25562 "parsing/parser.ml"
+# 25556 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.constant) = 
-# 2812 "parsing/parser.mly"
+# 2808 "parsing/parser.mly"
                  ( let (n, m) = _2 in Pconst_integer (n, m) )
-# 25571 "parsing/parser.ml"
+# 25565 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25591,18 +25585,18 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _2 : (
-# 545 "parsing/parser.mly"
+# 547 "parsing/parser.mly"
        (string * char option)
-# 25597 "parsing/parser.ml"
+# 25591 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.constant) = 
-# 2813 "parsing/parser.mly"
+# 2809 "parsing/parser.mly"
                  ( let (f, m) = _2 in Pconst_float(f, m) )
-# 25606 "parsing/parser.ml"
+# 25600 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25625,9 +25619,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.core_type) = 
-# 2647 "parsing/parser.mly"
+# 2643 "parsing/parser.mly"
       ( _1 )
-# 25631 "parsing/parser.ml"
+# 25625 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25662,9 +25656,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.core_type) = 
-# 2649 "parsing/parser.mly"
+# 2645 "parsing/parser.mly"
       ( _2 )
-# 25668 "parsing/parser.ml"
+# 25662 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25714,9 +25708,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2653 "parsing/parser.mly"
+# 2649 "parsing/parser.mly"
       ( wrap_typ_attrs ~loc:_sloc (reloc_typ ~loc:_sloc _4) _3 )
-# 25720 "parsing/parser.ml"
+# 25714 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25746,15 +25740,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 25752 "parsing/parser.ml"
+# 25746 "parsing/parser.ml"
           
         in
         
-# 2655 "parsing/parser.mly"
+# 2651 "parsing/parser.mly"
       ( _1 )
-# 25758 "parsing/parser.ml"
+# 25752 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25783,9 +25777,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type_desc) = 
-# 2659 "parsing/parser.mly"
+# 2655 "parsing/parser.mly"
       ( Ptyp_var _2 )
-# 25789 "parsing/parser.ml"
+# 25783 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25808,9 +25802,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.core_type_desc) = 
-# 2661 "parsing/parser.mly"
+# 2657 "parsing/parser.mly"
       ( Ptyp_any )
-# 25814 "parsing/parser.ml"
+# 25808 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25840,15 +25834,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 25846 "parsing/parser.ml"
+# 25840 "parsing/parser.ml"
           
         in
         
-# 2663 "parsing/parser.mly"
+# 2659 "parsing/parser.mly"
       ( Ptyp_constr(_1, []) )
-# 25852 "parsing/parser.ml"
+# 25846 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25884,15 +25878,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 25890 "parsing/parser.ml"
+# 25884 "parsing/parser.ml"
           
         in
         
-# 2665 "parsing/parser.mly"
+# 2661 "parsing/parser.mly"
       ( Ptyp_constr(_2, [_1]) )
-# 25896 "parsing/parser.ml"
+# 25890 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -25940,9 +25934,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 25946 "parsing/parser.ml"
+# 25940 "parsing/parser.ml"
           
         in
         let _2 =
@@ -25950,21 +25944,21 @@ module Tables = struct
           let tys =
             let x = x0 in
             
-# 799 "parsing/parser.mly"
+# 801 "parsing/parser.mly"
     ( [ x ] )
-# 25956 "parsing/parser.ml"
+# 25950 "parsing/parser.ml"
             
           in
           
-# 2757 "parsing/parser.mly"
+# 2753 "parsing/parser.mly"
     ( tys )
-# 25962 "parsing/parser.ml"
+# 25956 "parsing/parser.ml"
           
         in
         
-# 2667 "parsing/parser.mly"
+# 2663 "parsing/parser.mly"
       ( Ptyp_constr(_4, List.rev _2) )
-# 25968 "parsing/parser.ml"
+# 25962 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26024,9 +26018,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 26030 "parsing/parser.ml"
+# 26024 "parsing/parser.ml"
           
         in
         let _2 =
@@ -26038,21 +26032,21 @@ module Tables = struct
             let _2 = _20 in
             let xs = xs0 in
             
-# 803 "parsing/parser.mly"
+# 805 "parsing/parser.mly"
     ( x :: xs )
-# 26044 "parsing/parser.ml"
+# 26038 "parsing/parser.ml"
             
           in
           
-# 2757 "parsing/parser.mly"
+# 2753 "parsing/parser.mly"
     ( tys )
-# 26050 "parsing/parser.ml"
+# 26044 "parsing/parser.ml"
           
         in
         
-# 2667 "parsing/parser.mly"
+# 2663 "parsing/parser.mly"
       ( Ptyp_constr(_4, List.rev _2) )
-# 26056 "parsing/parser.ml"
+# 26050 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26087,9 +26081,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.core_type_desc) = 
-# 2669 "parsing/parser.mly"
+# 2665 "parsing/parser.mly"
       ( let (f, c) = _2 in Ptyp_object (f, c) )
-# 26093 "parsing/parser.ml"
+# 26087 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26118,9 +26112,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type_desc) = 
-# 2671 "parsing/parser.mly"
+# 2667 "parsing/parser.mly"
       ( Ptyp_object ([], Closed) )
-# 26124 "parsing/parser.ml"
+# 26118 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26156,15 +26150,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 26162 "parsing/parser.ml"
+# 26156 "parsing/parser.ml"
           
         in
         
-# 2673 "parsing/parser.mly"
+# 2669 "parsing/parser.mly"
       ( Ptyp_class(_2, []) )
-# 26168 "parsing/parser.ml"
+# 26162 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26206,15 +26200,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 26212 "parsing/parser.ml"
+# 26206 "parsing/parser.ml"
           
         in
         
-# 2675 "parsing/parser.mly"
+# 2671 "parsing/parser.mly"
       ( Ptyp_class(_3, [_1]) )
-# 26218 "parsing/parser.ml"
+# 26212 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26268,9 +26262,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 26274 "parsing/parser.ml"
+# 26268 "parsing/parser.ml"
           
         in
         let _2 =
@@ -26278,21 +26272,21 @@ module Tables = struct
           let tys =
             let x = x0 in
             
-# 799 "parsing/parser.mly"
+# 801 "parsing/parser.mly"
     ( [ x ] )
-# 26284 "parsing/parser.ml"
+# 26278 "parsing/parser.ml"
             
           in
           
-# 2757 "parsing/parser.mly"
+# 2753 "parsing/parser.mly"
     ( tys )
-# 26290 "parsing/parser.ml"
+# 26284 "parsing/parser.ml"
           
         in
         
-# 2677 "parsing/parser.mly"
+# 2673 "parsing/parser.mly"
       ( Ptyp_class(_5, List.rev _2) )
-# 26296 "parsing/parser.ml"
+# 26290 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26358,9 +26352,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 26364 "parsing/parser.ml"
+# 26358 "parsing/parser.ml"
           
         in
         let _2 =
@@ -26372,21 +26366,21 @@ module Tables = struct
             let _2 = _20 in
             let xs = xs0 in
             
-# 803 "parsing/parser.mly"
+# 805 "parsing/parser.mly"
     ( x :: xs )
-# 26378 "parsing/parser.ml"
+# 26372 "parsing/parser.ml"
             
           in
           
-# 2757 "parsing/parser.mly"
+# 2753 "parsing/parser.mly"
     ( tys )
-# 26384 "parsing/parser.ml"
+# 26378 "parsing/parser.ml"
           
         in
         
-# 2677 "parsing/parser.mly"
+# 2673 "parsing/parser.mly"
       ( Ptyp_class(_5, List.rev _2) )
-# 26390 "parsing/parser.ml"
+# 26384 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26421,9 +26415,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.core_type_desc) = 
-# 2679 "parsing/parser.mly"
+# 2675 "parsing/parser.mly"
       ( Ptyp_variant([_2], Closed, None) )
-# 26427 "parsing/parser.ml"
+# 26421 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26470,27 +26464,27 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 26476 "parsing/parser.ml"
+# 26470 "parsing/parser.ml"
               
             in
             
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 26482 "parsing/parser.ml"
+# 26476 "parsing/parser.ml"
             
           in
           
-# 2707 "parsing/parser.mly"
+# 2703 "parsing/parser.mly"
     ( _1 )
-# 26488 "parsing/parser.ml"
+# 26482 "parsing/parser.ml"
           
         in
         
-# 2685 "parsing/parser.mly"
+# 2681 "parsing/parser.mly"
       ( Ptyp_variant(_3, Closed, None) )
-# 26494 "parsing/parser.ml"
+# 26488 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26543,27 +26537,27 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 26549 "parsing/parser.ml"
+# 26543 "parsing/parser.ml"
               
             in
             
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 26555 "parsing/parser.ml"
+# 26549 "parsing/parser.ml"
             
           in
           
-# 2707 "parsing/parser.mly"
+# 2703 "parsing/parser.mly"
     ( _1 )
-# 26561 "parsing/parser.ml"
+# 26555 "parsing/parser.ml"
           
         in
         
-# 2687 "parsing/parser.mly"
+# 2683 "parsing/parser.mly"
       ( Ptyp_variant(_2 :: _4, Closed, None) )
-# 26567 "parsing/parser.ml"
+# 26561 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26610,27 +26604,27 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 26616 "parsing/parser.ml"
+# 26610 "parsing/parser.ml"
               
             in
             
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 26622 "parsing/parser.ml"
+# 26616 "parsing/parser.ml"
             
           in
           
-# 2707 "parsing/parser.mly"
+# 2703 "parsing/parser.mly"
     ( _1 )
-# 26628 "parsing/parser.ml"
+# 26622 "parsing/parser.ml"
           
         in
         
-# 2689 "parsing/parser.mly"
+# 2685 "parsing/parser.mly"
       ( Ptyp_variant(_3, Open, None) )
-# 26634 "parsing/parser.ml"
+# 26628 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26659,9 +26653,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type_desc) = 
-# 2691 "parsing/parser.mly"
+# 2687 "parsing/parser.mly"
       ( Ptyp_variant([], Open, None) )
-# 26665 "parsing/parser.ml"
+# 26659 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26708,27 +26702,27 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 26714 "parsing/parser.ml"
+# 26708 "parsing/parser.ml"
               
             in
             
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 26720 "parsing/parser.ml"
+# 26714 "parsing/parser.ml"
             
           in
           
-# 2707 "parsing/parser.mly"
+# 2703 "parsing/parser.mly"
     ( _1 )
-# 26726 "parsing/parser.ml"
+# 26720 "parsing/parser.ml"
           
         in
         
-# 2693 "parsing/parser.mly"
+# 2689 "parsing/parser.mly"
       ( Ptyp_variant(_3, Closed, Some []) )
-# 26732 "parsing/parser.ml"
+# 26726 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26787,21 +26781,21 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 26793 "parsing/parser.ml"
+# 26787 "parsing/parser.ml"
               
             in
             
-# 783 "parsing/parser.mly"
+# 785 "parsing/parser.mly"
     ( xs )
-# 26799 "parsing/parser.ml"
+# 26793 "parsing/parser.ml"
             
           in
           
-# 2733 "parsing/parser.mly"
+# 2729 "parsing/parser.mly"
     ( _1 )
-# 26805 "parsing/parser.ml"
+# 26799 "parsing/parser.ml"
           
         in
         let _3 =
@@ -26811,27 +26805,27 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 26817 "parsing/parser.ml"
+# 26811 "parsing/parser.ml"
               
             in
             
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 26823 "parsing/parser.ml"
+# 26817 "parsing/parser.ml"
             
           in
           
-# 2707 "parsing/parser.mly"
+# 2703 "parsing/parser.mly"
     ( _1 )
-# 26829 "parsing/parser.ml"
+# 26823 "parsing/parser.ml"
           
         in
         
-# 2695 "parsing/parser.mly"
+# 2691 "parsing/parser.mly"
       ( Ptyp_variant(_3, Closed, Some _5) )
-# 26835 "parsing/parser.ml"
+# 26829 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26854,9 +26848,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.core_type_desc) = 
-# 2697 "parsing/parser.mly"
+# 2693 "parsing/parser.mly"
       ( Ptyp_extension _1 )
-# 26860 "parsing/parser.ml"
+# 26854 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26879,9 +26873,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.core_type) = 
-# 2736 "parsing/parser.mly"
+# 2732 "parsing/parser.mly"
                      ( _1 )
-# 26885 "parsing/parser.ml"
+# 26879 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -26932,27 +26926,27 @@ module Tables = struct
                 let xs =
                   let xs = xs0 in
                   
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 26938 "parsing/parser.ml"
+# 26932 "parsing/parser.ml"
                   
                 in
                 
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 26944 "parsing/parser.ml"
+# 26938 "parsing/parser.ml"
                 
               in
               
-# 2761 "parsing/parser.mly"
+# 2757 "parsing/parser.mly"
     ( _1 )
-# 26950 "parsing/parser.ml"
+# 26944 "parsing/parser.ml"
               
             in
             
-# 2738 "parsing/parser.mly"
+# 2734 "parsing/parser.mly"
       ( Ptyp_tuple(_1 :: _3) )
-# 26956 "parsing/parser.ml"
+# 26950 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos_xs0000_ in
@@ -26961,15 +26955,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 26967 "parsing/parser.ml"
+# 26961 "parsing/parser.ml"
           
         in
         
-# 2739 "parsing/parser.mly"
+# 2735 "parsing/parser.mly"
       ( _1 )
-# 26973 "parsing/parser.ml"
+# 26967 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27014,10 +27008,10 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 2238 "parsing/parser.mly"
+# 2234 "parsing/parser.mly"
       ( let (fields, closed) = _2 in
         Ppat_record(fields, closed) )
-# 27021 "parsing/parser.ml"
+# 27015 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -27026,15 +27020,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 27032 "parsing/parser.ml"
+# 27026 "parsing/parser.ml"
           
         in
         
-# 2252 "parsing/parser.mly"
+# 2248 "parsing/parser.mly"
     ( _1 )
-# 27038 "parsing/parser.ml"
+# 27032 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27084,12 +27078,168 @@ module Tables = struct
             let _3 = _30 in
             let _2 = _20 in
             let _1 = _10 in
+            let _loc__3_ = (_startpos__3_, _endpos__3_) in
+            let _loc__1_ = (_startpos__1_, _endpos__1_) in
+            
+# 2237 "parsing/parser.mly"
+      ( unclosed "{" _loc__1_ "}" _loc__3_ )
+# 27087 "parsing/parser.ml"
+            
+          in
+          let _endpos__1_ = _endpos__30_ in
+          let _startpos__1_ = _startpos__10_ in
+          let _endpos = _endpos__1_ in
+          let _symbolstartpos = _startpos__1_ in
+          let _sloc = (_symbolstartpos, _endpos) in
+          
+# 742 "parsing/parser.mly"
+    ( mkpat ~loc:_sloc _1 )
+# 27098 "parsing/parser.ml"
+          
+        in
+        
+# 2248 "parsing/parser.mly"
+    ( _1 )
+# 27104 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _300;
+          MenhirLib.EngineTypes.startp = _startpos__300_;
+          MenhirLib.EngineTypes.endp = _endpos__300_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = ps000;
+            MenhirLib.EngineTypes.startp = _startpos_ps000_;
+            MenhirLib.EngineTypes.endp = _endpos_ps000_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _100;
+              MenhirLib.EngineTypes.startp = _startpos__100_;
+              MenhirLib.EngineTypes.endp = _endpos__100_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
+        } = _menhir_stack in
+        let _300 : unit = Obj.magic _300 in
+        let ps000 : (Parsetree.pattern list) = Obj.magic ps000 in
+        let _100 : unit = Obj.magic _100 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__100_ in
+        let _endpos = _endpos__300_ in
+        let _v : (Parsetree.pattern) = let _1 =
+          let _endpos__30_ = _endpos__300_ in
+          let _startpos__30_ = _startpos__300_ in
+          let _startpos__10_ = _startpos__100_ in
+          let _30 = _300 in
+          let ps00 = ps000 in
+          let _10 = _100 in
+          let _1 =
+            let _endpos__3_ = _endpos__30_ in
+            let _startpos__3_ = _startpos__30_ in
+            let _3 = _30 in
+            let ps0 = ps00 in
+            let _1 = _10 in
+            let _2 =
+              let ps = ps0 in
+              
+# 2262 "parsing/parser.mly"
+    ( ps )
+# 27156 "parsing/parser.ml"
+              
+            in
+            let _loc__3_ = (_startpos__3_, _endpos__3_) in
+            
+# 2239 "parsing/parser.mly"
+      ( fst (mktailpat _loc__3_ _2) )
+# 27163 "parsing/parser.ml"
+            
+          in
+          let _endpos__1_ = _endpos__30_ in
+          let _startpos__1_ = _startpos__10_ in
+          let _endpos = _endpos__1_ in
+          let _symbolstartpos = _startpos__1_ in
+          let _sloc = (_symbolstartpos, _endpos) in
+          
+# 742 "parsing/parser.mly"
+    ( mkpat ~loc:_sloc _1 )
+# 27174 "parsing/parser.ml"
+          
+        in
+        
+# 2248 "parsing/parser.mly"
+    ( _1 )
+# 27180 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _300;
+          MenhirLib.EngineTypes.startp = _startpos__300_;
+          MenhirLib.EngineTypes.endp = _endpos__300_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = ps000;
+            MenhirLib.EngineTypes.startp = _startpos_ps000_;
+            MenhirLib.EngineTypes.endp = _endpos_ps000_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.state = _menhir_s;
+              MenhirLib.EngineTypes.semv = _100;
+              MenhirLib.EngineTypes.startp = _startpos__100_;
+              MenhirLib.EngineTypes.endp = _endpos__100_;
+              MenhirLib.EngineTypes.next = _menhir_stack;
+            };
+          };
+        } = _menhir_stack in
+        let _300 : unit = Obj.magic _300 in
+        let ps000 : (Parsetree.pattern list) = Obj.magic ps000 in
+        let _100 : unit = Obj.magic _100 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__100_ in
+        let _endpos = _endpos__300_ in
+        let _v : (Parsetree.pattern) = let _1 =
+          let _endpos__30_ = _endpos__300_ in
+          let _startpos__30_ = _startpos__300_ in
+          let _endpos__10_ = _endpos__100_ in
+          let _startpos__10_ = _startpos__100_ in
+          let _30 = _300 in
+          let ps00 = ps000 in
+          let _10 = _100 in
+          let _1 =
+            let _endpos__3_ = _endpos__30_ in
+            let _startpos__3_ = _startpos__30_ in
+            let _endpos__1_ = _endpos__10_ in
+            let _startpos__1_ = _startpos__10_ in
+            let _3 = _30 in
+            let ps0 = ps00 in
+            let _1 = _10 in
+            let _2 =
+              let ps = ps0 in
+              
+# 2262 "parsing/parser.mly"
+    ( ps )
+# 27235 "parsing/parser.ml"
+              
+            in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
 # 2241 "parsing/parser.mly"
-      ( unclosed "{" _loc__1_ "}" _loc__3_ )
-# 27093 "parsing/parser.ml"
+      ( unclosed "[" _loc__1_ "]" _loc__3_ )
+# 27243 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -27098,15 +27248,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 27104 "parsing/parser.ml"
+# 27254 "parsing/parser.ml"
           
         in
         
-# 2252 "parsing/parser.mly"
+# 2248 "parsing/parser.mly"
     ( _1 )
-# 27110 "parsing/parser.ml"
+# 27260 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27142,182 +27292,26 @@ module Tables = struct
         let _endpos = _endpos__300_ in
         let _v : (Parsetree.pattern) = let _1 =
           let _endpos__30_ = _endpos__300_ in
-          let _startpos__30_ = _startpos__300_ in
           let _startpos__10_ = _startpos__100_ in
           let _30 = _300 in
           let ps00 = ps000 in
           let _10 = _100 in
           let _1 =
-            let _endpos__3_ = _endpos__30_ in
-            let _startpos__3_ = _startpos__30_ in
             let _3 = _30 in
             let ps0 = ps00 in
             let _1 = _10 in
             let _2 =
               let ps = ps0 in
               
-# 2266 "parsing/parser.mly"
+# 2262 "parsing/parser.mly"
     ( ps )
-# 27162 "parsing/parser.ml"
+# 27309 "parsing/parser.ml"
               
             in
-            let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
 # 2243 "parsing/parser.mly"
-      ( fst (mktailpat _loc__3_ _2) )
-# 27169 "parsing/parser.ml"
-            
-          in
-          let _endpos__1_ = _endpos__30_ in
-          let _startpos__1_ = _startpos__10_ in
-          let _endpos = _endpos__1_ in
-          let _symbolstartpos = _startpos__1_ in
-          let _sloc = (_symbolstartpos, _endpos) in
-          
-# 740 "parsing/parser.mly"
-    ( mkpat ~loc:_sloc _1 )
-# 27180 "parsing/parser.ml"
-          
-        in
-        
-# 2252 "parsing/parser.mly"
-    ( _1 )
-# 27186 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _300;
-          MenhirLib.EngineTypes.startp = _startpos__300_;
-          MenhirLib.EngineTypes.endp = _endpos__300_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = ps000;
-            MenhirLib.EngineTypes.startp = _startpos_ps000_;
-            MenhirLib.EngineTypes.endp = _endpos_ps000_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _100;
-              MenhirLib.EngineTypes.startp = _startpos__100_;
-              MenhirLib.EngineTypes.endp = _endpos__100_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _300 : unit = Obj.magic _300 in
-        let ps000 : (Parsetree.pattern list) = Obj.magic ps000 in
-        let _100 : unit = Obj.magic _100 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__100_ in
-        let _endpos = _endpos__300_ in
-        let _v : (Parsetree.pattern) = let _1 =
-          let _endpos__30_ = _endpos__300_ in
-          let _startpos__30_ = _startpos__300_ in
-          let _endpos__10_ = _endpos__100_ in
-          let _startpos__10_ = _startpos__100_ in
-          let _30 = _300 in
-          let ps00 = ps000 in
-          let _10 = _100 in
-          let _1 =
-            let _endpos__3_ = _endpos__30_ in
-            let _startpos__3_ = _startpos__30_ in
-            let _endpos__1_ = _endpos__10_ in
-            let _startpos__1_ = _startpos__10_ in
-            let _3 = _30 in
-            let ps0 = ps00 in
-            let _1 = _10 in
-            let _2 =
-              let ps = ps0 in
-              
-# 2266 "parsing/parser.mly"
-    ( ps )
-# 27241 "parsing/parser.ml"
-              
-            in
-            let _loc__3_ = (_startpos__3_, _endpos__3_) in
-            let _loc__1_ = (_startpos__1_, _endpos__1_) in
-            
-# 2245 "parsing/parser.mly"
-      ( unclosed "[" _loc__1_ "]" _loc__3_ )
-# 27249 "parsing/parser.ml"
-            
-          in
-          let _endpos__1_ = _endpos__30_ in
-          let _startpos__1_ = _startpos__10_ in
-          let _endpos = _endpos__1_ in
-          let _symbolstartpos = _startpos__1_ in
-          let _sloc = (_symbolstartpos, _endpos) in
-          
-# 740 "parsing/parser.mly"
-    ( mkpat ~loc:_sloc _1 )
-# 27260 "parsing/parser.ml"
-          
-        in
-        
-# 2252 "parsing/parser.mly"
-    ( _1 )
-# 27266 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _300;
-          MenhirLib.EngineTypes.startp = _startpos__300_;
-          MenhirLib.EngineTypes.endp = _endpos__300_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = ps000;
-            MenhirLib.EngineTypes.startp = _startpos_ps000_;
-            MenhirLib.EngineTypes.endp = _endpos_ps000_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.state = _menhir_s;
-              MenhirLib.EngineTypes.semv = _100;
-              MenhirLib.EngineTypes.startp = _startpos__100_;
-              MenhirLib.EngineTypes.endp = _endpos__100_;
-              MenhirLib.EngineTypes.next = _menhir_stack;
-            };
-          };
-        } = _menhir_stack in
-        let _300 : unit = Obj.magic _300 in
-        let ps000 : (Parsetree.pattern list) = Obj.magic ps000 in
-        let _100 : unit = Obj.magic _100 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__100_ in
-        let _endpos = _endpos__300_ in
-        let _v : (Parsetree.pattern) = let _1 =
-          let _endpos__30_ = _endpos__300_ in
-          let _startpos__10_ = _startpos__100_ in
-          let _30 = _300 in
-          let ps00 = ps000 in
-          let _10 = _100 in
-          let _1 =
-            let _3 = _30 in
-            let ps0 = ps00 in
-            let _1 = _10 in
-            let _2 =
-              let ps = ps0 in
-              
-# 2266 "parsing/parser.mly"
-    ( ps )
-# 27315 "parsing/parser.ml"
-              
-            in
-            
-# 2247 "parsing/parser.mly"
       ( Ppat_array _2 )
-# 27321 "parsing/parser.ml"
+# 27315 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -27326,15 +27320,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 27332 "parsing/parser.ml"
+# 27326 "parsing/parser.ml"
           
         in
         
-# 2252 "parsing/parser.mly"
+# 2248 "parsing/parser.mly"
     ( _1 )
-# 27338 "parsing/parser.ml"
+# 27332 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27371,9 +27365,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 2249 "parsing/parser.mly"
+# 2245 "parsing/parser.mly"
       ( Ppat_array [] )
-# 27377 "parsing/parser.ml"
+# 27371 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -27382,15 +27376,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 27388 "parsing/parser.ml"
+# 27382 "parsing/parser.ml"
           
         in
         
-# 2252 "parsing/parser.mly"
+# 2248 "parsing/parser.mly"
     ( _1 )
-# 27394 "parsing/parser.ml"
+# 27388 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27443,17 +27437,17 @@ module Tables = struct
             let _2 =
               let ps = ps0 in
               
-# 2266 "parsing/parser.mly"
+# 2262 "parsing/parser.mly"
     ( ps )
-# 27449 "parsing/parser.ml"
+# 27443 "parsing/parser.ml"
               
             in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 2251 "parsing/parser.mly"
+# 2247 "parsing/parser.mly"
       ( unclosed "[|" _loc__1_ "|]" _loc__3_ )
-# 27457 "parsing/parser.ml"
+# 27451 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -27462,15 +27456,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 27468 "parsing/parser.ml"
+# 27462 "parsing/parser.ml"
           
         in
         
-# 2252 "parsing/parser.mly"
+# 2248 "parsing/parser.mly"
     ( _1 )
-# 27474 "parsing/parser.ml"
+# 27468 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27508,9 +27502,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1788 "parsing/parser.mly"
+# 1790 "parsing/parser.mly"
       ( reloc_exp ~loc:_sloc _2 )
-# 27514 "parsing/parser.ml"
+# 27508 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27547,9 +27541,9 @@ module Tables = struct
         let _v : (Parsetree.expression) = let _loc__3_ = (_startpos__3_, _endpos__3_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 1790 "parsing/parser.mly"
+# 1792 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__3_ )
-# 27553 "parsing/parser.ml"
+# 27547 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27593,9 +27587,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1792 "parsing/parser.mly"
+# 1794 "parsing/parser.mly"
       ( mkexp_constraint ~loc:_sloc _2 _3 )
-# 27599 "parsing/parser.ml"
+# 27593 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27644,61 +27638,10 @@ module Tables = struct
         let _v : (Parsetree.expression) = let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
-        
-# 1794 "parsing/parser.mly"
-      ( array_get ~loc:_sloc _1 _4 )
-# 27651 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _5;
-          MenhirLib.EngineTypes.startp = _startpos__5_;
-          MenhirLib.EngineTypes.endp = _endpos__5_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _4;
-            MenhirLib.EngineTypes.startp = _startpos__4_;
-            MenhirLib.EngineTypes.endp = _endpos__4_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _3;
-              MenhirLib.EngineTypes.startp = _startpos__3_;
-              MenhirLib.EngineTypes.endp = _endpos__3_;
-              MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.semv = _2;
-                MenhirLib.EngineTypes.startp = _startpos__2_;
-                MenhirLib.EngineTypes.endp = _endpos__2_;
-                MenhirLib.EngineTypes.next = {
-                  MenhirLib.EngineTypes.state = _menhir_s;
-                  MenhirLib.EngineTypes.semv = _1;
-                  MenhirLib.EngineTypes.startp = _startpos__1_;
-                  MenhirLib.EngineTypes.endp = _endpos__1_;
-                  MenhirLib.EngineTypes.next = _menhir_stack;
-                };
-              };
-            };
-          };
-        } = _menhir_stack in
-        let _5 : unit = Obj.magic _5 in
-        let _4 : (Parsetree.expression) = Obj.magic _4 in
-        let _3 : unit = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (Parsetree.expression) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__5_ in
-        let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
-        let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
 # 1796 "parsing/parser.mly"
-      ( unclosed "(" _loc__3_ ")" _loc__5_ )
-# 27702 "parsing/parser.ml"
+      ( array_get ~loc:_sloc _1 _4 )
+# 27645 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27744,13 +27687,12 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
-        let _v : (Parsetree.expression) = let _endpos = _endpos__5_ in
-        let _symbolstartpos = _startpos__1_ in
-        let _sloc = (_symbolstartpos, _endpos) in
+        let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
+        let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
 # 1798 "parsing/parser.mly"
-      ( string_get ~loc:_sloc _1 _4 )
-# 27754 "parsing/parser.ml"
+      ( unclosed "(" _loc__3_ ")" _loc__5_ )
+# 27696 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27796,12 +27738,13 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
-        let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
-        let _loc__3_ = (_startpos__3_, _endpos__3_) in
+        let _v : (Parsetree.expression) = let _endpos = _endpos__5_ in
+        let _symbolstartpos = _startpos__1_ in
+        let _sloc = (_symbolstartpos, _endpos) in
         
 # 1800 "parsing/parser.mly"
-      ( unclosed "[" _loc__3_ "]" _loc__5_ )
-# 27805 "parsing/parser.ml"
+      ( string_get ~loc:_sloc _1 _4 )
+# 27748 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27842,22 +27785,17 @@ module Tables = struct
         let _5 : unit = Obj.magic _5 in
         let _4 : (Parsetree.expression) = Obj.magic _4 in
         let _3 : unit = Obj.magic _3 in
-        let _2 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 27849 "parsing/parser.ml"
-        ) = Obj.magic _2 in
+        let _2 : unit = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
-        let _v : (Parsetree.expression) = let _endpos = _endpos__5_ in
-        let _symbolstartpos = _startpos__1_ in
-        let _sloc = (_symbolstartpos, _endpos) in
+        let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
+        let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
 # 1802 "parsing/parser.mly"
-      ( dotop_get ~loc:_sloc (Lident ("." ^ _2 ^ "[]")) _1 _4 )
-# 27861 "parsing/parser.ml"
+      ( unclosed "[" _loc__3_ "]" _loc__5_ )
+# 27799 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27899,20 +27837,21 @@ module Tables = struct
         let _4 : (Parsetree.expression) = Obj.magic _4 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 27905 "parsing/parser.ml"
+# 27843 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
-        let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
-        let _loc__3_ = (_startpos__3_, _endpos__3_) in
+        let _v : (Parsetree.expression) = let _endpos = _endpos__5_ in
+        let _symbolstartpos = _startpos__1_ in
+        let _sloc = (_symbolstartpos, _endpos) in
         
 # 1804 "parsing/parser.mly"
-      ( unclosed "[" _loc__3_ "]" _loc__5_ )
-# 27916 "parsing/parser.ml"
+      ( dotop_get ~loc:_sloc (Lident ("." ^ _2 ^ "[]")) _1 _4 )
+# 27855 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -27954,21 +27893,20 @@ module Tables = struct
         let _4 : (Parsetree.expression) = Obj.magic _4 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 27960 "parsing/parser.ml"
+# 27899 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
-        let _v : (Parsetree.expression) = let _endpos = _endpos__5_ in
-        let _symbolstartpos = _startpos__1_ in
-        let _sloc = (_symbolstartpos, _endpos) in
+        let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
+        let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
 # 1806 "parsing/parser.mly"
-      ( dotop_get ~loc:_sloc (Lident ("." ^ _2 ^ "()")) _1 _4  )
-# 27972 "parsing/parser.ml"
+      ( unclosed "[" _loc__3_ "]" _loc__5_ )
+# 27910 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28010,20 +27948,21 @@ module Tables = struct
         let _4 : (Parsetree.expression) = Obj.magic _4 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 28016 "parsing/parser.ml"
+# 27954 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
-        let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
-        let _loc__3_ = (_startpos__3_, _endpos__3_) in
+        let _v : (Parsetree.expression) = let _endpos = _endpos__5_ in
+        let _symbolstartpos = _startpos__1_ in
+        let _sloc = (_symbolstartpos, _endpos) in
         
 # 1808 "parsing/parser.mly"
-      ( unclosed "(" _loc__3_ ")" _loc__5_ )
-# 28027 "parsing/parser.ml"
+      ( dotop_get ~loc:_sloc (Lident ("." ^ _2 ^ "()")) _1 _4  )
+# 27966 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28065,21 +28004,20 @@ module Tables = struct
         let _4 : (Parsetree.expression) = Obj.magic _4 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 28071 "parsing/parser.ml"
+# 28010 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
-        let _v : (Parsetree.expression) = let _endpos = _endpos__5_ in
-        let _symbolstartpos = _startpos__1_ in
-        let _sloc = (_symbolstartpos, _endpos) in
+        let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
+        let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
 # 1810 "parsing/parser.mly"
-      ( dotop_get ~loc:_sloc (Lident ("." ^ _2 ^ "{}")) _1 _4 )
-# 28083 "parsing/parser.ml"
+      ( unclosed "(" _loc__3_ ")" _loc__5_ )
+# 28021 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28121,9 +28059,65 @@ module Tables = struct
         let _4 : (Parsetree.expression) = Obj.magic _4 in
         let _3 : unit = Obj.magic _3 in
         let _2 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 28127 "parsing/parser.ml"
+# 28065 "parsing/parser.ml"
+        ) = Obj.magic _2 in
+        let _1 : (Parsetree.expression) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__5_ in
+        let _v : (Parsetree.expression) = let _endpos = _endpos__5_ in
+        let _symbolstartpos = _startpos__1_ in
+        let _sloc = (_symbolstartpos, _endpos) in
+        
+# 1812 "parsing/parser.mly"
+      ( dotop_get ~loc:_sloc (Lident ("." ^ _2 ^ "{}")) _1 _4 )
+# 28077 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _5;
+          MenhirLib.EngineTypes.startp = _startpos__5_;
+          MenhirLib.EngineTypes.endp = _endpos__5_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _4;
+            MenhirLib.EngineTypes.startp = _startpos__4_;
+            MenhirLib.EngineTypes.endp = _endpos__4_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.semv = _3;
+              MenhirLib.EngineTypes.startp = _startpos__3_;
+              MenhirLib.EngineTypes.endp = _endpos__3_;
+              MenhirLib.EngineTypes.next = {
+                MenhirLib.EngineTypes.semv = _2;
+                MenhirLib.EngineTypes.startp = _startpos__2_;
+                MenhirLib.EngineTypes.endp = _endpos__2_;
+                MenhirLib.EngineTypes.next = {
+                  MenhirLib.EngineTypes.state = _menhir_s;
+                  MenhirLib.EngineTypes.semv = _1;
+                  MenhirLib.EngineTypes.startp = _startpos__1_;
+                  MenhirLib.EngineTypes.endp = _endpos__1_;
+                  MenhirLib.EngineTypes.next = _menhir_stack;
+                };
+              };
+            };
+          };
+        } = _menhir_stack in
+        let _5 : unit = Obj.magic _5 in
+        let _4 : (Parsetree.expression) = Obj.magic _4 in
+        let _3 : unit = Obj.magic _3 in
+        let _2 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 28121 "parsing/parser.ml"
         ) = Obj.magic _2 in
         let _1 : (Parsetree.expression) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -28132,9 +28126,9 @@ module Tables = struct
         let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
         let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
-# 1812 "parsing/parser.mly"
+# 1814 "parsing/parser.mly"
       ( unclosed "{" _loc__3_ "}" _loc__5_ )
-# 28138 "parsing/parser.ml"
+# 28132 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28186,9 +28180,9 @@ module Tables = struct
         let _6 : (Parsetree.expression) = Obj.magic _6 in
         let _5 : unit = Obj.magic _5 in
         let _4 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 28192 "parsing/parser.ml"
+# 28186 "parsing/parser.ml"
         ) = Obj.magic _4 in
         let _3 : (Longident.t) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
@@ -28200,9 +28194,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1814 "parsing/parser.mly"
+# 1816 "parsing/parser.mly"
       ( dotop_get ~loc:_sloc (Ldot(_3, "." ^ _4 ^ "[]")) _1 _6  )
-# 28206 "parsing/parser.ml"
+# 28200 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28254,9 +28248,9 @@ module Tables = struct
         let _6 : (Parsetree.expression) = Obj.magic _6 in
         let _5 : unit = Obj.magic _5 in
         let _4 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 28260 "parsing/parser.ml"
+# 28254 "parsing/parser.ml"
         ) = Obj.magic _4 in
         let _3 : (Longident.t) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
@@ -28266,78 +28260,10 @@ module Tables = struct
         let _endpos = _endpos__7_ in
         let _v : (Parsetree.expression) = let _loc__7_ = (_startpos__7_, _endpos__7_) in
         let _loc__5_ = (_startpos__5_, _endpos__5_) in
-        
-# 1817 "parsing/parser.mly"
-      ( unclosed "[" _loc__5_ "]" _loc__7_ )
-# 28273 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _7;
-          MenhirLib.EngineTypes.startp = _startpos__7_;
-          MenhirLib.EngineTypes.endp = _endpos__7_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _6;
-            MenhirLib.EngineTypes.startp = _startpos__6_;
-            MenhirLib.EngineTypes.endp = _endpos__6_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _5;
-              MenhirLib.EngineTypes.startp = _startpos__5_;
-              MenhirLib.EngineTypes.endp = _endpos__5_;
-              MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.semv = _4;
-                MenhirLib.EngineTypes.startp = _startpos__4_;
-                MenhirLib.EngineTypes.endp = _endpos__4_;
-                MenhirLib.EngineTypes.next = {
-                  MenhirLib.EngineTypes.semv = _3;
-                  MenhirLib.EngineTypes.startp = _startpos__3_;
-                  MenhirLib.EngineTypes.endp = _endpos__3_;
-                  MenhirLib.EngineTypes.next = {
-                    MenhirLib.EngineTypes.semv = _2;
-                    MenhirLib.EngineTypes.startp = _startpos__2_;
-                    MenhirLib.EngineTypes.endp = _endpos__2_;
-                    MenhirLib.EngineTypes.next = {
-                      MenhirLib.EngineTypes.state = _menhir_s;
-                      MenhirLib.EngineTypes.semv = _1;
-                      MenhirLib.EngineTypes.startp = _startpos__1_;
-                      MenhirLib.EngineTypes.endp = _endpos__1_;
-                      MenhirLib.EngineTypes.next = _menhir_stack;
-                    };
-                  };
-                };
-              };
-            };
-          };
-        } = _menhir_stack in
-        let _7 : unit = Obj.magic _7 in
-        let _6 : (Parsetree.expression) = Obj.magic _6 in
-        let _5 : unit = Obj.magic _5 in
-        let _4 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 28327 "parsing/parser.ml"
-        ) = Obj.magic _4 in
-        let _3 : (Longident.t) = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (Parsetree.expression) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__7_ in
-        let _v : (Parsetree.expression) = let _endpos = _endpos__7_ in
-        let _symbolstartpos = _startpos__1_ in
-        let _sloc = (_symbolstartpos, _endpos) in
         
 # 1819 "parsing/parser.mly"
-      ( dotop_get ~loc:_sloc (Ldot(_3, "." ^ _4 ^ "()")) _1 _6 )
-# 28341 "parsing/parser.ml"
+      ( unclosed "[" _loc__5_ "]" _loc__7_ )
+# 28267 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28389,76 +28315,9 @@ module Tables = struct
         let _6 : (Parsetree.expression) = Obj.magic _6 in
         let _5 : unit = Obj.magic _5 in
         let _4 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 28395 "parsing/parser.ml"
-        ) = Obj.magic _4 in
-        let _3 : (Longident.t) = Obj.magic _3 in
-        let _2 : unit = Obj.magic _2 in
-        let _1 : (Parsetree.expression) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__7_ in
-        let _v : (Parsetree.expression) = let _loc__7_ = (_startpos__7_, _endpos__7_) in
-        let _loc__5_ = (_startpos__5_, _endpos__5_) in
-        
-# 1822 "parsing/parser.mly"
-      ( unclosed "(" _loc__5_ ")" _loc__7_ )
-# 28408 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _7;
-          MenhirLib.EngineTypes.startp = _startpos__7_;
-          MenhirLib.EngineTypes.endp = _endpos__7_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.semv = _6;
-            MenhirLib.EngineTypes.startp = _startpos__6_;
-            MenhirLib.EngineTypes.endp = _endpos__6_;
-            MenhirLib.EngineTypes.next = {
-              MenhirLib.EngineTypes.semv = _5;
-              MenhirLib.EngineTypes.startp = _startpos__5_;
-              MenhirLib.EngineTypes.endp = _endpos__5_;
-              MenhirLib.EngineTypes.next = {
-                MenhirLib.EngineTypes.semv = _4;
-                MenhirLib.EngineTypes.startp = _startpos__4_;
-                MenhirLib.EngineTypes.endp = _endpos__4_;
-                MenhirLib.EngineTypes.next = {
-                  MenhirLib.EngineTypes.semv = _3;
-                  MenhirLib.EngineTypes.startp = _startpos__3_;
-                  MenhirLib.EngineTypes.endp = _endpos__3_;
-                  MenhirLib.EngineTypes.next = {
-                    MenhirLib.EngineTypes.semv = _2;
-                    MenhirLib.EngineTypes.startp = _startpos__2_;
-                    MenhirLib.EngineTypes.endp = _endpos__2_;
-                    MenhirLib.EngineTypes.next = {
-                      MenhirLib.EngineTypes.state = _menhir_s;
-                      MenhirLib.EngineTypes.semv = _1;
-                      MenhirLib.EngineTypes.startp = _startpos__1_;
-                      MenhirLib.EngineTypes.endp = _endpos__1_;
-                      MenhirLib.EngineTypes.next = _menhir_stack;
-                    };
-                  };
-                };
-              };
-            };
-          };
-        } = _menhir_stack in
-        let _7 : unit = Obj.magic _7 in
-        let _6 : (Parsetree.expression) = Obj.magic _6 in
-        let _5 : unit = Obj.magic _5 in
-        let _4 : (
-# 561 "parsing/parser.mly"
-       (string)
-# 28462 "parsing/parser.ml"
+# 28321 "parsing/parser.ml"
         ) = Obj.magic _4 in
         let _3 : (Longident.t) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
@@ -28470,9 +28329,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1824 "parsing/parser.mly"
-      ( dotop_get ~loc:_sloc (Ldot(_3, "." ^ _4 ^ "{}")) _1 _6  )
-# 28476 "parsing/parser.ml"
+# 1821 "parsing/parser.mly"
+      ( dotop_get ~loc:_sloc (Ldot(_3, "." ^ _4 ^ "()")) _1 _6 )
+# 28335 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28524,9 +28383,9 @@ module Tables = struct
         let _6 : (Parsetree.expression) = Obj.magic _6 in
         let _5 : unit = Obj.magic _5 in
         let _4 : (
-# 561 "parsing/parser.mly"
+# 563 "parsing/parser.mly"
        (string)
-# 28530 "parsing/parser.ml"
+# 28389 "parsing/parser.ml"
         ) = Obj.magic _4 in
         let _3 : (Longident.t) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
@@ -28537,9 +28396,144 @@ module Tables = struct
         let _v : (Parsetree.expression) = let _loc__7_ = (_startpos__7_, _endpos__7_) in
         let _loc__5_ = (_startpos__5_, _endpos__5_) in
         
-# 1827 "parsing/parser.mly"
+# 1824 "parsing/parser.mly"
+      ( unclosed "(" _loc__5_ ")" _loc__7_ )
+# 28402 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _7;
+          MenhirLib.EngineTypes.startp = _startpos__7_;
+          MenhirLib.EngineTypes.endp = _endpos__7_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _6;
+            MenhirLib.EngineTypes.startp = _startpos__6_;
+            MenhirLib.EngineTypes.endp = _endpos__6_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.semv = _5;
+              MenhirLib.EngineTypes.startp = _startpos__5_;
+              MenhirLib.EngineTypes.endp = _endpos__5_;
+              MenhirLib.EngineTypes.next = {
+                MenhirLib.EngineTypes.semv = _4;
+                MenhirLib.EngineTypes.startp = _startpos__4_;
+                MenhirLib.EngineTypes.endp = _endpos__4_;
+                MenhirLib.EngineTypes.next = {
+                  MenhirLib.EngineTypes.semv = _3;
+                  MenhirLib.EngineTypes.startp = _startpos__3_;
+                  MenhirLib.EngineTypes.endp = _endpos__3_;
+                  MenhirLib.EngineTypes.next = {
+                    MenhirLib.EngineTypes.semv = _2;
+                    MenhirLib.EngineTypes.startp = _startpos__2_;
+                    MenhirLib.EngineTypes.endp = _endpos__2_;
+                    MenhirLib.EngineTypes.next = {
+                      MenhirLib.EngineTypes.state = _menhir_s;
+                      MenhirLib.EngineTypes.semv = _1;
+                      MenhirLib.EngineTypes.startp = _startpos__1_;
+                      MenhirLib.EngineTypes.endp = _endpos__1_;
+                      MenhirLib.EngineTypes.next = _menhir_stack;
+                    };
+                  };
+                };
+              };
+            };
+          };
+        } = _menhir_stack in
+        let _7 : unit = Obj.magic _7 in
+        let _6 : (Parsetree.expression) = Obj.magic _6 in
+        let _5 : unit = Obj.magic _5 in
+        let _4 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 28456 "parsing/parser.ml"
+        ) = Obj.magic _4 in
+        let _3 : (Longident.t) = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : (Parsetree.expression) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__7_ in
+        let _v : (Parsetree.expression) = let _endpos = _endpos__7_ in
+        let _symbolstartpos = _startpos__1_ in
+        let _sloc = (_symbolstartpos, _endpos) in
+        
+# 1826 "parsing/parser.mly"
+      ( dotop_get ~loc:_sloc (Ldot(_3, "." ^ _4 ^ "{}")) _1 _6  )
+# 28470 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _7;
+          MenhirLib.EngineTypes.startp = _startpos__7_;
+          MenhirLib.EngineTypes.endp = _endpos__7_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.semv = _6;
+            MenhirLib.EngineTypes.startp = _startpos__6_;
+            MenhirLib.EngineTypes.endp = _endpos__6_;
+            MenhirLib.EngineTypes.next = {
+              MenhirLib.EngineTypes.semv = _5;
+              MenhirLib.EngineTypes.startp = _startpos__5_;
+              MenhirLib.EngineTypes.endp = _endpos__5_;
+              MenhirLib.EngineTypes.next = {
+                MenhirLib.EngineTypes.semv = _4;
+                MenhirLib.EngineTypes.startp = _startpos__4_;
+                MenhirLib.EngineTypes.endp = _endpos__4_;
+                MenhirLib.EngineTypes.next = {
+                  MenhirLib.EngineTypes.semv = _3;
+                  MenhirLib.EngineTypes.startp = _startpos__3_;
+                  MenhirLib.EngineTypes.endp = _endpos__3_;
+                  MenhirLib.EngineTypes.next = {
+                    MenhirLib.EngineTypes.semv = _2;
+                    MenhirLib.EngineTypes.startp = _startpos__2_;
+                    MenhirLib.EngineTypes.endp = _endpos__2_;
+                    MenhirLib.EngineTypes.next = {
+                      MenhirLib.EngineTypes.state = _menhir_s;
+                      MenhirLib.EngineTypes.semv = _1;
+                      MenhirLib.EngineTypes.startp = _startpos__1_;
+                      MenhirLib.EngineTypes.endp = _endpos__1_;
+                      MenhirLib.EngineTypes.next = _menhir_stack;
+                    };
+                  };
+                };
+              };
+            };
+          };
+        } = _menhir_stack in
+        let _7 : unit = Obj.magic _7 in
+        let _6 : (Parsetree.expression) = Obj.magic _6 in
+        let _5 : unit = Obj.magic _5 in
+        let _4 : (
+# 563 "parsing/parser.mly"
+       (string)
+# 28524 "parsing/parser.ml"
+        ) = Obj.magic _4 in
+        let _3 : (Longident.t) = Obj.magic _3 in
+        let _2 : unit = Obj.magic _2 in
+        let _1 : (Parsetree.expression) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__7_ in
+        let _v : (Parsetree.expression) = let _loc__7_ = (_startpos__7_, _endpos__7_) in
+        let _loc__5_ = (_startpos__5_, _endpos__5_) in
+        
+# 1829 "parsing/parser.mly"
       ( unclosed "{" _loc__5_ "}" _loc__7_ )
-# 28543 "parsing/parser.ml"
+# 28537 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28589,9 +28583,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1829 "parsing/parser.mly"
+# 1831 "parsing/parser.mly"
       ( bigarray_get ~loc:_sloc _1 _4 )
-# 28595 "parsing/parser.ml"
+# 28589 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28640,9 +28634,9 @@ module Tables = struct
         let _v : (Parsetree.expression) = let _loc__5_ = (_startpos__5_, _endpos__5_) in
         let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
-# 1831 "parsing/parser.mly"
+# 1833 "parsing/parser.mly"
       ( unclosed "{" _loc__3_ "}" _loc__5_ )
-# 28646 "parsing/parser.ml"
+# 28640 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28688,10 +28682,10 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1840 "parsing/parser.mly"
+# 1842 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         _3.pexp_desc, (ext, attrs @ _3.pexp_attributes) )
-# 28695 "parsing/parser.ml"
+# 28689 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__40_ in
@@ -28700,10 +28694,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1833 "parsing/parser.mly"
+# 1835 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 28707 "parsing/parser.ml"
+# 28701 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28747,9 +28741,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 1843 "parsing/parser.mly"
+# 1845 "parsing/parser.mly"
       ( Pexp_construct (mkloc (Lident "()") (make_loc _sloc), None), _2 )
-# 28753 "parsing/parser.ml"
+# 28747 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__30_ in
@@ -28758,10 +28752,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1833 "parsing/parser.mly"
+# 1835 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 28765 "parsing/parser.ml"
+# 28759 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28813,9 +28807,9 @@ module Tables = struct
           let _loc__4_ = (_startpos__4_, _endpos__4_) in
           let _loc__1_ = (_startpos__1_, _endpos__1_) in
           
-# 1845 "parsing/parser.mly"
+# 1847 "parsing/parser.mly"
       ( unclosed "begin" _loc__1_ "end" _loc__4_ )
-# 28819 "parsing/parser.ml"
+# 28813 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__40_ in
@@ -28824,10 +28818,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1833 "parsing/parser.mly"
+# 1835 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 28831 "parsing/parser.ml"
+# 28825 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28875,15 +28869,15 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 28881 "parsing/parser.ml"
+# 28875 "parsing/parser.ml"
             
           in
           
-# 1847 "parsing/parser.mly"
+# 1849 "parsing/parser.mly"
       ( Pexp_new(_3), _2 )
-# 28887 "parsing/parser.ml"
+# 28881 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__100_ in
@@ -28892,10 +28886,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1833 "parsing/parser.mly"
+# 1835 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 28899 "parsing/parser.ml"
+# 28893 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -28948,9 +28942,9 @@ module Tables = struct
           let _2 = _20 in
           let _1 = _10 in
           
-# 1849 "parsing/parser.mly"
+# 1851 "parsing/parser.mly"
       ( Pexp_pack _4, _3 )
-# 28954 "parsing/parser.ml"
+# 28948 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__50_ in
@@ -28959,10 +28953,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1833 "parsing/parser.mly"
+# 1835 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 28966 "parsing/parser.ml"
+# 28960 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29034,9 +29028,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 1851 "parsing/parser.mly"
+# 1853 "parsing/parser.mly"
       ( Pexp_constraint (ghexp ~loc:_sloc (Pexp_pack _4), _6), _3 )
-# 29040 "parsing/parser.ml"
+# 29034 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__70_ in
@@ -29045,10 +29039,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1833 "parsing/parser.mly"
+# 1835 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 29052 "parsing/parser.ml"
+# 29046 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29114,9 +29108,9 @@ module Tables = struct
           let _loc__6_ = (_startpos__6_, _endpos__6_) in
           let _loc__1_ = (_startpos__1_, _endpos__1_) in
           
-# 1853 "parsing/parser.mly"
+# 1855 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__6_ )
-# 29120 "parsing/parser.ml"
+# 29114 "parsing/parser.ml"
           
         in
         let _endpos__1_ = _endpos__60_ in
@@ -29125,10 +29119,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1833 "parsing/parser.mly"
+# 1835 "parsing/parser.mly"
     ( let desc, attrs = _1 in
       mkexp_attrs ~loc:_sloc desc attrs )
-# 29132 "parsing/parser.ml"
+# 29126 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29166,15 +29160,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 29172 "parsing/parser.ml"
+# 29166 "parsing/parser.ml"
               
             in
             
-# 1857 "parsing/parser.mly"
+# 1859 "parsing/parser.mly"
       ( Pexp_ident (_1) )
-# 29178 "parsing/parser.ml"
+# 29172 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -29183,15 +29177,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29189 "parsing/parser.ml"
+# 29183 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29195 "parsing/parser.ml"
+# 29189 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29220,9 +29214,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 1859 "parsing/parser.mly"
+# 1861 "parsing/parser.mly"
       ( Pexp_constant _1 )
-# 29226 "parsing/parser.ml"
+# 29220 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -29231,15 +29225,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29237 "parsing/parser.ml"
+# 29231 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29243 "parsing/parser.ml"
+# 29237 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29277,15 +29271,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 29283 "parsing/parser.ml"
+# 29277 "parsing/parser.ml"
               
             in
             
-# 1861 "parsing/parser.mly"
+# 1863 "parsing/parser.mly"
       ( Pexp_construct(_1, None) )
-# 29289 "parsing/parser.ml"
+# 29283 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -29294,15 +29288,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29300 "parsing/parser.ml"
+# 29294 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29306 "parsing/parser.ml"
+# 29300 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29331,9 +29325,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 1863 "parsing/parser.mly"
+# 1865 "parsing/parser.mly"
       ( Pexp_variant(_1, None) )
-# 29337 "parsing/parser.ml"
+# 29331 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -29342,15 +29336,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29348 "parsing/parser.ml"
+# 29342 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29354 "parsing/parser.ml"
+# 29348 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29375,9 +29369,9 @@ module Tables = struct
         } = _menhir_stack in
         let _200 : (Parsetree.expression) = Obj.magic _200 in
         let _1000 : (
-# 602 "parsing/parser.mly"
+# 604 "parsing/parser.mly"
        (string)
-# 29381 "parsing/parser.ml"
+# 29375 "parsing/parser.ml"
         ) = Obj.magic _1000 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1000_ in
@@ -29401,15 +29395,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 29407 "parsing/parser.ml"
+# 29401 "parsing/parser.ml"
               
             in
             
-# 1865 "parsing/parser.mly"
+# 1867 "parsing/parser.mly"
       ( Pexp_apply(_1, [Nolabel,_2]) )
-# 29413 "parsing/parser.ml"
+# 29407 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -29418,15 +29412,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29424 "parsing/parser.ml"
+# 29418 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29430 "parsing/parser.ml"
+# 29424 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29472,9 +29466,9 @@ module Tables = struct
               let _1 =
                 let _1 = _10 in
                 
-# 1866 "parsing/parser.mly"
+# 1868 "parsing/parser.mly"
             ("!")
-# 29478 "parsing/parser.ml"
+# 29472 "parsing/parser.ml"
                 
               in
               let _endpos__1_ = _endpos__10_ in
@@ -29483,15 +29477,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 29489 "parsing/parser.ml"
+# 29483 "parsing/parser.ml"
               
             in
             
-# 1867 "parsing/parser.mly"
+# 1869 "parsing/parser.mly"
       ( Pexp_apply(_1, [Nolabel,_2]) )
-# 29495 "parsing/parser.ml"
+# 29489 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -29500,15 +29494,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29506 "parsing/parser.ml"
+# 29500 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29512 "parsing/parser.ml"
+# 29506 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29555,15 +29549,15 @@ module Tables = struct
             let _2 =
               let xs = xs0 in
               
-# 2084 "parsing/parser.mly"
+# 2080 "parsing/parser.mly"
     ( xs )
-# 29561 "parsing/parser.ml"
+# 29555 "parsing/parser.ml"
               
             in
             
-# 1869 "parsing/parser.mly"
+# 1871 "parsing/parser.mly"
       ( Pexp_override _2 )
-# 29567 "parsing/parser.ml"
+# 29561 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -29572,15 +29566,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29578 "parsing/parser.ml"
+# 29572 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29584 "parsing/parser.ml"
+# 29578 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29633,17 +29627,17 @@ module Tables = struct
             let _2 =
               let xs = xs0 in
               
-# 2084 "parsing/parser.mly"
+# 2080 "parsing/parser.mly"
     ( xs )
-# 29639 "parsing/parser.ml"
+# 29633 "parsing/parser.ml"
               
             in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 1871 "parsing/parser.mly"
+# 1873 "parsing/parser.mly"
       ( unclosed "{<" _loc__1_ ">}" _loc__3_ )
-# 29647 "parsing/parser.ml"
+# 29641 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -29652,15 +29646,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29658 "parsing/parser.ml"
+# 29652 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29664 "parsing/parser.ml"
+# 29658 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29697,9 +29691,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1873 "parsing/parser.mly"
+# 1875 "parsing/parser.mly"
       ( Pexp_override [] )
-# 29703 "parsing/parser.ml"
+# 29697 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -29708,15 +29702,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29714 "parsing/parser.ml"
+# 29708 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29720 "parsing/parser.ml"
+# 29714 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29771,15 +29765,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 29777 "parsing/parser.ml"
+# 29771 "parsing/parser.ml"
               
             in
             
-# 1875 "parsing/parser.mly"
+# 1877 "parsing/parser.mly"
       ( Pexp_field(_1, _3) )
-# 29783 "parsing/parser.ml"
+# 29777 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -29788,15 +29782,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29794 "parsing/parser.ml"
+# 29788 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29800 "parsing/parser.ml"
+# 29794 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29867,15 +29861,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 29873 "parsing/parser.ml"
+# 29867 "parsing/parser.ml"
               
             in
             
-# 1877 "parsing/parser.mly"
+# 1879 "parsing/parser.mly"
       ( Pexp_open(Fresh, _1, _4) )
-# 29879 "parsing/parser.ml"
+# 29873 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -29884,15 +29878,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 29890 "parsing/parser.ml"
+# 29884 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 29896 "parsing/parser.ml"
+# 29890 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -29959,9 +29953,9 @@ module Tables = struct
             let _4 =
               let xs = xs0 in
               
-# 2084 "parsing/parser.mly"
+# 2080 "parsing/parser.mly"
     ( xs )
-# 29965 "parsing/parser.ml"
+# 29959 "parsing/parser.ml"
               
             in
             let _1 =
@@ -29972,9 +29966,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 29978 "parsing/parser.ml"
+# 29972 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -29982,10 +29976,10 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 1879 "parsing/parser.mly"
+# 1881 "parsing/parser.mly"
       ( (* TODO: review the location of Pexp_override *)
         Pexp_open(Fresh, _1, mkexp ~loc:_sloc (Pexp_override _4)) )
-# 29989 "parsing/parser.ml"
+# 29983 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -29994,15 +29988,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30000 "parsing/parser.ml"
+# 29994 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30006 "parsing/parser.ml"
+# 30000 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30072,17 +30066,17 @@ module Tables = struct
             let _4 =
               let xs = xs0 in
               
-# 2084 "parsing/parser.mly"
+# 2080 "parsing/parser.mly"
     ( xs )
-# 30078 "parsing/parser.ml"
+# 30072 "parsing/parser.ml"
               
             in
             let _loc__5_ = (_startpos__5_, _endpos__5_) in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
-# 1882 "parsing/parser.mly"
+# 1884 "parsing/parser.mly"
       ( unclosed "{<" _loc__3_ ">}" _loc__5_ )
-# 30086 "parsing/parser.ml"
+# 30080 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -30091,15 +30085,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30097 "parsing/parser.ml"
+# 30091 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30103 "parsing/parser.ml"
+# 30097 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30154,15 +30148,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 30160 "parsing/parser.ml"
+# 30154 "parsing/parser.ml"
               
             in
             
-# 1884 "parsing/parser.mly"
+# 1886 "parsing/parser.mly"
       ( Pexp_send(_1, _3) )
-# 30166 "parsing/parser.ml"
+# 30160 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -30171,15 +30165,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30177 "parsing/parser.ml"
+# 30171 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30183 "parsing/parser.ml"
+# 30177 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30209,9 +30203,9 @@ module Tables = struct
         } = _menhir_stack in
         let _300 : (Parsetree.expression) = Obj.magic _300 in
         let _1000 : (
-# 613 "parsing/parser.mly"
+# 615 "parsing/parser.mly"
        (string)
-# 30215 "parsing/parser.ml"
+# 30209 "parsing/parser.ml"
         ) = Obj.magic _1000 in
         let _110 : (Parsetree.expression) = Obj.magic _110 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
@@ -30239,15 +30233,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 732 "parsing/parser.mly"
+# 734 "parsing/parser.mly"
    ( mkoperator ~loc:_sloc _1 )
-# 30245 "parsing/parser.ml"
+# 30239 "parsing/parser.ml"
               
             in
             
-# 1886 "parsing/parser.mly"
+# 1888 "parsing/parser.mly"
       ( mkinfix _1 _2 _3 )
-# 30251 "parsing/parser.ml"
+# 30245 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -30256,15 +30250,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30262 "parsing/parser.ml"
+# 30256 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30268 "parsing/parser.ml"
+# 30262 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30293,9 +30287,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 1888 "parsing/parser.mly"
+# 1890 "parsing/parser.mly"
       ( Pexp_extension _1 )
-# 30299 "parsing/parser.ml"
+# 30293 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -30304,15 +30298,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30310 "parsing/parser.ml"
+# 30304 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30316 "parsing/parser.ml"
+# 30310 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30379,9 +30373,9 @@ module Tables = struct
                 let _2 = _20 in
                 let _1 = _10 in
                 
-# 1889 "parsing/parser.mly"
+# 1891 "parsing/parser.mly"
                                                  (Lident "()")
-# 30385 "parsing/parser.ml"
+# 30379 "parsing/parser.ml"
                 
               in
               let _endpos__1_ = _endpos__20_ in
@@ -30390,9 +30384,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 30396 "parsing/parser.ml"
+# 30390 "parsing/parser.ml"
               
             in
             let _endpos__3_ = _endpos__200_ in
@@ -30404,9 +30398,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 30410 "parsing/parser.ml"
+# 30404 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -30414,10 +30408,10 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 1890 "parsing/parser.mly"
+# 1892 "parsing/parser.mly"
       ( (* TODO: review the location of Pexp_construct *)
         Pexp_open(Fresh, _1, mkexp ~loc:_sloc (Pexp_construct(_3, None))) )
-# 30421 "parsing/parser.ml"
+# 30415 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__2000_ in
@@ -30426,15 +30420,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30432 "parsing/parser.ml"
+# 30426 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30438 "parsing/parser.ml"
+# 30432 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30504,9 +30498,9 @@ module Tables = struct
             let _loc__5_ = (_startpos__5_, _endpos__5_) in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
-# 1893 "parsing/parser.mly"
+# 1895 "parsing/parser.mly"
       ( unclosed "(" _loc__3_ ")" _loc__5_ )
-# 30510 "parsing/parser.ml"
+# 30504 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -30515,15 +30509,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30521 "parsing/parser.ml"
+# 30515 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30527 "parsing/parser.ml"
+# 30521 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30569,10 +30563,10 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1895 "parsing/parser.mly"
+# 1897 "parsing/parser.mly"
       ( let (exten, fields) = _2 in
         Pexp_record(fields, exten) )
-# 30576 "parsing/parser.ml"
+# 30570 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -30581,15 +30575,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30587 "parsing/parser.ml"
+# 30581 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30593 "parsing/parser.ml"
+# 30587 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30643,9 +30637,9 @@ module Tables = struct
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 1898 "parsing/parser.mly"
+# 1900 "parsing/parser.mly"
       ( unclosed "{" _loc__1_ "}" _loc__3_ )
-# 30649 "parsing/parser.ml"
+# 30643 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -30654,15 +30648,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30660 "parsing/parser.ml"
+# 30654 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30666 "parsing/parser.ml"
+# 30660 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30735,9 +30729,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 30741 "parsing/parser.ml"
+# 30735 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -30745,11 +30739,11 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 1900 "parsing/parser.mly"
+# 1902 "parsing/parser.mly"
       ( let (exten, fields) = _4 in
         (* TODO: review the location of Pexp_construct *)
         Pexp_open(Fresh, _1, mkexp ~loc:_sloc (Pexp_record(fields, exten))) )
-# 30753 "parsing/parser.ml"
+# 30747 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -30758,15 +30752,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30764 "parsing/parser.ml"
+# 30758 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30770 "parsing/parser.ml"
+# 30764 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30837,9 +30831,9 @@ module Tables = struct
             let _loc__5_ = (_startpos__5_, _endpos__5_) in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
-# 1904 "parsing/parser.mly"
+# 1906 "parsing/parser.mly"
       ( unclosed "{" _loc__3_ "}" _loc__5_ )
-# 30843 "parsing/parser.ml"
+# 30837 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -30848,15 +30842,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30854 "parsing/parser.ml"
+# 30848 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30860 "parsing/parser.ml"
+# 30854 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30903,15 +30897,15 @@ module Tables = struct
             let _2 =
               let es = es0 in
               
-# 2094 "parsing/parser.mly"
+# 2090 "parsing/parser.mly"
     ( es )
-# 30909 "parsing/parser.ml"
+# 30903 "parsing/parser.ml"
               
             in
             
-# 1906 "parsing/parser.mly"
+# 1908 "parsing/parser.mly"
       ( Pexp_array(_2) )
-# 30915 "parsing/parser.ml"
+# 30909 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -30920,15 +30914,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 30926 "parsing/parser.ml"
+# 30920 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 30932 "parsing/parser.ml"
+# 30926 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -30981,17 +30975,17 @@ module Tables = struct
             let _2 =
               let es = es0 in
               
-# 2094 "parsing/parser.mly"
+# 2090 "parsing/parser.mly"
     ( es )
-# 30987 "parsing/parser.ml"
+# 30981 "parsing/parser.ml"
               
             in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 1908 "parsing/parser.mly"
+# 1910 "parsing/parser.mly"
       ( unclosed "[|" _loc__1_ "|]" _loc__3_ )
-# 30995 "parsing/parser.ml"
+# 30989 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -31000,15 +30994,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31006 "parsing/parser.ml"
+# 31000 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31012 "parsing/parser.ml"
+# 31006 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31045,9 +31039,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 1910 "parsing/parser.mly"
+# 1912 "parsing/parser.mly"
       ( Pexp_array [] )
-# 31051 "parsing/parser.ml"
+# 31045 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -31056,15 +31050,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31062 "parsing/parser.ml"
+# 31056 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31068 "parsing/parser.ml"
+# 31062 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31131,9 +31125,9 @@ module Tables = struct
             let _4 =
               let es = es0 in
               
-# 2094 "parsing/parser.mly"
+# 2090 "parsing/parser.mly"
     ( es )
-# 31137 "parsing/parser.ml"
+# 31131 "parsing/parser.ml"
               
             in
             let _1 =
@@ -31144,9 +31138,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 31150 "parsing/parser.ml"
+# 31144 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -31154,10 +31148,10 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 1912 "parsing/parser.mly"
+# 1914 "parsing/parser.mly"
       ( (* TODO: review the location of Pexp_array *)
         Pexp_open(Fresh, _1, mkexp ~loc:_sloc (Pexp_array(_4))) )
-# 31161 "parsing/parser.ml"
+# 31155 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -31166,15 +31160,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31172 "parsing/parser.ml"
+# 31166 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31178 "parsing/parser.ml"
+# 31172 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31238,9 +31232,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 31244 "parsing/parser.ml"
+# 31238 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -31248,10 +31242,10 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 1915 "parsing/parser.mly"
+# 1917 "parsing/parser.mly"
       ( (* TODO: review the location of Pexp_array *)
         Pexp_open(Fresh, _1, mkexp ~loc:_sloc (Pexp_array [])) )
-# 31255 "parsing/parser.ml"
+# 31249 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__40_ in
@@ -31260,15 +31254,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31266 "parsing/parser.ml"
+# 31260 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31272 "parsing/parser.ml"
+# 31266 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31338,17 +31332,17 @@ module Tables = struct
             let _4 =
               let es = es0 in
               
-# 2094 "parsing/parser.mly"
+# 2090 "parsing/parser.mly"
     ( es )
-# 31344 "parsing/parser.ml"
+# 31338 "parsing/parser.ml"
               
             in
             let _loc__5_ = (_startpos__5_, _endpos__5_) in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
-# 1919 "parsing/parser.mly"
+# 1921 "parsing/parser.mly"
       ( unclosed "[|" _loc__3_ "|]" _loc__5_ )
-# 31352 "parsing/parser.ml"
+# 31346 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -31357,15 +31351,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31363 "parsing/parser.ml"
+# 31357 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31369 "parsing/parser.ml"
+# 31363 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31415,16 +31409,16 @@ module Tables = struct
             let _2 =
               let es = es0 in
               
-# 2094 "parsing/parser.mly"
+# 2090 "parsing/parser.mly"
     ( es )
-# 31421 "parsing/parser.ml"
+# 31415 "parsing/parser.ml"
               
             in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
-# 1921 "parsing/parser.mly"
+# 1923 "parsing/parser.mly"
       ( fst (mktailexp _loc__3_ _2) )
-# 31428 "parsing/parser.ml"
+# 31422 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -31433,15 +31427,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31439 "parsing/parser.ml"
+# 31433 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31445 "parsing/parser.ml"
+# 31439 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31494,17 +31488,17 @@ module Tables = struct
             let _2 =
               let es = es0 in
               
-# 2094 "parsing/parser.mly"
+# 2090 "parsing/parser.mly"
     ( es )
-# 31500 "parsing/parser.ml"
+# 31494 "parsing/parser.ml"
               
             in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 1923 "parsing/parser.mly"
+# 1925 "parsing/parser.mly"
       ( unclosed "[" _loc__1_ "]" _loc__3_ )
-# 31508 "parsing/parser.ml"
+# 31502 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -31513,15 +31507,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31519 "parsing/parser.ml"
+# 31513 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31525 "parsing/parser.ml"
+# 31519 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31590,9 +31584,9 @@ module Tables = struct
             let _4 =
               let es = es0 in
               
-# 2094 "parsing/parser.mly"
+# 2090 "parsing/parser.mly"
     ( es )
-# 31596 "parsing/parser.ml"
+# 31590 "parsing/parser.ml"
               
             in
             let _1 =
@@ -31603,9 +31597,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 31609 "parsing/parser.ml"
+# 31603 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -31614,13 +31608,13 @@ module Tables = struct
             let _loc__5_ = (_startpos__5_, _endpos__5_) in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 1925 "parsing/parser.mly"
+# 1927 "parsing/parser.mly"
       ( let list_exp =
           (* TODO: review the location of list_exp *)
           let tail_exp, _tail_loc = mktailexp _loc__5_ _4 in
           mkexp ~loc:_sloc tail_exp in
         Pexp_open(Fresh, _1, list_exp) )
-# 31624 "parsing/parser.ml"
+# 31618 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -31629,15 +31623,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31635 "parsing/parser.ml"
+# 31629 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31641 "parsing/parser.ml"
+# 31635 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31704,9 +31698,9 @@ module Tables = struct
                 let _2 = _20 in
                 let _1 = _10 in
                 
-# 1930 "parsing/parser.mly"
+# 1932 "parsing/parser.mly"
                                                      (Lident "[]")
-# 31710 "parsing/parser.ml"
+# 31704 "parsing/parser.ml"
                 
               in
               let _endpos__1_ = _endpos__20_ in
@@ -31715,9 +31709,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 31721 "parsing/parser.ml"
+# 31715 "parsing/parser.ml"
               
             in
             let _endpos__3_ = _endpos__200_ in
@@ -31729,9 +31723,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 31735 "parsing/parser.ml"
+# 31729 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -31739,10 +31733,10 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 1931 "parsing/parser.mly"
+# 1933 "parsing/parser.mly"
       ( (* TODO: review the location of Pexp_construct *)
         Pexp_open(Fresh, _1, mkexp ~loc:_sloc (Pexp_construct(_3, None))) )
-# 31746 "parsing/parser.ml"
+# 31740 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__2000_ in
@@ -31751,15 +31745,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31757 "parsing/parser.ml"
+# 31751 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31763 "parsing/parser.ml"
+# 31757 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31829,17 +31823,17 @@ module Tables = struct
             let _4 =
               let es = es0 in
               
-# 2094 "parsing/parser.mly"
+# 2090 "parsing/parser.mly"
     ( es )
-# 31835 "parsing/parser.ml"
+# 31829 "parsing/parser.ml"
               
             in
             let _loc__5_ = (_startpos__5_, _endpos__5_) in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
-# 1935 "parsing/parser.mly"
+# 1937 "parsing/parser.mly"
       ( unclosed "[" _loc__3_ "]" _loc__5_ )
-# 31843 "parsing/parser.ml"
+# 31837 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -31848,15 +31842,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31854 "parsing/parser.ml"
+# 31848 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31860 "parsing/parser.ml"
+# 31854 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -31960,9 +31954,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 31966 "parsing/parser.ml"
+# 31960 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -31970,13 +31964,13 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 1938 "parsing/parser.mly"
+# 1940 "parsing/parser.mly"
       ( (* TODO: review the location of Pexp_constraint *)
         let modexp =
           mkexp_attrs ~loc:_sloc
             (Pexp_constraint (ghexp ~loc:_sloc (Pexp_pack _6), _8)) _5 in
         Pexp_open(Fresh, _1, modexp) )
-# 31980 "parsing/parser.ml"
+# 31974 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__90_ in
@@ -31985,15 +31979,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 31991 "parsing/parser.ml"
+# 31985 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 31997 "parsing/parser.ml"
+# 31991 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32087,9 +32081,9 @@ module Tables = struct
             let _loc__8_ = (_startpos__8_, _endpos__8_) in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
-# 1945 "parsing/parser.mly"
+# 1947 "parsing/parser.mly"
       ( unclosed "(" _loc__3_ ")" _loc__8_ )
-# 32093 "parsing/parser.ml"
+# 32087 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__80_ in
@@ -32098,15 +32092,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 738 "parsing/parser.mly"
+# 740 "parsing/parser.mly"
     ( mkexp ~loc:_sloc _1 )
-# 32104 "parsing/parser.ml"
+# 32098 "parsing/parser.ml"
           
         in
         
-# 1836 "parsing/parser.mly"
+# 1838 "parsing/parser.mly"
       ( _1 )
-# 32110 "parsing/parser.ml"
+# 32104 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32144,15 +32138,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 32150 "parsing/parser.ml"
+# 32144 "parsing/parser.ml"
               
             in
             
-# 2176 "parsing/parser.mly"
+# 2172 "parsing/parser.mly"
       ( Ppat_var (_1) )
-# 32156 "parsing/parser.ml"
+# 32150 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -32161,15 +32155,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 32167 "parsing/parser.ml"
+# 32161 "parsing/parser.ml"
           
         in
         
-# 2177 "parsing/parser.mly"
+# 2173 "parsing/parser.mly"
       ( _1 )
-# 32173 "parsing/parser.ml"
+# 32167 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32192,9 +32186,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.pattern) = 
-# 2178 "parsing/parser.mly"
+# 2174 "parsing/parser.mly"
                              ( _1 )
-# 32198 "parsing/parser.ml"
+# 32192 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32232,9 +32226,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2183 "parsing/parser.mly"
+# 2179 "parsing/parser.mly"
       ( reloc_pat ~loc:_sloc _2 )
-# 32238 "parsing/parser.ml"
+# 32232 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32257,9 +32251,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.pattern) = 
-# 2185 "parsing/parser.mly"
+# 2181 "parsing/parser.mly"
       ( _1 )
-# 32263 "parsing/parser.ml"
+# 32257 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32299,9 +32293,9 @@ module Tables = struct
         } = _menhir_stack in
         let _5 : unit = Obj.magic _5 in
         let _10 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 32305 "parsing/parser.ml"
+# 32299 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _3 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
@@ -32317,18 +32311,18 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 32323 "parsing/parser.ml"
+# 32317 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2187 "parsing/parser.mly"
+# 2183 "parsing/parser.mly"
       ( mkpat_attrs ~loc:_sloc (Ppat_unpack _4) _3 )
-# 32332 "parsing/parser.ml"
+# 32326 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32380,9 +32374,9 @@ module Tables = struct
         let _6 : (Parsetree.core_type) = Obj.magic _6 in
         let _5 : unit = Obj.magic _5 in
         let _10 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 32386 "parsing/parser.ml"
+# 32380 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _3 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
@@ -32398,20 +32392,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 32404 "parsing/parser.ml"
+# 32398 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2189 "parsing/parser.mly"
+# 2185 "parsing/parser.mly"
       ( mkpat_attrs ~loc:_sloc
           (Ppat_constraint(mkpat ~loc:_sloc (Ppat_unpack _4), _6))
           _3 )
-# 32415 "parsing/parser.ml"
+# 32409 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32440,9 +32434,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 2197 "parsing/parser.mly"
+# 2193 "parsing/parser.mly"
       ( Ppat_any )
-# 32446 "parsing/parser.ml"
+# 32440 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -32451,15 +32445,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 32457 "parsing/parser.ml"
+# 32451 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 32463 "parsing/parser.ml"
+# 32457 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32488,9 +32482,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 2199 "parsing/parser.mly"
+# 2195 "parsing/parser.mly"
       ( Ppat_constant _1 )
-# 32494 "parsing/parser.ml"
+# 32488 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -32499,15 +32493,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 32505 "parsing/parser.ml"
+# 32499 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 32511 "parsing/parser.ml"
+# 32505 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32552,9 +32546,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 2201 "parsing/parser.mly"
+# 2197 "parsing/parser.mly"
       ( Ppat_interval (_1, _3) )
-# 32558 "parsing/parser.ml"
+# 32552 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -32563,15 +32557,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 32569 "parsing/parser.ml"
+# 32563 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 32575 "parsing/parser.ml"
+# 32569 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32609,15 +32603,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 32615 "parsing/parser.ml"
+# 32609 "parsing/parser.ml"
               
             in
             
-# 2203 "parsing/parser.mly"
+# 2199 "parsing/parser.mly"
       ( Ppat_construct(_1, None) )
-# 32621 "parsing/parser.ml"
+# 32615 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -32626,15 +32620,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 32632 "parsing/parser.ml"
+# 32626 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 32638 "parsing/parser.ml"
+# 32632 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32663,9 +32657,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 2205 "parsing/parser.mly"
+# 2201 "parsing/parser.mly"
       ( Ppat_variant(_1, None) )
-# 32669 "parsing/parser.ml"
+# 32663 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -32674,15 +32668,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 32680 "parsing/parser.ml"
+# 32674 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 32686 "parsing/parser.ml"
+# 32680 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32729,15 +32723,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 32735 "parsing/parser.ml"
+# 32729 "parsing/parser.ml"
               
             in
             
-# 2207 "parsing/parser.mly"
+# 2203 "parsing/parser.mly"
       ( Ppat_type (_2) )
-# 32741 "parsing/parser.ml"
+# 32735 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__100_ in
@@ -32746,15 +32740,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 32752 "parsing/parser.ml"
+# 32746 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 32758 "parsing/parser.ml"
+# 32752 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32809,15 +32803,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 32815 "parsing/parser.ml"
+# 32809 "parsing/parser.ml"
               
             in
             
-# 2209 "parsing/parser.mly"
+# 2205 "parsing/parser.mly"
       ( Ppat_open(_1, _3) )
-# 32821 "parsing/parser.ml"
+# 32815 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -32826,15 +32820,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
+# 32826 "parsing/parser.ml"
+          
+        in
+        
+# 2189 "parsing/parser.mly"
+      ( _1 )
 # 32832 "parsing/parser.ml"
-          
-        in
-        
-# 2193 "parsing/parser.mly"
-      ( _1 )
-# 32838 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -32901,9 +32895,9 @@ module Tables = struct
                 let _2 = _20 in
                 let _1 = _10 in
                 
-# 2210 "parsing/parser.mly"
+# 2206 "parsing/parser.mly"
                                                      (Lident "[]")
-# 32907 "parsing/parser.ml"
+# 32901 "parsing/parser.ml"
                 
               in
               let _endpos__1_ = _endpos__20_ in
@@ -32912,9 +32906,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 32918 "parsing/parser.ml"
+# 32912 "parsing/parser.ml"
               
             in
             let _endpos__3_ = _endpos__200_ in
@@ -32926,9 +32920,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 32932 "parsing/parser.ml"
+# 32926 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -32936,9 +32930,9 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 2211 "parsing/parser.mly"
+# 2207 "parsing/parser.mly"
     ( Ppat_open(_1, mkpat ~loc:_sloc (Ppat_construct(_3, None))) )
-# 32942 "parsing/parser.ml"
+# 32936 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__2000_ in
@@ -32947,15 +32941,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 32953 "parsing/parser.ml"
+# 32947 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 32959 "parsing/parser.ml"
+# 32953 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33022,9 +33016,9 @@ module Tables = struct
                 let _2 = _20 in
                 let _1 = _10 in
                 
-# 2212 "parsing/parser.mly"
+# 2208 "parsing/parser.mly"
                                                  (Lident "()")
-# 33028 "parsing/parser.ml"
+# 33022 "parsing/parser.ml"
                 
               in
               let _endpos__1_ = _endpos__20_ in
@@ -33033,9 +33027,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 33039 "parsing/parser.ml"
+# 33033 "parsing/parser.ml"
               
             in
             let _endpos__3_ = _endpos__200_ in
@@ -33047,9 +33041,9 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 33053 "parsing/parser.ml"
+# 33047 "parsing/parser.ml"
               
             in
             let _startpos__1_ = _startpos__10_ in
@@ -33057,9 +33051,9 @@ module Tables = struct
             let _symbolstartpos = _startpos__1_ in
             let _sloc = (_symbolstartpos, _endpos) in
             
-# 2213 "parsing/parser.mly"
+# 2209 "parsing/parser.mly"
     ( Ppat_open(_1, mkpat ~loc:_sloc (Ppat_construct(_3, None))) )
-# 33063 "parsing/parser.ml"
+# 33057 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__2000_ in
@@ -33068,15 +33062,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33074 "parsing/parser.ml"
+# 33068 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33080 "parsing/parser.ml"
+# 33074 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33147,15 +33141,15 @@ module Tables = struct
               let _symbolstartpos = _startpos__1_ in
               let _sloc = (_symbolstartpos, _endpos) in
               
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 33153 "parsing/parser.ml"
+# 33147 "parsing/parser.ml"
               
             in
             
-# 2215 "parsing/parser.mly"
+# 2211 "parsing/parser.mly"
       ( Ppat_open (_1, _4) )
-# 33159 "parsing/parser.ml"
+# 33153 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -33164,15 +33158,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33170 "parsing/parser.ml"
+# 33164 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33176 "parsing/parser.ml"
+# 33170 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33242,9 +33236,9 @@ module Tables = struct
             let _loc__5_ = (_startpos__5_, _endpos__5_) in
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             
-# 2217 "parsing/parser.mly"
+# 2213 "parsing/parser.mly"
       ( unclosed "(" _loc__3_ ")" _loc__5_  )
-# 33248 "parsing/parser.ml"
+# 33242 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -33253,15 +33247,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33259 "parsing/parser.ml"
+# 33253 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33265 "parsing/parser.ml"
+# 33259 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33318,9 +33312,9 @@ module Tables = struct
             let _1 = _10 in
             let _loc__4_ = (_startpos__4_, _endpos__4_) in
             
-# 2219 "parsing/parser.mly"
+# 2215 "parsing/parser.mly"
       ( expecting _loc__4_ "pattern" )
-# 33324 "parsing/parser.ml"
+# 33318 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__40_ in
@@ -33329,15 +33323,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33335 "parsing/parser.ml"
+# 33329 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33341 "parsing/parser.ml"
+# 33335 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33390,9 +33384,9 @@ module Tables = struct
             let _loc__3_ = (_startpos__3_, _endpos__3_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 2221 "parsing/parser.mly"
+# 2217 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__3_ )
-# 33396 "parsing/parser.ml"
+# 33390 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__30_ in
@@ -33401,15 +33395,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33407 "parsing/parser.ml"
+# 33401 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33413 "parsing/parser.ml"
+# 33407 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33470,9 +33464,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 2223 "parsing/parser.mly"
+# 2219 "parsing/parser.mly"
       ( Ppat_constraint(_2, _4) )
-# 33476 "parsing/parser.ml"
+# 33470 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -33481,15 +33475,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33487 "parsing/parser.ml"
+# 33481 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33493 "parsing/parser.ml"
+# 33487 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33558,9 +33552,9 @@ module Tables = struct
             let _loc__5_ = (_startpos__5_, _endpos__5_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 2225 "parsing/parser.mly"
+# 2221 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__5_ )
-# 33564 "parsing/parser.ml"
+# 33558 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__50_ in
@@ -33569,15 +33563,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33575 "parsing/parser.ml"
+# 33569 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33581 "parsing/parser.ml"
+# 33575 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33634,9 +33628,9 @@ module Tables = struct
             let _1 = _10 in
             let _loc__4_ = (_startpos__4_, _endpos__4_) in
             
-# 2227 "parsing/parser.mly"
+# 2223 "parsing/parser.mly"
       ( expecting _loc__4_ "type" )
-# 33640 "parsing/parser.ml"
+# 33634 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__40_ in
@@ -33645,15 +33639,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33651 "parsing/parser.ml"
+# 33645 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33657 "parsing/parser.ml"
+# 33651 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33705,9 +33699,9 @@ module Tables = struct
         let _600 : (Parsetree.core_type) = Obj.magic _600 in
         let _500 : unit = Obj.magic _500 in
         let _400 : (
-# 624 "parsing/parser.mly"
+# 626 "parsing/parser.mly"
        (string)
-# 33711 "parsing/parser.ml"
+# 33705 "parsing/parser.ml"
         ) = Obj.magic _400 in
         let _300 : (string Asttypes.loc option * Parsetree.attributes) = Obj.magic _300 in
         let _200 : unit = Obj.magic _200 in
@@ -33742,9 +33736,9 @@ module Tables = struct
             let _loc__7_ = (_startpos__7_, _endpos__7_) in
             let _loc__1_ = (_startpos__1_, _endpos__1_) in
             
-# 2230 "parsing/parser.mly"
+# 2226 "parsing/parser.mly"
       ( unclosed "(" _loc__1_ ")" _loc__7_ )
-# 33748 "parsing/parser.ml"
+# 33742 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__70_ in
@@ -33753,15 +33747,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33759 "parsing/parser.ml"
+# 33753 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33765 "parsing/parser.ml"
+# 33759 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33790,9 +33784,9 @@ module Tables = struct
           let _1 =
             let _1 = _10 in
             
-# 2232 "parsing/parser.mly"
+# 2228 "parsing/parser.mly"
       ( Ppat_extension _1 )
-# 33796 "parsing/parser.ml"
+# 33790 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__10_ in
@@ -33801,15 +33795,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 740 "parsing/parser.mly"
+# 742 "parsing/parser.mly"
     ( mkpat ~loc:_sloc _1 )
-# 33807 "parsing/parser.ml"
+# 33801 "parsing/parser.ml"
           
         in
         
-# 2193 "parsing/parser.mly"
+# 2189 "parsing/parser.mly"
       ( _1 )
-# 33813 "parsing/parser.ml"
+# 33807 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33828,17 +33822,121 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 33834 "parsing/parser.ml"
+# 33828 "parsing/parser.ml"
         ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2996 "parsing/parser.mly"
+           ( _1 )
+# 33836 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (
+# 626 "parsing/parser.mly"
+       (string)
+# 33857 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2997 "parsing/parser.mly"
+           ( _1 )
+# 33865 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2998 "parsing/parser.mly"
+        ( "and" )
+# 33890 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (string) = 
+# 2999 "parsing/parser.mly"
+       ( "as" )
+# 33915 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3000 "parsing/parser.mly"
-           ( _1 )
-# 33842 "parsing/parser.ml"
+           ( "assert" )
+# 33940 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33856,18 +33954,14 @@ module Tables = struct
           MenhirLib.EngineTypes.endp = _endpos__1_;
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
-        let _1 : (
-# 624 "parsing/parser.mly"
-       (string)
-# 33863 "parsing/parser.ml"
-        ) = Obj.magic _1 in
+        let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3001 "parsing/parser.mly"
-           ( _1 )
-# 33871 "parsing/parser.ml"
+          ( "begin" )
+# 33965 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33891,8 +33985,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3002 "parsing/parser.mly"
-        ( "and" )
-# 33896 "parsing/parser.ml"
+          ( "class" )
+# 33990 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33916,8 +34010,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3003 "parsing/parser.mly"
-       ( "as" )
-# 33921 "parsing/parser.ml"
+               ( "constraint" )
+# 34015 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33941,8 +34035,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3004 "parsing/parser.mly"
-           ( "assert" )
-# 33946 "parsing/parser.ml"
+       ( "do" )
+# 34040 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33966,8 +34060,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3005 "parsing/parser.mly"
-          ( "begin" )
-# 33971 "parsing/parser.ml"
+         ( "done" )
+# 34065 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -33991,8 +34085,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3006 "parsing/parser.mly"
-          ( "class" )
-# 33996 "parsing/parser.ml"
+           ( "downto" )
+# 34090 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34016,8 +34110,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3007 "parsing/parser.mly"
-               ( "constraint" )
-# 34021 "parsing/parser.ml"
+         ( "else" )
+# 34115 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34041,8 +34135,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3008 "parsing/parser.mly"
-       ( "do" )
-# 34046 "parsing/parser.ml"
+        ( "end" )
+# 34140 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34066,8 +34160,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3009 "parsing/parser.mly"
-         ( "done" )
-# 34071 "parsing/parser.ml"
+              ( "exception" )
+# 34165 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34091,8 +34185,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3010 "parsing/parser.mly"
-           ( "downto" )
-# 34096 "parsing/parser.ml"
+             ( "external" )
+# 34190 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34116,8 +34210,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3011 "parsing/parser.mly"
-         ( "else" )
-# 34121 "parsing/parser.ml"
+          ( "false" )
+# 34215 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34141,8 +34235,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3012 "parsing/parser.mly"
-        ( "end" )
-# 34146 "parsing/parser.ml"
+        ( "for" )
+# 34240 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34166,8 +34260,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3013 "parsing/parser.mly"
-              ( "exception" )
-# 34171 "parsing/parser.ml"
+        ( "fun" )
+# 34265 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34191,8 +34285,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3014 "parsing/parser.mly"
-             ( "external" )
-# 34196 "parsing/parser.ml"
+             ( "function" )
+# 34290 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34216,8 +34310,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3015 "parsing/parser.mly"
-          ( "false" )
-# 34221 "parsing/parser.ml"
+            ( "functor" )
+# 34315 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34241,8 +34335,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3016 "parsing/parser.mly"
-        ( "for" )
-# 34246 "parsing/parser.ml"
+       ( "if" )
+# 34340 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34266,8 +34360,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3017 "parsing/parser.mly"
-        ( "fun" )
-# 34271 "parsing/parser.ml"
+       ( "in" )
+# 34365 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34291,8 +34385,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3018 "parsing/parser.mly"
-             ( "function" )
-# 34296 "parsing/parser.ml"
+            ( "include" )
+# 34390 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34316,8 +34410,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3019 "parsing/parser.mly"
-            ( "functor" )
-# 34321 "parsing/parser.ml"
+            ( "inherit" )
+# 34415 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34341,8 +34435,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3020 "parsing/parser.mly"
-       ( "if" )
-# 34346 "parsing/parser.ml"
+                ( "initializer" )
+# 34440 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34366,8 +34460,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3021 "parsing/parser.mly"
-       ( "in" )
-# 34371 "parsing/parser.ml"
+         ( "lazy" )
+# 34465 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34391,8 +34485,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3022 "parsing/parser.mly"
-            ( "include" )
-# 34396 "parsing/parser.ml"
+        ( "let" )
+# 34490 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34416,8 +34510,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3023 "parsing/parser.mly"
-            ( "inherit" )
-# 34421 "parsing/parser.ml"
+          ( "match" )
+# 34515 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34441,8 +34535,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3024 "parsing/parser.mly"
-                ( "initializer" )
-# 34446 "parsing/parser.ml"
+           ( "method" )
+# 34540 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34466,8 +34560,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3025 "parsing/parser.mly"
-         ( "lazy" )
-# 34471 "parsing/parser.ml"
+           ( "module" )
+# 34565 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34491,8 +34585,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3026 "parsing/parser.mly"
-        ( "let" )
-# 34496 "parsing/parser.ml"
+            ( "mutable" )
+# 34590 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34516,8 +34610,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3027 "parsing/parser.mly"
-          ( "match" )
-# 34521 "parsing/parser.ml"
+        ( "new" )
+# 34615 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34541,8 +34635,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3028 "parsing/parser.mly"
-           ( "method" )
-# 34546 "parsing/parser.ml"
+           ( "nonrec" )
+# 34640 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34566,8 +34660,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3029 "parsing/parser.mly"
-           ( "module" )
-# 34571 "parsing/parser.ml"
+           ( "object" )
+# 34665 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34591,8 +34685,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3030 "parsing/parser.mly"
-            ( "mutable" )
-# 34596 "parsing/parser.ml"
+       ( "of" )
+# 34690 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34616,8 +34710,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3031 "parsing/parser.mly"
-        ( "new" )
-# 34621 "parsing/parser.ml"
+         ( "open" )
+# 34715 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34641,8 +34735,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3032 "parsing/parser.mly"
-           ( "nonrec" )
-# 34646 "parsing/parser.ml"
+       ( "or" )
+# 34740 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34666,8 +34760,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3033 "parsing/parser.mly"
-           ( "object" )
-# 34671 "parsing/parser.ml"
+            ( "private" )
+# 34765 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34691,8 +34785,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3034 "parsing/parser.mly"
-       ( "of" )
-# 34696 "parsing/parser.ml"
+        ( "rec" )
+# 34790 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34716,8 +34810,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3035 "parsing/parser.mly"
-         ( "open" )
-# 34721 "parsing/parser.ml"
+        ( "sig" )
+# 34815 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34741,8 +34835,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3036 "parsing/parser.mly"
-       ( "or" )
-# 34746 "parsing/parser.ml"
+           ( "struct" )
+# 34840 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34766,8 +34860,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3037 "parsing/parser.mly"
-            ( "private" )
-# 34771 "parsing/parser.ml"
+         ( "then" )
+# 34865 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34791,8 +34885,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3038 "parsing/parser.mly"
-        ( "rec" )
-# 34796 "parsing/parser.ml"
+       ( "to" )
+# 34890 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34816,8 +34910,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3039 "parsing/parser.mly"
-        ( "sig" )
-# 34821 "parsing/parser.ml"
+         ( "true" )
+# 34915 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34841,8 +34935,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3040 "parsing/parser.mly"
-           ( "struct" )
-# 34846 "parsing/parser.ml"
+        ( "try" )
+# 34940 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34866,8 +34960,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3041 "parsing/parser.mly"
-         ( "then" )
-# 34871 "parsing/parser.ml"
+         ( "type" )
+# 34965 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34891,8 +34985,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3042 "parsing/parser.mly"
-       ( "to" )
-# 34896 "parsing/parser.ml"
+        ( "val" )
+# 34990 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34916,8 +35010,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3043 "parsing/parser.mly"
-         ( "true" )
-# 34921 "parsing/parser.ml"
+            ( "virtual" )
+# 35015 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34941,8 +35035,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3044 "parsing/parser.mly"
-        ( "try" )
-# 34946 "parsing/parser.ml"
+         ( "when" )
+# 35040 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34966,8 +35060,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3045 "parsing/parser.mly"
-         ( "type" )
-# 34971 "parsing/parser.ml"
+          ( "while" )
+# 35065 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -34991,108 +35085,8 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (string) = 
 # 3046 "parsing/parser.mly"
-        ( "val" )
-# 34996 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 3047 "parsing/parser.mly"
-            ( "virtual" )
-# 35021 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 3048 "parsing/parser.mly"
-         ( "when" )
-# 35046 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 3049 "parsing/parser.mly"
-          ( "while" )
-# 35071 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (string) = 
-# 3050 "parsing/parser.mly"
          ( "with" )
-# 35096 "parsing/parser.ml"
+# 35090 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35115,9 +35109,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.type_exception * string Asttypes.loc option) = 
-# 2424 "parsing/parser.mly"
+# 2420 "parsing/parser.mly"
                                                  ( _1 )
-# 35121 "parsing/parser.ml"
+# 35115 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35183,9 +35177,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 35189 "parsing/parser.ml"
+# 35183 "parsing/parser.ml"
           
         in
         let _3 =
@@ -35196,22 +35190,22 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 35202 "parsing/parser.ml"
+# 35196 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__7_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2427 "parsing/parser.mly"
+# 2423 "parsing/parser.mly"
     ( let (ext,attrs) = _2 in
       let docs = symbol_docs _sloc in
       Te.mk_exception ~attrs:_7
         (Te.rebind _3 _5 ~attrs:(attrs @ _6) ~loc:(make_loc _sloc) ~docs)
       , ext )
-# 35215 "parsing/parser.ml"
+# 35209 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35234,9 +35228,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.extension_constructor list) = 
-# 2505 "parsing/parser.mly"
+# 2501 "parsing/parser.mly"
                                                           ( [_1] )
-# 35240 "parsing/parser.ml"
+# 35234 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35258,10 +35252,91 @@ module Tables = struct
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
+        let _v : (Parsetree.extension_constructor list) = 
+# 2502 "parsing/parser.mly"
+                                                          ( [_1] )
+# 35259 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (Parsetree.extension_constructor) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.extension_constructor list) = 
+# 2503 "parsing/parser.mly"
+                                                          ( [_1] )
+# 35284 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (Parsetree.extension_constructor) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.extension_constructor list) = 
+# 2504 "parsing/parser.mly"
+                                                          ( [_1] )
+# 35309 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.semv = _2;
+          MenhirLib.EngineTypes.startp = _startpos__2_;
+          MenhirLib.EngineTypes.endp = _endpos__2_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.state = _menhir_s;
+            MenhirLib.EngineTypes.semv = _1;
+            MenhirLib.EngineTypes.startp = _startpos__1_;
+            MenhirLib.EngineTypes.endp = _endpos__1_;
+            MenhirLib.EngineTypes.next = _menhir_stack;
+          };
+        } = _menhir_stack in
+        let _2 : (Parsetree.extension_constructor) = Obj.magic _2 in
+        let _1 : (Parsetree.extension_constructor list) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__2_ in
         let _v : (Parsetree.extension_constructor list) = 
 # 2506 "parsing/parser.mly"
-                                                          ( [_1] )
-# 35265 "parsing/parser.ml"
+      ( _2 :: _1 )
+# 35340 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35273,107 +35348,26 @@ module Tables = struct
       (fun _menhir_env ->
         let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
         let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
+          MenhirLib.EngineTypes.semv = _2;
+          MenhirLib.EngineTypes.startp = _startpos__2_;
+          MenhirLib.EngineTypes.endp = _endpos__2_;
+          MenhirLib.EngineTypes.next = {
+            MenhirLib.EngineTypes.state = _menhir_s;
+            MenhirLib.EngineTypes.semv = _1;
+            MenhirLib.EngineTypes.startp = _startpos__1_;
+            MenhirLib.EngineTypes.endp = _endpos__1_;
+            MenhirLib.EngineTypes.next = _menhir_stack;
+          };
         } = _menhir_stack in
-        let _1 : (Parsetree.extension_constructor) = Obj.magic _1 in
+        let _2 : (Parsetree.extension_constructor) = Obj.magic _2 in
+        let _1 : (Parsetree.extension_constructor list) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.extension_constructor list) = 
-# 2507 "parsing/parser.mly"
-                                                          ( [_1] )
-# 35290 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (Parsetree.extension_constructor) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
+        let _endpos = _endpos__2_ in
         let _v : (Parsetree.extension_constructor list) = 
 # 2508 "parsing/parser.mly"
-                                                          ( [_1] )
-# 35315 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _2;
-          MenhirLib.EngineTypes.startp = _startpos__2_;
-          MenhirLib.EngineTypes.endp = _endpos__2_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.state = _menhir_s;
-            MenhirLib.EngineTypes.semv = _1;
-            MenhirLib.EngineTypes.startp = _startpos__1_;
-            MenhirLib.EngineTypes.endp = _endpos__1_;
-            MenhirLib.EngineTypes.next = _menhir_stack;
-          };
-        } = _menhir_stack in
-        let _2 : (Parsetree.extension_constructor) = Obj.magic _2 in
-        let _1 : (Parsetree.extension_constructor list) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__2_ in
-        let _v : (Parsetree.extension_constructor list) = 
-# 2510 "parsing/parser.mly"
       ( _2 :: _1 )
-# 35346 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.semv = _2;
-          MenhirLib.EngineTypes.startp = _startpos__2_;
-          MenhirLib.EngineTypes.endp = _endpos__2_;
-          MenhirLib.EngineTypes.next = {
-            MenhirLib.EngineTypes.state = _menhir_s;
-            MenhirLib.EngineTypes.semv = _1;
-            MenhirLib.EngineTypes.startp = _startpos__1_;
-            MenhirLib.EngineTypes.endp = _endpos__1_;
-            MenhirLib.EngineTypes.next = _menhir_stack;
-          };
-        } = _menhir_stack in
-        let _2 : (Parsetree.extension_constructor) = Obj.magic _2 in
-        let _1 : (Parsetree.extension_constructor list) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__2_ in
-        let _v : (Parsetree.extension_constructor list) = 
-# 2512 "parsing/parser.mly"
-      ( _2 :: _1 )
-# 35377 "parsing/parser.ml"
+# 35371 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35417,11 +35411,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1076 "parsing/parser.mly"
+# 1078 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Incl.mk _3 ~attrs:(attrs@_4) ~loc:(make_loc _sloc) ~docs, ext )
-# 35425 "parsing/parser.ml"
+# 35419 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35499,9 +35493,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 35505 "parsing/parser.ml"
+# 35499 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__9_ in
@@ -35509,13 +35503,13 @@ module Tables = struct
         let _loc__3_ = (_startpos__3_, _endpos__3_) in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2488 "parsing/parser.mly"
+# 2484 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         if _3 <> Recursive then not_expecting _loc__3_ "nonrec flag";
         let docs = symbol_docs _sloc in
         Te.mk _5 (List.rev _8) ~params:_4 ~priv:_7 ~attrs:(attrs@_9) ~docs
         , ext )
-# 35519 "parsing/parser.ml"
+# 35513 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35544,9 +35538,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.expression) = 
-# 2029 "parsing/parser.mly"
+# 2025 "parsing/parser.mly"
       ( _2 )
-# 35550 "parsing/parser.ml"
+# 35544 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35578,9 +35572,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2031 "parsing/parser.mly"
+# 2027 "parsing/parser.mly"
       ( let (l, o, p) = _1 in ghexp ~loc:_sloc (Pexp_fun(l, o, p, _2)) )
-# 35584 "parsing/parser.ml"
+# 35578 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35629,18 +35623,18 @@ module Tables = struct
         let _v : (Parsetree.expression) = let _3 =
           let xs = xs0 in
           
-# 1969 "parsing/parser.mly"
+# 1971 "parsing/parser.mly"
     ( xs )
-# 35635 "parsing/parser.ml"
+# 35629 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2033 "parsing/parser.mly"
+# 2029 "parsing/parser.mly"
       ( mk_newtypes ~loc:_sloc _3 _5 )
-# 35644 "parsing/parser.ml"
+# 35638 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35669,15 +35663,15 @@ module Tables = struct
           let _endpos = _endpos__1_ in
           let _startpos = _startpos__1_ in
           
-# 720 "parsing/parser.mly"
+# 722 "parsing/parser.mly"
                               ( extra_str _startpos _endpos _1 )
-# 35675 "parsing/parser.ml"
+# 35669 "parsing/parser.ml"
           
         in
         
-# 1022 "parsing/parser.mly"
+# 1024 "parsing/parser.mly"
                                       ( _1 )
-# 35681 "parsing/parser.ml"
+# 35675 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35703,9 +35697,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1037 "parsing/parser.mly"
+# 1039 "parsing/parser.mly"
       ( val_of_let_bindings ~loc:_sloc _1 )
-# 35709 "parsing/parser.ml"
+# 35703 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35731,10 +35725,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1039 "parsing/parser.mly"
+# 1041 "parsing/parser.mly"
       ( let item, ext = _1 in
         wrap_str_ext ~loc:_sloc (mkstr ~loc:_sloc item) ext )
-# 35738 "parsing/parser.ml"
+# 35732 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35766,10 +35760,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1042 "parsing/parser.mly"
+# 1044 "parsing/parser.mly"
       ( let docs = symbol_docs _sloc in
         mkstr ~loc:_sloc (Pstr_extension (_1, (add_docs_attrs docs _2))) )
-# 35773 "parsing/parser.ml"
+# 35767 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35795,34 +35789,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1045 "parsing/parser.mly"
+# 1047 "parsing/parser.mly"
       ( mkstr ~loc:_sloc (Pstr_attribute _1) )
-# 35801 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (Parsetree.value_description * string Asttypes.loc option) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1049 "parsing/parser.mly"
-      ( let (body, ext) = _1 in (Pstr_primitive body, ext) )
-# 35826 "parsing/parser.ml"
+# 35795 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35847,7 +35816,32 @@ module Tables = struct
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
 # 1051 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Pstr_primitive body, ext) )
-# 35851 "parsing/parser.ml"
+# 35820 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (Parsetree.value_description * string Asttypes.loc option) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
+# 1053 "parsing/parser.mly"
+      ( let (body, ext) = _1 in (Pstr_primitive body, ext) )
+# 35845 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35871,9 +35865,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1053 "parsing/parser.mly"
+# 1055 "parsing/parser.mly"
       ( let (nr, l, ext ) = _1 in (Pstr_type (nr, List.rev l), ext) )
-# 35877 "parsing/parser.ml"
+# 35871 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35896,9 +35890,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1055 "parsing/parser.mly"
+# 1057 "parsing/parser.mly"
       ( let (l, ext) = _1 in (Pstr_typext l, ext) )
-# 35902 "parsing/parser.ml"
+# 35896 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35921,9 +35915,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1057 "parsing/parser.mly"
+# 1059 "parsing/parser.mly"
       ( let (l, ext) = _1 in (Pstr_exception l, ext) )
-# 35927 "parsing/parser.ml"
+# 35921 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35946,9 +35940,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1059 "parsing/parser.mly"
+# 1061 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Pstr_module body, ext) )
-# 35952 "parsing/parser.ml"
+# 35946 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35971,9 +35965,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1061 "parsing/parser.mly"
+# 1063 "parsing/parser.mly"
       ( let (l, ext) = _1 in (Pstr_recmodule (List.rev l), ext) )
-# 35977 "parsing/parser.ml"
+# 35971 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -35996,9 +35990,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1063 "parsing/parser.mly"
+# 1065 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Pstr_modtype body, ext) )
-# 36002 "parsing/parser.ml"
+# 35996 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36021,9 +36015,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1065 "parsing/parser.mly"
+# 1067 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Pstr_open body, ext) )
-# 36027 "parsing/parser.ml"
+# 36021 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36046,9 +36040,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1067 "parsing/parser.mly"
+# 1069 "parsing/parser.mly"
       ( let (l, ext) = _1 in (Pstr_class (List.rev l), ext) )
-# 36052 "parsing/parser.ml"
+# 36046 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36071,9 +36065,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1069 "parsing/parser.mly"
+# 1071 "parsing/parser.mly"
       ( let (l, ext) = _1 in (Pstr_class_type (List.rev l), ext) )
-# 36077 "parsing/parser.ml"
+# 36071 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36096,9 +36090,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item_desc * string Asttypes.loc option) = 
-# 1071 "parsing/parser.mly"
+# 1073 "parsing/parser.mly"
       ( let (body, ext) = _1 in (Pstr_include body, ext) )
-# 36102 "parsing/parser.ml"
+# 36096 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36133,10 +36127,10 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.structure_item list) = 
-# 1025 "parsing/parser.mly"
+# 1027 "parsing/parser.mly"
       ( mark_rhs_docs _startpos__1_ _endpos__2_;
         text_str _startpos__1_ @ mkstrexp _1 _2 :: _3 )
-# 36140 "parsing/parser.ml"
+# 36134 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36159,9 +36153,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item list) = 
-# 1027 "parsing/parser.mly"
+# 1029 "parsing/parser.mly"
                          ( _1 )
-# 36165 "parsing/parser.ml"
+# 36159 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36177,9 +36171,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.structure_item list) = 
-# 1030 "parsing/parser.mly"
+# 1032 "parsing/parser.mly"
                                         ( [] )
-# 36183 "parsing/parser.ml"
+# 36177 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36208,9 +36202,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.structure_item list) = 
-# 1031 "parsing/parser.mly"
+# 1033 "parsing/parser.mly"
                                         ( text_str _startpos__1_ @ _2 )
-# 36214 "parsing/parser.ml"
+# 36208 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36239,9 +36233,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.structure_item list) = 
-# 1032 "parsing/parser.mly"
+# 1034 "parsing/parser.mly"
                                         ( text_str _startpos__1_ @ _1 :: _2 )
-# 36245 "parsing/parser.ml"
+# 36239 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36264,9 +36258,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2989 "parsing/parser.mly"
+# 2985 "parsing/parser.mly"
                                                 ( "-" )
-# 36270 "parsing/parser.ml"
+# 36264 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36289,9 +36283,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2990 "parsing/parser.mly"
+# 2986 "parsing/parser.mly"
                                                 ( "-." )
-# 36295 "parsing/parser.ml"
+# 36289 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36344,21 +36338,21 @@ module Tables = struct
             let xs =
               let xs = xs0 in
               
-# 765 "parsing/parser.mly"
+# 767 "parsing/parser.mly"
     ( List.rev xs )
-# 36350 "parsing/parser.ml"
+# 36344 "parsing/parser.ml"
               
             in
             
-# 815 "parsing/parser.mly"
+# 817 "parsing/parser.mly"
     ( xs )
-# 36356 "parsing/parser.ml"
+# 36350 "parsing/parser.ml"
             
           in
           
-# 2729 "parsing/parser.mly"
+# 2725 "parsing/parser.mly"
     ( _1 )
-# 36362 "parsing/parser.ml"
+# 36356 "parsing/parser.ml"
           
         in
         let _1 =
@@ -36369,9 +36363,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 36375 "parsing/parser.ml"
+# 36369 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -36379,11 +36373,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2715 "parsing/parser.mly"
+# 2711 "parsing/parser.mly"
       ( let info = symbol_info _endpos in
         let attrs = add_info_attrs info _5 in
         Rf.tag ~loc:(make_loc _sloc) ~attrs _1 _3 _4 )
-# 36387 "parsing/parser.ml"
+# 36381 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36419,9 +36413,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 36425 "parsing/parser.ml"
+# 36419 "parsing/parser.ml"
           
         in
         let _startpos__1_ = _startpos__10_ in
@@ -36429,11 +36423,11 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2719 "parsing/parser.mly"
+# 2715 "parsing/parser.mly"
       ( let info = symbol_info _endpos in
         let attrs = add_info_attrs info _2 in
         Rf.tag ~loc:(make_loc _sloc) ~attrs _1 true [] )
-# 36437 "parsing/parser.ml"
+# 36431 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36462,15 +36456,15 @@ module Tables = struct
           let _endpos = _endpos__1_ in
           let _startpos = _startpos__1_ in
           
-# 720 "parsing/parser.mly"
+# 722 "parsing/parser.mly"
                               ( extra_str _startpos _endpos _1 )
-# 36468 "parsing/parser.ml"
+# 36462 "parsing/parser.ml"
           
         in
         
-# 889 "parsing/parser.mly"
+# 891 "parsing/parser.mly"
                                               ( _1 )
-# 36474 "parsing/parser.ml"
+# 36468 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36499,9 +36493,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.structure_item list) = 
-# 892 "parsing/parser.mly"
+# 894 "parsing/parser.mly"
       ( text_str _startpos__1_ @ [mkstrexp _1 _2] )
-# 36505 "parsing/parser.ml"
+# 36499 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36524,9 +36518,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.structure_item list) = 
-# 894 "parsing/parser.mly"
+# 896 "parsing/parser.mly"
       ( _1 )
-# 36530 "parsing/parser.ml"
+# 36524 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36542,9 +36536,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.structure_item list) = 
-# 898 "parsing/parser.mly"
+# 900 "parsing/parser.mly"
       ( [] )
-# 36548 "parsing/parser.ml"
+# 36542 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36573,9 +36567,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.structure_item list) = 
-# 900 "parsing/parser.mly"
+# 902 "parsing/parser.mly"
       ( text_str _startpos__1_ @ _1 :: _2 )
-# 36579 "parsing/parser.ml"
+# 36573 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36601,10 +36595,10 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2917 "parsing/parser.mly"
+# 2913 "parsing/parser.mly"
     ( let (dir, arg) = _1 in
       mk_directive ~loc:_sloc dir arg )
-# 36608 "parsing/parser.ml"
+# 36602 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36640,15 +36634,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 36646 "parsing/parser.ml"
+# 36640 "parsing/parser.ml"
           
         in
         
-# 2922 "parsing/parser.mly"
+# 2918 "parsing/parser.mly"
     ( _2, None )
-# 36652 "parsing/parser.ml"
+# 36646 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36690,15 +36684,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 36696 "parsing/parser.ml"
+# 36690 "parsing/parser.ml"
           
         in
         
-# 2924 "parsing/parser.mly"
+# 2920 "parsing/parser.mly"
     ( _2, Some _3 )
-# 36702 "parsing/parser.ml"
+# 36696 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36724,9 +36718,9 @@ module Tables = struct
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2929 "parsing/parser.mly"
+# 2925 "parsing/parser.mly"
     ( mk_directive_arg ~loc:_sloc _1 )
-# 36730 "parsing/parser.ml"
+# 36724 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36745,17 +36739,121 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 616 "parsing/parser.mly"
+# 618 "parsing/parser.mly"
        (string * string option)
-# 36751 "parsing/parser.ml"
+# 36745 "parsing/parser.ml"
         ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.directive_argument_desc) = 
+# 2928 "parsing/parser.mly"
+                  ( let (s, _) = _1 in Pdir_string s )
+# 36753 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (
+# 566 "parsing/parser.mly"
+       (string * char option)
+# 36774 "parsing/parser.ml"
+        ) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.directive_argument_desc) = 
+# 2929 "parsing/parser.mly"
+                  ( let (n, m) = _1 in Pdir_int (n ,m) )
+# 36782 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (Longident.t) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.directive_argument_desc) = 
+# 2930 "parsing/parser.mly"
+                  ( Pdir_ident _1 )
+# 36807 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : (Longident.t) = Obj.magic _1 in
+        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
+        let _startpos = _startpos__1_ in
+        let _endpos = _endpos__1_ in
+        let _v : (Parsetree.directive_argument_desc) = 
+# 2931 "parsing/parser.mly"
+                  ( Pdir_ident _1 )
+# 36832 "parsing/parser.ml"
+         in
+        {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = Obj.repr _v;
+          MenhirLib.EngineTypes.startp = _startpos;
+          MenhirLib.EngineTypes.endp = _endpos;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        });
+      (fun _menhir_env ->
+        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
+        let {
+          MenhirLib.EngineTypes.state = _menhir_s;
+          MenhirLib.EngineTypes.semv = _1;
+          MenhirLib.EngineTypes.startp = _startpos__1_;
+          MenhirLib.EngineTypes.endp = _endpos__1_;
+          MenhirLib.EngineTypes.next = _menhir_stack;
+        } = _menhir_stack in
+        let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.directive_argument_desc) = 
 # 2932 "parsing/parser.mly"
-                  ( let (s, _) = _1 in Pdir_string s )
-# 36759 "parsing/parser.ml"
+                  ( Pdir_bool false )
+# 36857 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36773,118 +36871,14 @@ module Tables = struct
           MenhirLib.EngineTypes.endp = _endpos__1_;
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
-        let _1 : (
-# 564 "parsing/parser.mly"
-       (string * char option)
-# 36780 "parsing/parser.ml"
-        ) = Obj.magic _1 in
+        let _1 : unit = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.directive_argument_desc) = 
 # 2933 "parsing/parser.mly"
-                  ( let (n, m) = _1 in Pdir_int (n ,m) )
-# 36788 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (Longident.t) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.directive_argument_desc) = 
-# 2934 "parsing/parser.mly"
-                  ( Pdir_ident _1 )
-# 36813 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : (Longident.t) = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.directive_argument_desc) = 
-# 2935 "parsing/parser.mly"
-                  ( Pdir_ident _1 )
-# 36838 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.directive_argument_desc) = 
-# 2936 "parsing/parser.mly"
-                  ( Pdir_bool false )
-# 36863 "parsing/parser.ml"
-         in
-        {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = Obj.repr _v;
-          MenhirLib.EngineTypes.startp = _startpos;
-          MenhirLib.EngineTypes.endp = _endpos;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        });
-      (fun _menhir_env ->
-        let _menhir_stack = _menhir_env.MenhirLib.EngineTypes.stack in
-        let {
-          MenhirLib.EngineTypes.state = _menhir_s;
-          MenhirLib.EngineTypes.semv = _1;
-          MenhirLib.EngineTypes.startp = _startpos__1_;
-          MenhirLib.EngineTypes.endp = _endpos__1_;
-          MenhirLib.EngineTypes.next = _menhir_stack;
-        } = _menhir_stack in
-        let _1 : unit = Obj.magic _1 in
-        let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
-        let _startpos = _startpos__1_ in
-        let _endpos = _endpos__1_ in
-        let _v : (Parsetree.directive_argument_desc) = 
-# 2937 "parsing/parser.mly"
                   ( Pdir_bool true )
-# 36888 "parsing/parser.ml"
+# 36882 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36913,13 +36907,13 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (
-# 708 "parsing/parser.mly"
+# 710 "parsing/parser.mly"
       (Parsetree.toplevel_phrase)
-# 36919 "parsing/parser.ml"
+# 36913 "parsing/parser.ml"
         ) = 
-# 885 "parsing/parser.mly"
+# 887 "parsing/parser.mly"
                                          ( Ptop_def (_1) )
-# 36923 "parsing/parser.ml"
+# 36917 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36948,13 +36942,13 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (
-# 708 "parsing/parser.mly"
+# 710 "parsing/parser.mly"
       (Parsetree.toplevel_phrase)
-# 36954 "parsing/parser.ml"
+# 36948 "parsing/parser.ml"
         ) = 
-# 886 "parsing/parser.mly"
+# 888 "parsing/parser.mly"
                                          ( _1 )
-# 36958 "parsing/parser.ml"
+# 36952 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -36977,13 +36971,13 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (
-# 708 "parsing/parser.mly"
+# 710 "parsing/parser.mly"
       (Parsetree.toplevel_phrase)
-# 36983 "parsing/parser.ml"
+# 36977 "parsing/parser.ml"
         ) = 
-# 887 "parsing/parser.mly"
+# 889 "parsing/parser.mly"
                                          ( raise End_of_file )
-# 36987 "parsing/parser.ml"
+# 36981 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37012,9 +37006,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type option * Parsetree.core_type option) = 
-# 2097 "parsing/parser.mly"
+# 2093 "parsing/parser.mly"
                                                 ( (Some _2, None) )
-# 37018 "parsing/parser.ml"
+# 37012 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37055,9 +37049,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__4_ in
         let _v : (Parsetree.core_type option * Parsetree.core_type option) = 
-# 2098 "parsing/parser.mly"
+# 2094 "parsing/parser.mly"
                                                 ( (Some _2, Some _4) )
-# 37061 "parsing/parser.ml"
+# 37055 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37086,9 +37080,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type option * Parsetree.core_type option) = 
-# 2099 "parsing/parser.mly"
+# 2095 "parsing/parser.mly"
                                                 ( (None, Some _2) )
-# 37092 "parsing/parser.ml"
+# 37086 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37117,9 +37111,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type option * Parsetree.core_type option) = 
-# 2100 "parsing/parser.mly"
+# 2096 "parsing/parser.mly"
                                                 ( syntax_error() )
-# 37123 "parsing/parser.ml"
+# 37117 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37148,9 +37142,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type option * Parsetree.core_type option) = 
-# 2101 "parsing/parser.mly"
+# 2097 "parsing/parser.mly"
                                                 ( syntax_error() )
-# 37154 "parsing/parser.ml"
+# 37148 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37207,9 +37201,9 @@ module Tables = struct
         let _7 : ((Parsetree.core_type * Parsetree.core_type * Ast_helper.loc) list) = Obj.magic _7 in
         let _6 : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = Obj.magic _6 in
         let _10 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 37213 "parsing/parser.ml"
+# 37207 "parsing/parser.ml"
         ) = Obj.magic _10 in
         let _4 : ((Parsetree.core_type * Asttypes.variance) list) = Obj.magic _4 in
         let _3 : (Asttypes.rec_flag) = Obj.magic _3 in
@@ -37226,16 +37220,16 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 37232 "parsing/parser.ml"
+# 37226 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__8_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2324 "parsing/parser.mly"
+# 2320 "parsing/parser.mly"
       ( let (kind, priv, manifest) = _6 in
         let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
@@ -37244,7 +37238,7 @@ module Tables = struct
             ~priv ?manifest ~attrs:(attrs@_8) ~loc:(make_loc _sloc) ~docs
         in
         (_3, ty, ext) )
-# 37248 "parsing/parser.ml"
+# 37242 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37268,9 +37262,9 @@ module Tables = struct
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.rec_flag * Parsetree.type_declaration list *
   string Asttypes.loc option) = 
-# 2316 "parsing/parser.mly"
+# 2312 "parsing/parser.mly"
       ( let (nonrec_flag, ty, ext) = _1 in (nonrec_flag, [ty], ext) )
-# 37274 "parsing/parser.ml"
+# 37268 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37301,9 +37295,9 @@ module Tables = struct
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.rec_flag * Parsetree.type_declaration list *
   string Asttypes.loc option) = 
-# 2318 "parsing/parser.mly"
+# 2314 "parsing/parser.mly"
       ( let (nonrec_flag, tys, ext) = _1 in (nonrec_flag, _2 :: tys, ext) )
-# 37307 "parsing/parser.ml"
+# 37301 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37319,9 +37313,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2349 "parsing/parser.mly"
+# 2345 "parsing/parser.mly"
       ( (Ptype_abstract, Public, None) )
-# 37325 "parsing/parser.ml"
+# 37319 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37350,9 +37344,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2351 "parsing/parser.mly"
+# 2347 "parsing/parser.mly"
       ( (Ptype_abstract, Public, Some _2) )
-# 37356 "parsing/parser.ml"
+# 37350 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37387,9 +37381,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2353 "parsing/parser.mly"
+# 2349 "parsing/parser.mly"
       ( (Ptype_abstract, Private, Some _3) )
-# 37393 "parsing/parser.ml"
+# 37387 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37418,9 +37412,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2355 "parsing/parser.mly"
+# 2351 "parsing/parser.mly"
       ( (Ptype_variant(List.rev _2), Public, None) )
-# 37424 "parsing/parser.ml"
+# 37418 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37455,9 +37449,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2357 "parsing/parser.mly"
+# 2353 "parsing/parser.mly"
       ( (Ptype_variant(List.rev _3), Private, None) )
-# 37461 "parsing/parser.ml"
+# 37455 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37486,9 +37480,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2359 "parsing/parser.mly"
+# 2355 "parsing/parser.mly"
       ( (Ptype_open, Public, None) )
-# 37492 "parsing/parser.ml"
+# 37486 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37523,9 +37517,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2361 "parsing/parser.mly"
+# 2357 "parsing/parser.mly"
       ( (Ptype_open, Private, None) )
-# 37529 "parsing/parser.ml"
+# 37523 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37572,9 +37566,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2363 "parsing/parser.mly"
+# 2359 "parsing/parser.mly"
       ( (Ptype_record _4, _2, None) )
-# 37578 "parsing/parser.ml"
+# 37572 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37621,9 +37615,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2365 "parsing/parser.mly"
+# 2361 "parsing/parser.mly"
       ( (Ptype_variant(List.rev _5), _4, Some _2) )
-# 37627 "parsing/parser.ml"
+# 37621 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37670,9 +37664,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__5_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2367 "parsing/parser.mly"
+# 2363 "parsing/parser.mly"
       ( (Ptype_open, _4, Some _2) )
-# 37676 "parsing/parser.ml"
+# 37670 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37731,9 +37725,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__7_ in
         let _v : (Parsetree.type_kind * Asttypes.private_flag * Parsetree.core_type option) = 
-# 2369 "parsing/parser.mly"
+# 2365 "parsing/parser.mly"
       ( (Ptype_record _6, _4, Some _2) )
-# 37737 "parsing/parser.ml"
+# 37731 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37752,17 +37746,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 37758 "parsing/parser.ml"
+# 37752 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2887 "parsing/parser.mly"
+# 2883 "parsing/parser.mly"
                                                 ( Lident _1 )
-# 37766 "parsing/parser.ml"
+# 37760 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37791,9 +37785,9 @@ module Tables = struct
           };
         } = _menhir_stack in
         let _3 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 37797 "parsing/parser.ml"
+# 37791 "parsing/parser.ml"
         ) = Obj.magic _3 in
         let _2 : unit = Obj.magic _2 in
         let _1 : (Longident.t) = Obj.magic _1 in
@@ -37801,9 +37795,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Longident.t) = 
-# 2888 "parsing/parser.mly"
+# 2884 "parsing/parser.mly"
                                                 ( Ldot(_1, _3) )
-# 37807 "parsing/parser.ml"
+# 37801 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37832,9 +37826,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.core_type * Asttypes.variance) = 
-# 2391 "parsing/parser.mly"
+# 2387 "parsing/parser.mly"
                                                   ( _2, _1 )
-# 37838 "parsing/parser.ml"
+# 37832 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37871,9 +37865,9 @@ module Tables = struct
             let _2 = _20 in
             let _1 = _10 in
             
-# 2399 "parsing/parser.mly"
+# 2395 "parsing/parser.mly"
                       ( Ptyp_var _2 )
-# 37877 "parsing/parser.ml"
+# 37871 "parsing/parser.ml"
             
           in
           let _endpos__1_ = _endpos__20_ in
@@ -37882,15 +37876,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 742 "parsing/parser.mly"
+# 744 "parsing/parser.mly"
     ( mktyp ~loc:_sloc _1 )
-# 37888 "parsing/parser.ml"
+# 37882 "parsing/parser.ml"
           
         in
         
-# 2399 "parsing/parser.mly"
+# 2395 "parsing/parser.mly"
                                        ( _1 )
-# 37894 "parsing/parser.ml"
+# 37888 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37906,9 +37900,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Asttypes.variance) = 
-# 2394 "parsing/parser.mly"
+# 2390 "parsing/parser.mly"
                                                 ( Invariant )
-# 37912 "parsing/parser.ml"
+# 37906 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37931,9 +37925,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.variance) = 
-# 2395 "parsing/parser.mly"
+# 2391 "parsing/parser.mly"
                                                 ( Covariant )
-# 37937 "parsing/parser.ml"
+# 37931 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37956,9 +37950,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.variance) = 
-# 2396 "parsing/parser.mly"
+# 2392 "parsing/parser.mly"
                                                 ( Contravariant )
-# 37962 "parsing/parser.ml"
+# 37956 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -37987,9 +37981,9 @@ module Tables = struct
         let _startpos = _startpos__10_ in
         let _endpos = _endpos__2_ in
         let _v : (
-# 710 "parsing/parser.mly"
+# 712 "parsing/parser.mly"
       (Parsetree.toplevel_phrase list)
-# 37993 "parsing/parser.ml"
+# 37987 "parsing/parser.ml"
         ) = let _1 =
           let _endpos__1_ = _endpos__10_ in
           let _startpos__1_ = _startpos__10_ in
@@ -37997,15 +37991,15 @@ module Tables = struct
           let _endpos = _endpos__1_ in
           let _startpos = _startpos__1_ in
           
-# 724 "parsing/parser.mly"
+# 726 "parsing/parser.mly"
                               ( extra_def _startpos _endpos _1 )
-# 38003 "parsing/parser.ml"
+# 37997 "parsing/parser.ml"
           
         in
         
-# 904 "parsing/parser.mly"
+# 906 "parsing/parser.mly"
                                          ( _1 )
-# 38009 "parsing/parser.ml"
+# 38003 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38028,9 +38022,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.toplevel_phrase list) = 
-# 907 "parsing/parser.mly"
+# 909 "parsing/parser.mly"
                                          ( _1 )
-# 38034 "parsing/parser.ml"
+# 38028 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38065,9 +38059,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.toplevel_phrase list) = 
-# 909 "parsing/parser.mly"
+# 911 "parsing/parser.mly"
       ( text_def _startpos__1_ @ Ptop_def[mkstrexp _1 _2] :: _3 )
-# 38071 "parsing/parser.ml"
+# 38065 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38083,9 +38077,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.toplevel_phrase list) = 
-# 913 "parsing/parser.mly"
+# 915 "parsing/parser.mly"
       ( [] )
-# 38089 "parsing/parser.ml"
+# 38083 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38114,9 +38108,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.toplevel_phrase list) = 
-# 915 "parsing/parser.mly"
+# 917 "parsing/parser.mly"
       ( _2 )
-# 38120 "parsing/parser.ml"
+# 38114 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38145,9 +38139,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.toplevel_phrase list) = 
-# 917 "parsing/parser.mly"
+# 919 "parsing/parser.mly"
       ( text_def _startpos__1_ @ Ptop_def[_1] :: _2 )
-# 38151 "parsing/parser.ml"
+# 38145 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38176,10 +38170,10 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Parsetree.toplevel_phrase list) = 
-# 919 "parsing/parser.mly"
+# 921 "parsing/parser.mly"
       ( mark_rhs_docs _startpos__1_ _endpos__1_;
         text_def _startpos__1_ @ _1 :: _2 )
-# 38183 "parsing/parser.ml"
+# 38177 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38198,17 +38192,17 @@ module Tables = struct
           MenhirLib.EngineTypes.next = _menhir_stack;
         } = _menhir_stack in
         let _1 : (
-# 578 "parsing/parser.mly"
+# 580 "parsing/parser.mly"
        (string)
-# 38204 "parsing/parser.ml"
+# 38198 "parsing/parser.ml"
         ) = Obj.magic _1 in
         let _endpos__0_ = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (string) = 
-# 2823 "parsing/parser.mly"
+# 2819 "parsing/parser.mly"
                               ( _1 )
-# 38212 "parsing/parser.ml"
+# 38206 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38243,9 +38237,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (string) = 
-# 2824 "parsing/parser.mly"
+# 2820 "parsing/parser.mly"
                               ( _2 )
-# 38249 "parsing/parser.ml"
+# 38243 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38282,9 +38276,9 @@ module Tables = struct
         let _v : (string) = let _loc__3_ = (_startpos__3_, _endpos__3_) in
         let _loc__1_ = (_startpos__1_, _endpos__1_) in
         
-# 2825 "parsing/parser.mly"
+# 2821 "parsing/parser.mly"
                               ( unclosed "(" _loc__1_ ")" _loc__3_ )
-# 38288 "parsing/parser.ml"
+# 38282 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38314,9 +38308,9 @@ module Tables = struct
         let _endpos = _endpos__2_ in
         let _v : (string) = let _loc__2_ = (_startpos__2_, _endpos__2_) in
         
-# 2826 "parsing/parser.mly"
+# 2822 "parsing/parser.mly"
                               ( expecting _loc__2_ "operator" )
-# 38320 "parsing/parser.ml"
+# 38314 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38352,9 +38346,9 @@ module Tables = struct
         let _endpos = _endpos__3_ in
         let _v : (string) = let _loc__3_ = (_startpos__3_, _endpos__3_) in
         
-# 2827 "parsing/parser.mly"
+# 2823 "parsing/parser.mly"
                               ( expecting _loc__3_ "module-expr" )
-# 38358 "parsing/parser.ml"
+# 38352 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38377,9 +38371,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Longident.t) = 
-# 2870 "parsing/parser.mly"
+# 2866 "parsing/parser.mly"
                                                 ( Lident _1 )
-# 38383 "parsing/parser.ml"
+# 38377 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38414,9 +38408,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Longident.t) = 
-# 2871 "parsing/parser.mly"
+# 2867 "parsing/parser.mly"
                                                 ( Ldot(_1, _3) )
-# 38420 "parsing/parser.ml"
+# 38414 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38484,16 +38478,16 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 38490 "parsing/parser.ml"
+# 38484 "parsing/parser.ml"
           
         in
         
-# 1406 "parsing/parser.mly"
+# 1408 "parsing/parser.mly"
       ( if _1 = Override then syntax_error ();
         (_5, Mutable, Cfk_virtual _7), _2 )
-# 38497 "parsing/parser.ml"
+# 38491 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38561,16 +38555,16 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 38567 "parsing/parser.ml"
+# 38561 "parsing/parser.ml"
           
         in
         
-# 1409 "parsing/parser.mly"
+# 1411 "parsing/parser.mly"
       ( if _1 = Override then syntax_error ();
         (_5, _4, Cfk_virtual _7), _2 )
-# 38574 "parsing/parser.ml"
+# 38568 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38632,15 +38626,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 38638 "parsing/parser.ml"
+# 38632 "parsing/parser.ml"
           
         in
         
-# 1412 "parsing/parser.mly"
+# 1414 "parsing/parser.mly"
       ( (_4, _3, Cfk_concrete (_1, _6)), _2 )
-# 38644 "parsing/parser.ml"
+# 38638 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38708,9 +38702,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 38714 "parsing/parser.ml"
+# 38708 "parsing/parser.ml"
           
         in
         let _startpos__4_ = _startpos__10_ in
@@ -38727,11 +38721,11 @@ module Tables = struct
               _startpos__4_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 1415 "parsing/parser.mly"
+# 1417 "parsing/parser.mly"
       ( let e = mkexp_constraint ~loc:_sloc _7 _5 in
         (_4, _3, Cfk_concrete (_1, e)), _2
       )
-# 38735 "parsing/parser.ml"
+# 38729 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38791,20 +38785,20 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 38797 "parsing/parser.ml"
+# 38791 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__6_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2292 "parsing/parser.mly"
+# 2288 "parsing/parser.mly"
       ( let (ext, attrs) = _2 in
         let docs = symbol_docs _sloc in
         Val.mk _3 _5 ~attrs:(attrs@_6) ~loc:(make_loc _sloc) ~docs, ext )
-# 38808 "parsing/parser.ml"
+# 38802 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38859,15 +38853,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 38865 "parsing/parser.ml"
+# 38859 "parsing/parser.ml"
           
         in
         
-# 1526 "parsing/parser.mly"
+# 1528 "parsing/parser.mly"
       ( _3, _2, Virtual, _5 )
-# 38871 "parsing/parser.ml"
+# 38865 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38922,15 +38916,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 38928 "parsing/parser.ml"
+# 38922 "parsing/parser.ml"
           
         in
         
-# 1528 "parsing/parser.mly"
+# 1530 "parsing/parser.mly"
       ( _3, Mutable, _2, _5 )
-# 38934 "parsing/parser.ml"
+# 38928 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38973,15 +38967,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 38979 "parsing/parser.ml"
+# 38973 "parsing/parser.ml"
           
         in
         
-# 1530 "parsing/parser.mly"
+# 1532 "parsing/parser.mly"
       ( _1, Immutable, Concrete, _3 )
-# 38985 "parsing/parser.ml"
+# 38979 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -38997,9 +38991,9 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Asttypes.virtual_flag) = 
-# 2966 "parsing/parser.mly"
+# 2962 "parsing/parser.mly"
                                                 ( Concrete )
-# 39003 "parsing/parser.ml"
+# 38997 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39022,9 +39016,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.virtual_flag) = 
-# 2967 "parsing/parser.mly"
+# 2963 "parsing/parser.mly"
                                                 ( Virtual )
-# 39028 "parsing/parser.ml"
+# 39022 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39084,16 +39078,16 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 39090 "parsing/parser.ml"
+# 39084 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__6_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2552 "parsing/parser.mly"
+# 2548 "parsing/parser.mly"
       ( let lident = Location.{ _3 with txt = Longident.last _3.txt } in
         Pwith_type
           (_3,
@@ -39103,7 +39097,7 @@ module Tables = struct
               ~manifest:_5
               ~priv:_4
               ~loc:(make_loc _sloc))) )
-# 39107 "parsing/parser.ml"
+# 39101 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39157,16 +39151,16 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 39163 "parsing/parser.ml"
+# 39157 "parsing/parser.ml"
           
         in
         let _endpos = _endpos__5_ in
         let _symbolstartpos = _startpos__1_ in
         let _sloc = (_symbolstartpos, _endpos) in
         
-# 2565 "parsing/parser.mly"
+# 2561 "parsing/parser.mly"
       ( let lident = Location.{ _3 with txt = Longident.last _3.txt } in
         Pwith_typesubst
          (_3,
@@ -39174,7 +39168,7 @@ module Tables = struct
               ~params:_2
               ~manifest:_5
               ~loc:(make_loc _sloc))) )
-# 39178 "parsing/parser.ml"
+# 39172 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39222,9 +39216,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 39228 "parsing/parser.ml"
+# 39222 "parsing/parser.ml"
           
         in
         let _2 =
@@ -39235,15 +39229,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 39241 "parsing/parser.ml"
+# 39235 "parsing/parser.ml"
           
         in
         
-# 2573 "parsing/parser.mly"
+# 2569 "parsing/parser.mly"
       ( Pwith_module (_2, _4) )
-# 39247 "parsing/parser.ml"
+# 39241 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39291,9 +39285,9 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 39297 "parsing/parser.ml"
+# 39291 "parsing/parser.ml"
           
         in
         let _2 =
@@ -39304,15 +39298,15 @@ module Tables = struct
           let _symbolstartpos = _startpos__1_ in
           let _sloc = (_symbolstartpos, _endpos) in
           
-# 728 "parsing/parser.mly"
+# 730 "parsing/parser.mly"
     ( mkrhs _1 _sloc )
-# 39310 "parsing/parser.ml"
+# 39304 "parsing/parser.ml"
           
         in
         
-# 2575 "parsing/parser.mly"
+# 2571 "parsing/parser.mly"
       ( Pwith_modsubst (_2, _4) )
-# 39316 "parsing/parser.ml"
+# 39310 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39335,9 +39329,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Parsetree.with_constraint list) = 
-# 2546 "parsing/parser.mly"
+# 2542 "parsing/parser.mly"
                                                 ( [_1] )
-# 39341 "parsing/parser.ml"
+# 39335 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39372,9 +39366,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__3_ in
         let _v : (Parsetree.with_constraint list) = 
-# 2547 "parsing/parser.mly"
+# 2543 "parsing/parser.mly"
                                                 ( _3 :: _1 )
-# 39378 "parsing/parser.ml"
+# 39372 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39397,9 +39391,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_ in
         let _v : (Asttypes.private_flag) = 
-# 2578 "parsing/parser.mly"
+# 2574 "parsing/parser.mly"
                    ( Public )
-# 39403 "parsing/parser.ml"
+# 39397 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39428,9 +39422,9 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__2_ in
         let _v : (Asttypes.private_flag) = 
-# 2579 "parsing/parser.mly"
+# 2575 "parsing/parser.mly"
                    ( Private )
-# 39434 "parsing/parser.ml"
+# 39428 "parsing/parser.ml"
          in
         {
           MenhirLib.EngineTypes.state = _menhir_s;
@@ -39459,57 +39453,57 @@ end
 let use_file =
   fun lexer lexbuf ->
     (Obj.magic (MenhirInterpreter.entry 1654 lexer lexbuf) : (
-# 710 "parsing/parser.mly"
+# 712 "parsing/parser.mly"
       (Parsetree.toplevel_phrase list)
-# 39465 "parsing/parser.ml"
+# 39459 "parsing/parser.ml"
     ))
 
 and toplevel_phrase =
   fun lexer lexbuf ->
     (Obj.magic (MenhirInterpreter.entry 1629 lexer lexbuf) : (
-# 708 "parsing/parser.mly"
+# 710 "parsing/parser.mly"
       (Parsetree.toplevel_phrase)
-# 39473 "parsing/parser.ml"
+# 39467 "parsing/parser.ml"
     ))
 
 and parse_pattern =
   fun lexer lexbuf ->
     (Obj.magic (MenhirInterpreter.entry 1625 lexer lexbuf) : (
-# 716 "parsing/parser.mly"
+# 718 "parsing/parser.mly"
       (Parsetree.pattern)
-# 39481 "parsing/parser.ml"
+# 39475 "parsing/parser.ml"
     ))
 
 and parse_expression =
   fun lexer lexbuf ->
     (Obj.magic (MenhirInterpreter.entry 1621 lexer lexbuf) : (
-# 714 "parsing/parser.mly"
+# 716 "parsing/parser.mly"
       (Parsetree.expression)
-# 39489 "parsing/parser.ml"
+# 39483 "parsing/parser.ml"
     ))
 
 and parse_core_type =
   fun lexer lexbuf ->
     (Obj.magic (MenhirInterpreter.entry 1617 lexer lexbuf) : (
-# 712 "parsing/parser.mly"
+# 714 "parsing/parser.mly"
       (Parsetree.core_type)
-# 39497 "parsing/parser.ml"
+# 39491 "parsing/parser.ml"
     ))
 
 and interface =
   fun lexer lexbuf ->
     (Obj.magic (MenhirInterpreter.entry 1613 lexer lexbuf) : (
-# 706 "parsing/parser.mly"
+# 708 "parsing/parser.mly"
       (Parsetree.signature)
-# 39505 "parsing/parser.ml"
+# 39499 "parsing/parser.ml"
     ))
 
 and implementation =
   fun lexer lexbuf ->
     (Obj.magic (MenhirInterpreter.entry 0 lexer lexbuf) : (
-# 704 "parsing/parser.mly"
+# 706 "parsing/parser.mly"
       (Parsetree.structure)
-# 39513 "parsing/parser.ml"
+# 39507 "parsing/parser.ml"
     ))
 
 module Incremental = struct
@@ -39517,67 +39511,67 @@ module Incremental = struct
   let use_file =
     fun initial_position ->
       (Obj.magic (MenhirInterpreter.start 1654 initial_position) : (
-# 710 "parsing/parser.mly"
+# 712 "parsing/parser.mly"
       (Parsetree.toplevel_phrase list)
-# 39523 "parsing/parser.ml"
+# 39517 "parsing/parser.ml"
       ) MenhirInterpreter.checkpoint)
   
   and toplevel_phrase =
     fun initial_position ->
       (Obj.magic (MenhirInterpreter.start 1629 initial_position) : (
-# 708 "parsing/parser.mly"
+# 710 "parsing/parser.mly"
       (Parsetree.toplevel_phrase)
-# 39531 "parsing/parser.ml"
+# 39525 "parsing/parser.ml"
       ) MenhirInterpreter.checkpoint)
   
   and parse_pattern =
     fun initial_position ->
       (Obj.magic (MenhirInterpreter.start 1625 initial_position) : (
-# 716 "parsing/parser.mly"
+# 718 "parsing/parser.mly"
       (Parsetree.pattern)
-# 39539 "parsing/parser.ml"
+# 39533 "parsing/parser.ml"
       ) MenhirInterpreter.checkpoint)
   
   and parse_expression =
     fun initial_position ->
       (Obj.magic (MenhirInterpreter.start 1621 initial_position) : (
-# 714 "parsing/parser.mly"
+# 716 "parsing/parser.mly"
       (Parsetree.expression)
-# 39547 "parsing/parser.ml"
+# 39541 "parsing/parser.ml"
       ) MenhirInterpreter.checkpoint)
   
   and parse_core_type =
     fun initial_position ->
       (Obj.magic (MenhirInterpreter.start 1617 initial_position) : (
-# 712 "parsing/parser.mly"
+# 714 "parsing/parser.mly"
       (Parsetree.core_type)
-# 39555 "parsing/parser.ml"
+# 39549 "parsing/parser.ml"
       ) MenhirInterpreter.checkpoint)
   
   and interface =
     fun initial_position ->
       (Obj.magic (MenhirInterpreter.start 1613 initial_position) : (
-# 706 "parsing/parser.mly"
+# 708 "parsing/parser.mly"
       (Parsetree.signature)
-# 39563 "parsing/parser.ml"
+# 39557 "parsing/parser.ml"
       ) MenhirInterpreter.checkpoint)
   
   and implementation =
     fun initial_position ->
       (Obj.magic (MenhirInterpreter.start 0 initial_position) : (
-# 704 "parsing/parser.mly"
+# 706 "parsing/parser.mly"
       (Parsetree.structure)
-# 39571 "parsing/parser.ml"
+# 39565 "parsing/parser.ml"
       ) MenhirInterpreter.checkpoint)
   
 end
 
-# 3099 "parsing/parser.mly"
+# 3095 "parsing/parser.mly"
   
 
-# 39579 "parsing/parser.ml"
+# 39573 "parsing/parser.ml"
 
 # 233 "menhir/standard.mly"
   
 
-# 39584 "parsing/parser.ml"
+# 39578 "parsing/parser.ml"

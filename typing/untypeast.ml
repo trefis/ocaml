@@ -362,6 +362,7 @@ let value_binding sub vb =
   let attrs = sub.attributes sub vb.vb_attributes in
   Vb.mk ~loc ~attrs
     (sub.pat sub vb.vb_pat)
+    None
     (sub.expr sub vb.vb_expr)
 
 let expression sub exp =
