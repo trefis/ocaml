@@ -4432,7 +4432,7 @@ and type_let
          )
     )
     pat_list
-    (List.map2 (fun (attrs, _) e -> attrs, e) spatl exp_list);
+    (List.combine attrs_list exp_list);
   end_def();
   List.iter2
     (fun pat exp ->
