@@ -74,6 +74,7 @@ type primitive =
   | Pintcomp of integer_comparison
   | Poffsetint of int
   | Poffsetref of int
+  | Pclzint
   (* Float operations *)
   | Pintoffloat | Pfloatofint
   | Pnegfloat | Pabsfloat

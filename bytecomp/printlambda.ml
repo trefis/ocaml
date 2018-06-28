@@ -214,6 +214,7 @@ let primitive ppf = function
   | Pintcomp(cmp) -> integer_comparison ppf cmp
   | Poffsetint n -> fprintf ppf "%i+" n
   | Poffsetref n -> fprintf ppf "+:=%i"n
+  | Pclzint -> fprintf ppf "clz"
   | Pintoffloat -> fprintf ppf "int_of_float"
   | Pfloatofint -> fprintf ppf "float_of_int"
   | Pnegfloat -> fprintf ppf "~."
@@ -373,6 +374,7 @@ let name_of_primitive = function
   | Pintcomp _ -> "Pintcomp"
   | Poffsetint _ -> "Poffsetint"
   | Poffsetref _ -> "Poffsetref"
+  | Pclzint -> "Pclzint"
   | Pintoffloat -> "Pintoffloat"
   | Pfloatofint -> "Pfloatofint"
   | Pnegfloat -> "Pnegfloat"
