@@ -734,6 +734,9 @@ let emit_instr fallthrough i =
   | Lop(Iintop(Ilsl | Ilsr | Iasr as op)) ->
       (* We have i.arg.(0) = i.res.(0) and i.arg.(1) = %rcx *)
       instr_for_intop op cl (res i 0)
+  | Lop (Iintop Iclz) ->
+      I.bsr (arg i 0) (res i 0);
+      I.xor (int 63) (res i 0)
   | Lop(Iintop Imulh) ->
       I.imul (arg i 1) None
   | Lop(Iintop op) ->

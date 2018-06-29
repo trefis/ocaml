@@ -89,6 +89,7 @@ let intop = function
   | Ilsl -> " << "
   | Ilsr -> " >>u "
   | Iasr -> " >>s "
+  | Iclz -> " clz "
   | Icomp cmp -> intcomp cmp
   | Icheckbound { label_after_error; spacetime_index; } ->
     if not Config.spacetime then " check > "

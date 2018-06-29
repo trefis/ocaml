@@ -159,6 +159,7 @@ let primitives_table =
     "%geint", Primitive ((Pintcomp Cge), 2);
     "%incr", Primitive ((Poffsetref(1)), 1);
     "%decr", Primitive ((Poffsetref(-1)), 1);
+    "%clz", Primitive (Pclzint, 1);
     "%intoffloat", Primitive (Pintoffloat, 1);
     "%floatofint", Primitive (Pfloatofint, 1);
     "%negfloat", Primitive (Pnegfloat, 1);

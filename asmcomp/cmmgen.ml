@@ -2115,6 +2115,8 @@ and transl_prim_1 env p arg dbg =
                add_const (Cop(Cload (Word_int, Mutable), [arg], dbg))
                  (n lsl 1) dbg],
               dbg)))
+  | Pclzint ->
+      tag_int(Cop(Cclz, [transl env arg], dbg)) dbg
   (* Floating-point operations *)
   | Pfloatofint ->
       box_float dbg (Cop(Cfloatofint, [untag_int(transl env arg) dbg], dbg))
