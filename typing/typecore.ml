@@ -1145,31 +1145,17 @@ and type_pat_aux ~exception_allowed ~constrs ~labels ~no_existentials ~mode
         pat_attributes = [];
         pat_env = !env }
   | Ppat_constraint(
-      {ppat_desc=Ppat_var name; ppat_loc=lloc; ppat_attributes = attrs},
-      ({ptyp_desc=Ptyp_poly _} as sty)) ->
-      (* explicitly polymorphic type *)
-      assert (constrs = None);
-      let cty, force = Typetexp.transl_simple_type_delayed !env sty in
-      let ty = cty.ctyp_type in
-      unify_pat_types lloc !env ty (instance expected_ty);
-      pattern_force := force :: !pattern_force;
-      begin match ty.desc with
-      | Tpoly (body, tyl) ->
-          begin_def ();
-          let _, ty' = instance_poly ~keep_names:true false tyl body in
-          end_def ();
-          generalize ty';
-          let id = enter_variable lloc name ty' attrs in
-          rp k {
-            pat_desc = Tpat_var (id, name);
-            pat_loc = lloc;
-            pat_extra = [Tpat_constraint cty, loc, sp.ppat_attributes];
-            pat_type = ty;
-            pat_attributes = [];
-            pat_env = !env
-          }
-      | _ -> assert false
-      end
+      {ppat_desc = Ppat_var _ ; _},
+      {ptyp_desc = Ptyp_poly _; _}
+    ) ->
+      (* explicitly polymorphic type: used to happen when desugaring
+         {[
+           let f : 'a. 'a -> 'a = <expr>
+         ]}
+         Nowadays there is a [pvb_type] field in value bindings, and this
+         construction cannot happen anymore.
+      *)
+      assert false
   | Ppat_alias(sq, name) ->
       assert (constrs = None);
       type_pat sq expected_ty (fun q ->
@@ -4244,22 +4230,34 @@ and type_let
   in
   let check = if is_fake_let then check_strict else check in
 
+  let expected_tys =
+    List.map (fun {pvb_type; _} ->
+      match pvb_type with
+      | None -> newvar () (* FIXME: newgenvar? *)
+      | Some sty ->
+          begin_def ();
+          (* FIXME: Why delayed? *)
+          let cty = Typetexp.transl_simple_type env false sty in
+          let ty = cty.ctyp_type in
+          end_def ();
+          begin match ty.desc with
+          | Tpoly (body, tyl) ->
+              begin_def ();
+              let _, ty' = instance_poly ~keep_names:true false tyl body in
+              end_def ();
+              generalize ty';
+              ty'
+          | _ ->
+              generalize_structure ty;
+              ty
+          end
+    ) spat_sexp_list
+  in
   let spatl =
-    List.map
-      (fun {pvb_pat=spat; pvb_type=typ; pvb_attributes=attrs} ->
-        attrs,
-        match spat.ppat_desc, typ with
-          (Ppat_any | Ppat_constraint _), _ -> spat
-        | _, Some sty ->
-            Pat.constraint_
-              ~loc:{spat.ppat_loc with Location.loc_ghost=true}
-              spat
-              sty
-        | _ -> spat)
+    List.map (fun {pvb_pat=spat; pvb_attributes=attrs} -> attrs, spat)
       spat_sexp_list in
-  let nvs = List.map (fun _ -> newvar ()) spatl in
   let (pat_list, new_env, force, pvs, unpacks) =
-    type_pattern_list existential_context env spatl scope nvs allow in
+    type_pattern_list existential_context env spatl scope expected_tys allow in
   let attrs_list = List.map fst spatl in
   let is_recursive = (rec_flag = Recursive) in
   (* If recursive, first unify with an approximation of the expression *)

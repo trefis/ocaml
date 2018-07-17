@@ -1985,7 +1985,7 @@ let_binding_body:
         in
         let loc = Location.(t.ptyp_loc.loc_start, t.ptyp_loc.loc_end) in
         let typ = ghtyp ~loc (Ptyp_poly([],t)) in
-        (v, Some typ, mkexp_constraint ~loc:$sloc $4 $2) }
+        (v, Some typ, $4) }
   | let_ident COLON typevar_list DOT core_type EQUAL seq_expr
       (* TODO: could replace [typevar_list DOT core_type]
                with [mktyp(poly(core_type))]
