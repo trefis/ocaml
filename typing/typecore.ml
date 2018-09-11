@@ -4216,7 +4216,6 @@ and type_let
     ?(check_strict = fun s -> Warnings.Unused_var_strict s)
     existential_context
     env rec_flag spat_sexp_list scope allow =
-  let open Ast_helper in
   begin_def();
   if !Clflags.principal then begin_def ();
 
