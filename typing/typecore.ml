@@ -4211,24 +4211,36 @@ and type_cases ?exception_allowed ?in_function env ty_arg ty_res partial_flag
 
 (* Typing of let bindings *)
 
-and type_let
-    ?(check = fun s -> Warnings.Unused_var s)
-    ?(check_strict = fun s -> Warnings.Unused_var_strict s)
-    existential_context
-    env rec_flag spat_sexp_list scope allow =
+and type_let_rec ~check existential_context env rec_flag spat_sexp_list scope
+      allow =
   begin_def();
   if !Clflags.principal then begin_def ();
 
-  let is_fake_let =
-    match spat_sexp_list with
-    | [{pvb_expr={pexp_desc=Pexp_match(
-           {pexp_desc=Pexp_ident({ txt = Longident.Lident "*opt*"})},_)}}] ->
-        true (* the fake let-declaration introduced by fun ?(x = e) -> ... *)
-    | _ ->
-        false
+  (* For recursive let, we can afford to type the patterns first (because they
+     are only allowed to be variables).
+     And we must in fact, if we want to add those variables in the environment.
+  *)
+  let vbs, expected_tys =
+    List.split (
+      List.map (fun {pvb_type; _} ->
+        match pvb_type with
+        | None -> None, newvar ()
+        | Some sty ->
+          let cty = Typetexp.transl_simple_type env false sty in
+          Some cty, cty.ctyp_type
+      ) spat_sexp_list
+    )
   in
-  let check = if is_fake_let then check_strict else check in
+  (* Check that indeed only variables were on the lhs. *)
+  List.iter
+    (fun {vb_pat=pat} -> match pat.pat_desc with
+         Tpat_var _ -> ()
+       | Tpat_alias ({pat_desc=Tpat_any}, _, _) -> ()
+       | _ -> raise(Error(pat.pat_loc, env, Illegal_letrec_pat)))
+    l;
+  (l, new_env, unpacks)
 
+  (*
   let expected_tys =
     List.map (fun {pvb_type; _} ->
       match pvb_type with
@@ -4252,11 +4264,43 @@ and type_let
           end
     ) spat_sexp_list
   in
+  *)
+
+and type_let
+    ?(check = fun s -> Warnings.Unused_var s)
+    ?(check_strict = fun s -> Warnings.Unused_var_strict s)
+    existential_context
+    env rec_flag spat_sexp_list scope allow =
+  let open Ast_helper in
+  begin_def();
+  if !Clflags.principal then begin_def ();
+
+  let is_fake_let =
+    match spat_sexp_list with
+    | [{pvb_expr={pexp_desc=Pexp_match(
+           {pexp_desc=Pexp_ident({ txt = Longident.Lident "*opt*"})},_)}}] ->
+        true (* the fake let-declaration introduced by fun ?(x = e) -> ... *)
+    | _ ->
+        false
+  in
+  let check = if is_fake_let then check_strict else check in
+
   let spatl =
-    List.map (fun {pvb_pat=spat; pvb_attributes=attrs} -> attrs, spat)
+    List.map
+      (fun {pvb_pat=spat; pvb_type=typ; pvb_attributes=attrs} ->
+         attrs,
+         match spat.ppat_desc, typ with
+           (Ppat_any | Ppat_constraint _), _ -> spat
+         | _, Some sty ->
+             Pat.constraint_
+               ~loc:{spat.ppat_loc with Location.loc_ghost = true}
+               spat
+               sty
+         | _ -> spat)
       spat_sexp_list in
+  let nvs = List.map (fun _ -> newvar ()) spatl in
   let (pat_list, new_env, force, pvs, unpacks) =
-    type_pattern_list existential_context env spatl scope expected_tys allow in
+    type_pattern_list existential_context env spatl scope nvs allow in
   let attrs_list = List.map fst spatl in
   let is_recursive = (rec_flag = Recursive) in
   (* If recursive, first unify with an approximation of the expression *)
