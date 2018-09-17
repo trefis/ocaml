@@ -4211,13 +4211,12 @@ and type_cases ?exception_allowed ?in_function env ty_arg ty_res partial_flag
 
 (* Typing of let bindings *)
 
-and type_let_rec ~check existential_context env rec_flag spat_sexp_list scope
-      allow =
+and type_let_rec ~check ~check_strict existential_context env rec_flag
+      spat_sexp_list scope allow =
   begin_def();
   if !Clflags.principal then begin_def ();
-
-  (* For recursive let, we can afford to type the patterns first (because they
-     are only allowed to be variables).
+  (* For recursive bindings, we can afford to type the patterns first (because
+     they are only allowed to be variables).
      And we must in fact, if we want to add those variables in the environment.
   *)
   let vbs, expected_tys =
@@ -4231,14 +4230,52 @@ and type_let_rec ~check existential_context env rec_flag spat_sexp_list scope
       ) spat_sexp_list
     )
   in
+  let (pat_list, new_env, force, pvs, unpacks) =
+    type_pattern_list existential_context env spatl scope nvs allow
+  in
   (* Check that indeed only variables were on the lhs. *)
-  List.iter
-    (fun {vb_pat=pat} -> match pat.pat_desc with
-         Tpat_var _ -> ()
-       | Tpat_alias ({pat_desc=Tpat_any}, _, _) -> ()
-       | _ -> raise(Error(pat.pat_loc, env, Illegal_letrec_pat)))
-    l;
-  (l, new_env, unpacks)
+  List.iter (fun pat ->
+    match pat.pat_desc with
+    | Tpat_var _
+    | Tpat_alias ({pat_desc=Tpat_any}, _, _) -> ()
+    | _ -> raise(Error(pat.pat_loc, env, Illegal_letrec_pat))
+  ) pat_list;
+  (* Unify with an approximation of the expression *)
+  List.iter2 (fun pat binding ->
+    let pat =
+      match pat.pat_type.desc with
+      | Tpoly (ty, tl) ->
+          {pat with pat_type = snd (instance_poly ~keep_names:true false tl ty)}
+      | _ -> pat
+    in
+    unify_pat env pat (type_approx env binding.pvb_expr)
+  ) pat_list spat_sexp_list;
+  (* Generalize the structure *)
+  let pat_list =
+    if !Clflags.principal then begin
+      end_def ();
+      List.map (fun pat ->
+        iter_pattern (fun pat -> generalize_structure pat.pat_type) pat;
+        {pat with pat_type = instance pat.pat_type}
+      ) pat_list
+    end else
+      pat_list
+  in
+  (* Only bind pattern variables after generalizing *)
+  List.iter (fun f -> f()) force;
+  let exp_env = new_env in
+  let current_slot = ref None in
+  let rec_needed = ref false in
+  let warn_about_unused_bindings =
+    List.exists (fun attrs ->
+      Builtin_attributes.warning_scope ~ppwarning:false attrs (fun () ->
+        Warnings.is_active (check "")
+        || Warnings.is_active (check_strict "")
+        || Warnings.is_active Warnings.Unused_rec_flag
+      )
+    ) attrs_list
+  in
+  assert false
 
   (*
   let expected_tys =
