@@ -272,7 +272,6 @@ let iter_expression f e =
   in
   expr e
 
-
 (* Typing of constants *)
 
 let type_constant = function
@@ -1691,6 +1690,77 @@ let rec final_subexpression sexp =
   | Pexp_match (_, {pc_rhs=e} :: _)
     -> final_subexpression e
   | _ -> sexp
+
+
+(* Algorithm to detect unused declarations in recursive bindings:
+   - During type checking of the definitions, we capture the 'value_used'
+     events on the bound identifiers and record them in a slot corresponding
+     to the current definition (!current_slot).
+     In effect, this creates a dependency graph between definitions.
+
+   - After type checking the definition (!current_slot = None),
+     when one of the bound identifier is effectively used, we trigger
+     again all the events recorded in the corresponding slot.
+     The effect is to traverse the transitive closure of the graph created
+     in the first step.
+
+   We also keep track of whether *all* variables in a given pattern
+   are unused. If this is the case, for local declarations, the issued
+   warning is 26, not 27.
+*)
+let check_bindings ~is_recursive ~current_slot ~check_strict
+      ~check ~env attrs_list pat_list =
+  let rec_needed = ref false in
+  let warn_about_unused_bindings =
+    List.exists (fun attrs ->
+      Builtin_attributes.warning_scope ~ppwarning:false attrs (fun () ->
+        Warnings.is_active (check "")
+        || Warnings.is_active (check_strict "")
+        || (is_recursive && (Warnings.is_active Warnings.Unused_rec_flag))
+      )
+    ) attrs_list
+  in
+  let pat_slot_list =
+    List.map2 (fun attrs pat ->
+      Builtin_attributes.warning_scope ~ppwarning:false attrs (fun () ->
+        let slot =
+          if not warn_about_unused_bindings then
+            None
+          else
+            let some_used = ref false in
+            (* has one of the identifier of this pattern been used? *)
+            let slot = ref [] in
+            List.iter (fun id ->
+              let vd = Env.find_value (Path.Pident id) env in
+              (* note: Env.find_value does not trigger the value_used event *)
+              let name = Ident.name id in
+              let used = ref false in
+              if not (name = "" || name.[0] = '_' || name.[0] = '#') then
+                add_delayed_check (fun () ->
+                  if not !used then
+                    Location.prerr_warning vd.Types.val_loc
+                      ((if !some_used then check_strict else check) name)
+                );
+              Env.set_value_used_callback name vd (fun () ->
+                match !current_slot with
+                | Some slot ->
+                    slot := (name, vd) :: !slot;
+                    rec_needed := true
+                | None ->
+                    List.iter
+                      (fun (name, vd) -> Env.mark_value_used name vd)
+                      (get_ref slot);
+                    used := true;
+                    some_used := true
+              )
+            ) (Typedtree.pat_bound_idents pat);
+            Some slot
+        in
+        pat, slot
+      )
+    ) attrs_list pat_list
+  in
+  !rec_needed, pat_slot_list
 
 (* Generalization criterion for expressions *)
 
@@ -4230,8 +4300,13 @@ and type_let_rec ~check ~check_strict existential_context env rec_flag
       ) spat_sexp_list
     )
   in
+  let spatl =
+    List.map (fun {pvb_pat=spat; pvb_attributes=attrs} -> attrs, spat)
+      spat_sexp_list
+  in
+  let attrs_list = List.map fst spatl in
   let (pat_list, new_env, force, pvs, unpacks) =
-    type_pattern_list existential_context env spatl scope nvs allow
+    type_pattern_list existential_context env spatl scope expected_tys allow
   in
   (* Check that indeed only variables were on the lhs. *)
   List.iter (fun pat ->
@@ -4264,17 +4339,47 @@ and type_let_rec ~check ~check_strict existential_context env rec_flag
   (* Only bind pattern variables after generalizing *)
   List.iter (fun f -> f()) force;
   let exp_env = new_env in
+  (* *)
   let current_slot = ref None in
-  let rec_needed = ref false in
-  let warn_about_unused_bindings =
-    List.exists (fun attrs ->
-      Builtin_attributes.warning_scope ~ppwarning:false attrs (fun () ->
-        Warnings.is_active (check "")
-        || Warnings.is_active (check_strict "")
-        || Warnings.is_active Warnings.Unused_rec_flag
-      )
-    ) attrs_list
+  let rec_needed, pat_slot_list =
+    check_bindings ~is_recursive:true ~check_strict ~check ~current_slot
+      ~env:exp_env attrs_list pat_list
   in
+  let exp_list =
+    List.map2 (fun {pvb_expr=sexp; pvb_attributes; _} (pat, slot) ->
+      let sexp = wrap_unpacks sexp unpacks in
+      current_slot := slot;
+      match pat.pat_type.desc with
+      | Tpoly (ty, tl) ->
+          begin_def ();
+          if !Clflags.principal then begin_def ();
+          let vars, ty' = instance_poly ~keep_names:true true tl ty in
+          if !Clflags.principal then begin
+            end_def ();
+            generalize_structure ty'
+          end;
+          let exp =
+            Builtin_attributes.warning_scope pvb_attributes (fun () ->
+              type_expect exp_env sexp (mk_expected ty')
+            )
+          in
+          end_def ();
+          check_univars env true "definition" exp pat.pat_type vars;
+          {exp with exp_type = instance exp.exp_type}
+      | _ ->
+          Builtin_attributes.warning_scope pvb_attributes (fun () ->
+            type_expect exp_env sexp (mk_expected pat.pat_type)
+          )
+    ) spat_sexp_list pat_slot_list
+  in
+  current_slot := None;
+  if not rec_needed && Warnings.is_active Warnings.Unused_rec_flag then begin
+    let {pvb_pat; pvb_attributes} = List.hd spat_sexp_list in
+    (* See PR#6677 *)
+    Builtin_attributes.warning_scope ~ppwarning:false pvb_attributes (fun () ->
+      Location.prerr_warning pvb_pat.ppat_loc Warnings.Unused_rec_flag
+    )
+  end;
   assert false
 
   (*
