@@ -1588,7 +1588,19 @@ let type_pattern_list ?check ?check_as no_existentials env patl attrs_list scope
       )
   in
   let patl = Stdlib.List.map3 type_pat attrs_list patl expected_tys in
-  let pvs = get_ref pattern_variables in
+  let pvs =
+    List.map (fun pv ->
+      match pv.pv_type.desc with
+      | Tpoly (body, tyl) ->
+          begin_def ();
+          let _, ty' = instance_poly ~keep_names:true false tyl body in
+          end_def ();
+          generalize ty';
+          { pv with pv_type = ty' }
+      | _ ->
+          pv
+    ) (get_ref pattern_variables)
+  in
   let unpacks = get_ref module_variables in
   let new_env = add_pattern_variables ?check ?check_as !new_env pvs in
   (patl, new_env, get_ref pattern_force, unpacks)
@@ -4287,10 +4299,12 @@ and type_let_rec ~check ~check_strict existential_context env spat_sexp_list
   *)
   let attrs_list, patl, _vbs, expected_tys =
     Stdlib.List.unzip4 (
-      List.map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
+      List.rev_map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
         match pvb_type with
         | None -> attrs, spat, None, newvar ()
         | Some sty ->
+            (* No need to delay because patterns can only be variables. (in
+               particular: no polymorphic variant is involved) *)
             let cty = Typetexp.transl_simple_type env false sty in
             attrs, spat, Some cty, cty.ctyp_type
       ) spat_sexp_list
