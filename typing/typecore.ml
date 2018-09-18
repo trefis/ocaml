@@ -4477,7 +4477,9 @@ and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
               (fun () -> type_expect exp_env sexp (mk_expected ty'))
           in
           end_def ();
+          let snap = snapshot () in
           check_univars env true "definition" exp expected_ty vars;
+          backtrack snap;
           {exp with exp_type = instance exp.exp_type}
       | _ ->
           Builtin_attributes.warning_scope pvb_attributes
