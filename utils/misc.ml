@@ -153,6 +153,17 @@ module Stdlib = struct
           | t::q -> aux (n-1) (t::acc) q
       in
       aux n [] l
+
+    let unzip4 l =
+      List.fold_left (fun (al, bl, cl, dl) (a, b, c, d) ->
+        a :: al, b :: bl, c :: cl, d :: dl
+      ) ([], [], [], []) l
+
+    let rec map3 f l1 l2 l3 =
+      match l1, l2, l3 with
+      | [], [], [] -> []
+      | x :: xs, y :: ys, z :: zs -> f x y z :: map3 f xs ys zs
+      | _ -> raise (Invalid_argument "map3")
   end
 
   module Option = struct

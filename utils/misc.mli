@@ -117,6 +117,12 @@ module Stdlib : sig
     (** [split_at n l] returns the pair [before, after] where [before] is
         the [n] first elements of [l] and [after] the remaining ones.
         If [l] has less than [n] elements, raises Invalid_argument. *)
+
+    val unzip4 : ('a * 'b * 'c * 'd) list ->
+      'a list * 'b list * 'c list * 'd list
+
+    val map3 : ('a -> 'b -> 'c -> 'd) -> 'a list -> 'b list -> 'c list ->
+      'd list
   end
 
   module Option : sig

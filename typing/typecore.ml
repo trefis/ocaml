@@ -470,20 +470,19 @@ let reset_pattern scope allow =
   module_variables := [];
 ;;
 
-let maybe_add_pattern_variables_ghost loc_let env pv =
-  List.fold_right
-    (fun {pv_id; pv_type; _} env ->
-       let lid = Longident.Lident (Ident.name pv_id) in
-       match Env.lookup_value ~mark:false lid env with
-       | _ -> env
-       | exception Not_found ->
-         Env.add_value pv_id
-           { val_type = pv_type;
-             val_kind = Val_unbound Val_unbound_ghost_recursive;
-             val_loc = loc_let;
-             val_attributes = [];
-           } env
-    ) pv env
+let maybe_add_pattern_variable_ghost =
+  let fake_ty = newgenvar ~name:"ghost_let_rec_var_ty" () in
+  fun loc_let env name ->
+    let lid = Longident.Lident name in
+    match Env.lookup_value ~mark:false lid env with
+    | _ -> env
+    | exception Not_found ->
+      Env.add_value (Ident.create(*_local*) name)
+        { val_type = fake_ty;
+          val_kind = Val_unbound Val_unbound_ghost_recursive;
+          val_loc = loc_let;
+          val_attributes = [];
+        } env
 
 let enter_variable ?(is_module=false) ?(is_as_variable=false) loc name ty
     attrs =
@@ -1578,19 +1577,20 @@ let type_pattern ?exception_allowed ~lev env spat scope expected_ty =
   let unpacks = get_ref module_variables in
   (pat, !new_env, get_ref pattern_force, pvs, unpacks)
 
-let type_pattern_list no_existentials env spatl scope expected_tys allow =
+let type_pattern_list ?check ?check_as no_existentials env patl attrs_list scope
+      expected_tys allow =
   reset_pattern scope allow;
   let new_env = ref env in
-  let type_pat (attrs, pat) ty =
+  let type_pat attrs pat ty =
     Builtin_attributes.warning_scope ~ppwarning:false attrs
       (fun () ->
          type_pat ~no_existentials new_env pat ty
       )
   in
-  let patl = List.map2 type_pat spatl expected_tys in
+  let patl = Stdlib.List.map3 type_pat attrs_list patl expected_tys in
   let pvs = get_ref pattern_variables in
   let unpacks = get_ref module_variables in
-  let new_env = add_pattern_variables !new_env pvs in
+  let new_env = add_pattern_variables ?check ?check_as !new_env pvs in
   (patl, new_env, get_ref pattern_force, pvs, unpacks)
 
 let type_class_arg_pattern cl_num val_env met_env l spat =
@@ -1708,7 +1708,7 @@ let rec final_subexpression sexp =
    are unused. If this is the case, for local declarations, the issued
    warning is 26, not 27.
 *)
-let check_bindings ~is_recursive ~current_slot ~check_strict
+let check_bindings ~current_slot ~check_strict
       ~check ~env attrs_list pat_list =
   let rec_needed = ref false in
   let warn_about_unused_bindings =
@@ -1716,7 +1716,7 @@ let check_bindings ~is_recursive ~current_slot ~check_strict
       Builtin_attributes.warning_scope ~ppwarning:false attrs (fun () ->
         Warnings.is_active (check "")
         || Warnings.is_active (check_strict "")
-        || (is_recursive && (Warnings.is_active Warnings.Unused_rec_flag))
+        || Warnings.is_active Warnings.Unused_rec_flag
       )
     ) attrs_list
   in
@@ -4281,32 +4281,28 @@ and type_cases ?exception_allowed ?in_function env ty_arg ty_res partial_flag
 
 (* Typing of let bindings *)
 
-and type_let_rec ~check ~check_strict existential_context env rec_flag
-      spat_sexp_list scope allow =
+and type_let_rec ~check ~check_strict existential_context env spat_sexp_list
+      scope allow =
   begin_def();
   if !Clflags.principal then begin_def ();
   (* For recursive bindings, we can afford to type the patterns first (because
      they are only allowed to be variables).
      And we must in fact, if we want to add those variables in the environment.
   *)
-  let vbs, expected_tys =
-    List.split (
-      List.map (fun {pvb_type; _} ->
+  let attrs_list, patl, vbs, expected_tys =
+    Stdlib.List.unzip4 (
+      List.map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
         match pvb_type with
-        | None -> None, newvar ()
+        | None -> attrs, spat, None, newvar ()
         | Some sty ->
-          let cty = Typetexp.transl_simple_type env false sty in
-          Some cty, cty.ctyp_type
+            let cty = Typetexp.transl_simple_type env false sty in
+            attrs, spat, Some cty, cty.ctyp_type
       ) spat_sexp_list
     )
   in
-  let spatl =
-    List.map (fun {pvb_pat=spat; pvb_attributes=attrs} -> attrs, spat)
-      spat_sexp_list
-  in
-  let attrs_list = List.map fst spatl in
   let (pat_list, new_env, force, pvs, unpacks) =
-    type_pattern_list existential_context env spatl scope expected_tys allow
+    type_pattern_list existential_context env patl attrs_list scope expected_tys
+      allow
   in
   (* Check that indeed only variables were on the lhs. *)
   List.iter (fun pat ->
@@ -4342,7 +4338,7 @@ and type_let_rec ~check ~check_strict existential_context env rec_flag
   (* *)
   let current_slot = ref None in
   let rec_needed, pat_slot_list =
-    check_bindings ~is_recursive:true ~check_strict ~check ~current_slot
+    check_bindings ~check_strict ~check ~current_slot
       ~env:exp_env attrs_list pat_list
   in
   let exp_list =
@@ -4373,14 +4369,29 @@ and type_let_rec ~check ~check_strict existential_context env rec_flag
     ) spat_sexp_list pat_slot_list
   in
   current_slot := None;
-  if not rec_needed && Warnings.is_active Warnings.Unused_rec_flag then begin
+  if not rec_needed then begin
     let {pvb_pat; pvb_attributes} = List.hd spat_sexp_list in
     (* See PR#6677 *)
     Builtin_attributes.warning_scope ~ppwarning:false pvb_attributes (fun () ->
       Location.prerr_warning pvb_pat.ppat_loc Warnings.Unused_rec_flag
     )
   end;
-  assert false
+  end_def();
+  List.iter2 (fun pat exp ->
+    if not (is_nonexpansive exp) then
+      iter_pattern (fun pat -> generalize_expansive env pat.pat_type) pat
+  ) pat_list exp_list;
+  List.iter (iter_pattern (fun pat -> generalize pat.pat_type)) pat_list;
+  let l = List.combine pat_list exp_list in
+  let l =
+    List.map2
+      (fun (p, e) pvb ->
+        {vb_pat=p; vb_expr=e; vb_attributes=pvb.pvb_attributes;
+         vb_loc=pvb.pvb_loc;
+        })
+      l spat_sexp_list
+  in
+  (l, new_env, unpacks)
 
   (*
   let expected_tys =
@@ -4407,7 +4418,155 @@ and type_let_rec ~check ~check_strict existential_context env rec_flag
     ) spat_sexp_list
   in
   *)
+and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
+      scope allow =
+  let open Ast_helper in
+  begin_def();
+  if !Clflags.principal then begin_def ();
 
+  let is_fake_let =
+    match spat_sexp_list with
+    | [{pvb_expr={pexp_desc=Pexp_match(
+           {pexp_desc=Pexp_ident({ txt = Longident.Lident "*opt*"})},_)}}] ->
+        true (* the fake let-declaration introduced by fun ?(x = e) -> ... *)
+    | _ ->
+        false
+  in
+  let check = if is_fake_let then check_strict else check in
+  let attrs_list, patl, vbs, expected_tys =
+    Stdlib.List.unzip4 (
+      List.map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
+        match pvb_type with
+        | None -> attrs, spat, None, newvar ()
+        | Some sty ->
+            let cty = Typetexp.transl_simple_type env false sty in
+            attrs, spat, Some cty, cty.ctyp_type
+      ) spat_sexp_list
+    )
+  in
+  let exp_env =
+    let sexp_is_fun { pvb_expr = sexp; _ } =
+      match sexp.pexp_desc with
+      | Pexp_fun _ | Pexp_function _ -> true
+      | _ -> false
+    in
+    if List.for_all sexp_is_fun spat_sexp_list
+    then begin
+      (* Add ghost bindings to help detecting missing "rec" keywords.
+
+         We only add those if the body of the definition is obviously a
+         function. The rationale is that, in other cases, the hint is probably
+         wrong (and the user is using "advanced features" anyway (lazy,
+         recursive values...)).
+
+         [pvb_loc] (below) is the location of the first let-binding (in case of
+         a lets .. and ..), and is where the missing "rec" hint suggests to add a
+         "rec" keyword. *)
+      let {pvb_loc; _} = List.hd spat_sexp_list in
+      let rec loop pat env =
+        match pat.ppat_desc with
+        | Ppat_var name -> maybe_add_pattern_variable_ghost pvb_loc env name.txt
+        | Ppat_alias (p, name) ->
+            let env = maybe_add_pattern_variable_ghost pvb_loc env name.txt in
+            loop p env
+        | _ -> env
+      in
+      List.fold_right loop patl env
+    end
+    else env
+  in
+  let exp_list =
+    List.map2 (fun {pvb_expr=sexp; pvb_attributes; _} expected_ty->
+      match expected_ty.desc with
+      | Tpoly (ty, tl) ->
+          begin_def ();
+          if !Clflags.principal then begin_def ();
+          let vars, ty' = instance_poly ~keep_names:true true tl ty in
+          if !Clflags.principal then begin
+            end_def ();
+            generalize_structure ty'
+          end;
+          let exp =
+            Builtin_attributes.warning_scope pvb_attributes
+              (fun () -> type_expect exp_env sexp (mk_expected ty'))
+          in
+          end_def ();
+          check_univars env true "definition" exp expected_ty vars;
+          {exp with exp_type = instance exp.exp_type}
+      | _ ->
+          Builtin_attributes.warning_scope pvb_attributes
+            (fun () -> type_expect exp_env sexp (mk_expected expected_ty))
+    ) spat_sexp_list expected_tys
+  in
+  (* Now type the pattern, with the result type of the exp as expected ty *)
+  let expected_tys =
+    List.map (fun arg ->
+      if not (is_nonexpansive arg) then generalize_expansive env arg.exp_type;
+      generalize arg.exp_type;
+      arg.exp_type
+    ) exp_list
+  in
+  let (pat_list, new_env, force, pvs, unpacks) =
+    type_pattern_list ~check ~check_as:check
+      existential_context env patl attrs_list scope expected_tys allow
+  in
+  (* Polymorphic variant processing *)
+  List.iter (fun pat ->
+    if has_variants pat then begin
+      Parmatch.pressure_variants env [pat];
+      iter_pattern finalize_variant pat
+    end
+  ) pat_list;
+  (* Generalize the structure *)
+  let pat_list =
+    if !Clflags.principal then begin
+      end_def ();
+      List.map (fun pat ->
+        iter_pattern (fun pat -> generalize_structure pat.pat_type) pat;
+        {pat with pat_type = instance pat.pat_type}
+      ) pat_list
+    end else
+      pat_list
+  in
+  List.iter (fun f -> f()) force;
+  List.iter2
+    (fun pat (attrs, exp) ->
+       Builtin_attributes.warning_scope ~ppwarning:false attrs
+         (fun () ->
+            ignore(check_partial env pat.pat_type pat.pat_loc
+                     [case pat exp])
+         )
+    )
+    pat_list
+    (List.combine attrs_list exp_list);
+  end_def();
+  List.iter2 (fun pat exp ->
+    if not (is_nonexpansive exp) then
+      iter_pattern (fun pat -> generalize_expansive env pat.pat_type) pat
+  ) pat_list exp_list;
+  List.iter (iter_pattern (fun pat -> generalize pat.pat_type)) pat_list;
+  let l = List.combine pat_list exp_list in
+  let l =
+    List.map2 (fun (p, e) pvb ->
+      {vb_pat=p; vb_expr=e; vb_attributes=pvb.pvb_attributes;
+       vb_loc=pvb.pvb_loc;
+      }
+    ) l spat_sexp_list
+  in
+  (l, new_env, unpacks)
+
+and type_let
+    ?(check = fun s -> Warnings.Unused_var s)
+    ?(check_strict = fun s -> Warnings.Unused_var_strict s)
+    existential_context
+    env rec_flag spat_sexp_list scope allow =
+  if rec_flag = Recursive then
+    type_let_rec ~check ~check_strict existential_context env spat_sexp_list
+      scope allow
+  else
+    type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
+      scope allow
+(*
 and type_let
     ?(check = fun s -> Warnings.Unused_var s)
     ?(check_strict = fun s -> Warnings.Unused_var_strict s)
@@ -4441,9 +4600,9 @@ and type_let
          | _ -> spat)
       spat_sexp_list in
   let nvs = List.map (fun _ -> newvar ()) spatl in
+  let attrs_list, patl = List.split spatl in
   let (pat_list, new_env, force, pvs, unpacks) =
-    type_pattern_list existential_context env spatl scope nvs allow in
-  let attrs_list = List.map fst spatl in
+    type_pattern_list existential_context env patl attrs_list scope nvs allow in
   let is_recursive = (rec_flag = Recursive) in
   (* If recursive, first unify with an approximation of the expression *)
   if is_recursive then
@@ -4496,9 +4655,10 @@ and type_let
          [pvb_loc] (below) is the location of the first let-binding (in case of
          a let .. and ..), and is where the missing "rec" hint suggests to add a
          "rec" keyword. *)
-      match spat_sexp_list with
-      | {pvb_loc; _} :: _ -> maybe_add_pattern_variables_ghost pvb_loc env pvs
-      | _ -> assert false
+      let {pvb_loc; _} = List.hd spat_sexp_list in
+      List.fold_right (fun {pv_id; _} env ->
+        maybe_add_pattern_variable_ghost pvb_loc env (Ident.name pv_id)
+      ) pvs env
     end
     else env in
 
@@ -4642,6 +4802,7 @@ and type_let
          | _ -> raise(Error(pat.pat_loc, env, Illegal_letrec_pat)))
       l;
   (l, new_env, unpacks)
+*)
 
 (* Typing of toplevel bindings *)
 
