@@ -1591,7 +1591,7 @@ let type_pattern_list ?check ?check_as no_existentials env patl attrs_list scope
   let pvs = get_ref pattern_variables in
   let unpacks = get_ref module_variables in
   let new_env = add_pattern_variables ?check ?check_as !new_env pvs in
-  (patl, new_env, get_ref pattern_force, pvs, unpacks)
+  (patl, new_env, get_ref pattern_force, unpacks)
 
 let type_class_arg_pattern cl_num val_env met_env l spat =
   reset_pattern None false;
@@ -1708,9 +1708,8 @@ let rec final_subexpression sexp =
    are unused. If this is the case, for local declarations, the issued
    warning is 26, not 27.
 *)
-let check_bindings ~current_slot ~check_strict
-      ~check ~env attrs_list pat_list =
-  let rec_needed = ref false in
+let check_bindings ~current_slot ~rec_needed ~check_strict ~check ~env
+      attrs_list pat_list =
   let warn_about_unused_bindings =
     List.exists (fun attrs ->
       Builtin_attributes.warning_scope ~ppwarning:false attrs (fun () ->
@@ -1720,47 +1719,44 @@ let check_bindings ~current_slot ~check_strict
       )
     ) attrs_list
   in
-  let pat_slot_list =
-    List.map2 (fun attrs pat ->
-      Builtin_attributes.warning_scope ~ppwarning:false attrs (fun () ->
-        let slot =
-          if not warn_about_unused_bindings then
-            None
-          else
-            let some_used = ref false in
-            (* has one of the identifier of this pattern been used? *)
-            let slot = ref [] in
-            List.iter (fun id ->
-              let vd = Env.find_value (Path.Pident id) env in
-              (* note: Env.find_value does not trigger the value_used event *)
-              let name = Ident.name id in
-              let used = ref false in
-              if not (name = "" || name.[0] = '_' || name.[0] = '#') then
-                add_delayed_check (fun () ->
-                  if not !used then
-                    Location.prerr_warning vd.Types.val_loc
-                      ((if !some_used then check_strict else check) name)
-                );
-              Env.set_value_used_callback name vd (fun () ->
-                match !current_slot with
-                | Some slot ->
-                    slot := (name, vd) :: !slot;
-                    rec_needed := true
-                | None ->
-                    List.iter
-                      (fun (name, vd) -> Env.mark_value_used name vd)
-                      (get_ref slot);
-                    used := true;
-                    some_used := true
-              )
-            ) (Typedtree.pat_bound_idents pat);
-            Some slot
-        in
-        pat, slot
-      )
-    ) attrs_list pat_list
-  in
-  !rec_needed, pat_slot_list
+  List.map2 (fun attrs pat ->
+    Builtin_attributes.warning_scope ~ppwarning:false attrs (fun () ->
+      let slot =
+        if not warn_about_unused_bindings then
+          None
+        else
+          let some_used = ref false in
+          (* has one of the identifier of this pattern been used? *)
+          let slot = ref [] in
+          List.iter (fun id ->
+            let vd = Env.find_value (Path.Pident id) env in
+            (* note: Env.find_value does not trigger the value_used event *)
+            let name = Ident.name id in
+            let used = ref false in
+            if not (name = "" || name.[0] = '_' || name.[0] = '#') then
+              add_delayed_check (fun () ->
+                if not !used then
+                  Location.prerr_warning vd.Types.val_loc
+                    ((if !some_used then check_strict else check) name)
+              );
+            Env.set_value_used_callback name vd (fun () ->
+              match !current_slot with
+              | Some slot ->
+                  slot := (name, vd) :: !slot;
+                  rec_needed := true
+              | None ->
+                  List.iter
+                    (fun (name, vd) -> Env.mark_value_used name vd)
+                    (get_ref slot);
+                  used := true;
+                  some_used := true
+            )
+          ) (Typedtree.pat_bound_idents pat);
+          Some slot
+      in
+      pat, slot
+    )
+  ) attrs_list pat_list
 
 (* Generalization criterion for expressions *)
 
@@ -4289,7 +4285,7 @@ and type_let_rec ~check ~check_strict existential_context env spat_sexp_list
      they are only allowed to be variables).
      And we must in fact, if we want to add those variables in the environment.
   *)
-  let attrs_list, patl, vbs, expected_tys =
+  let attrs_list, patl, _vbs, expected_tys =
     Stdlib.List.unzip4 (
       List.map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
         match pvb_type with
@@ -4300,7 +4296,7 @@ and type_let_rec ~check ~check_strict existential_context env spat_sexp_list
       ) spat_sexp_list
     )
   in
-  let (pat_list, new_env, force, pvs, unpacks) =
+  let (pat_list, new_env, force, unpacks) =
     type_pattern_list existential_context env patl attrs_list scope expected_tys
       allow
   in
@@ -4337,8 +4333,9 @@ and type_let_rec ~check ~check_strict existential_context env spat_sexp_list
   let exp_env = new_env in
   (* *)
   let current_slot = ref None in
-  let rec_needed, pat_slot_list =
-    check_bindings ~check_strict ~check ~current_slot
+  let rec_needed = ref false in
+  let pat_slot_list =
+    check_bindings ~check_strict ~rec_needed ~check ~current_slot
       ~env:exp_env attrs_list pat_list
   in
   let exp_list =
@@ -4369,7 +4366,7 @@ and type_let_rec ~check ~check_strict existential_context env spat_sexp_list
     ) spat_sexp_list pat_slot_list
   in
   current_slot := None;
-  if not rec_needed then begin
+  if not !rec_needed then begin
     let {pvb_pat; pvb_attributes} = List.hd spat_sexp_list in
     (* See PR#6677 *)
     Builtin_attributes.warning_scope ~ppwarning:false pvb_attributes (fun () ->
@@ -4393,34 +4390,9 @@ and type_let_rec ~check ~check_strict existential_context env spat_sexp_list
   in
   (l, new_env, unpacks)
 
-  (*
-  let expected_tys =
-    List.map (fun {pvb_type; _} ->
-      match pvb_type with
-      | None -> newvar () (* FIXME: newgenvar? *)
-      | Some sty ->
-          begin_def ();
-          (* FIXME: Why delayed? *)
-          let cty = Typetexp.transl_simple_type env false sty in
-          let ty = cty.ctyp_type in
-          end_def ();
-          begin match ty.desc with
-          | Tpoly (body, tyl) ->
-              begin_def ();
-              let _, ty' = instance_poly ~keep_names:true false tyl body in
-              end_def ();
-              generalize ty';
-              ty'
-          | _ ->
-              generalize_structure ty;
-              ty
-          end
-    ) spat_sexp_list
-  in
-  *)
+
 and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
       scope allow =
-  let open Ast_helper in
   begin_def();
   if !Clflags.principal then begin_def ();
 
@@ -4433,7 +4405,7 @@ and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
         false
   in
   let check = if is_fake_let then check_strict else check in
-  let attrs_list, patl, vbs, expected_tys =
+  let attrs_list, patl, _vbs, expected_tys =
     Stdlib.List.unzip4 (
       List.map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
         match pvb_type with
@@ -4506,7 +4478,7 @@ and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
       arg.exp_type
     ) exp_list
   in
-  let (pat_list, new_env, force, pvs, unpacks) =
+  let (pat_list, new_env, force, unpacks) =
     type_pattern_list ~check ~check_as:check
       existential_context env patl attrs_list scope expected_tys allow
   in
