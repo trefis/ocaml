@@ -1577,7 +1577,7 @@ let type_pattern ?exception_allowed ~lev env spat scope expected_ty =
   let unpacks = get_ref module_variables in
   (pat, !new_env, get_ref pattern_force, pvs, unpacks)
 
-let type_pattern_list ?check ?check_as no_existentials env patl attrs_list scope
+let type_pattern_list no_existentials env patl attrs_list scope
       expected_tys allow =
   reset_pattern scope allow;
   let new_env = ref env in
@@ -1602,7 +1602,7 @@ let type_pattern_list ?check ?check_as no_existentials env patl attrs_list scope
     ) (get_ref pattern_variables)
   in
   let unpacks = get_ref module_variables in
-  let new_env = add_pattern_variables ?check ?check_as !new_env pvs in
+  let new_env = add_pattern_variables !new_env pvs in
   (patl, new_env, get_ref pattern_force, unpacks)
 
 let type_class_arg_pattern cl_num val_env met_env l spat =
@@ -4421,7 +4421,7 @@ and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
   let check = if is_fake_let then check_strict else check in
   let attrs_list, patl, _vbs, expected_tys =
     Stdlib.List.unzip4 (
-      List.map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
+      List.rev_map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
         match pvb_type with
         | None -> attrs, spat, None, newvar ()
         | Some sty ->
@@ -4495,8 +4495,12 @@ and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
     ) exp_list
   in
   let (pat_list, new_env, force, unpacks) =
-    type_pattern_list ~check ~check_as:check
-      existential_context env patl attrs_list scope expected_tys allow
+    type_pattern_list existential_context env patl attrs_list scope expected_tys
+      allow
+  in
+  let _ =
+    check_bindings ~check_strict ~rec_needed:(ref false) ~check
+      ~current_slot:(ref None) ~env:new_env attrs_list pat_list
   in
   (* Polymorphic variant processing *)
   List.iter (fun pat ->
