@@ -1221,7 +1221,7 @@ and type_pat_aux ~exception_allowed ~constrs ~labels ~no_existentials ~mode
         match lid.txt, constrs with
           Longident.Lident s, Some constrs when Hashtbl.mem constrs s ->
             [Hashtbl.find constrs s, (fun () -> ())]
-        | _ ->  Typetexp.find_all_constructors !env lid.loc lid.txt
+        | _ -> Typetexp.find_all_constructors !env lid.loc lid.txt
       in
       let constr =
         wrap_disambiguate "This variant pattern is expected to have"
@@ -2566,7 +2566,8 @@ and type_expect_
                     generalize_structure ty;
                     ty, op
             end
-        | op -> ty_expected, op
+        | op ->
+            ty_expected, op
       in
       let closed = (opt_sexp = None) in
       let lbl_exp_list =
@@ -4419,13 +4420,15 @@ and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
         false
   in
   let check = if is_fake_let then check_strict else check in
+  let late_force = ref [] in
   let attrs_list, patl, _vbs, expected_tys =
     Stdlib.List.unzip4 (
       List.rev_map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
         match pvb_type with
         | None -> attrs, spat, None, newvar ()
         | Some sty ->
-            let cty = Typetexp.transl_simple_type env false sty in
+            let cty(* , force *) = Typetexp.transl_simple_type(*_delayed*) env false sty in
+(*             late_force := force :: !late_force; *)
             attrs, spat, Some cty, cty.ctyp_type
       ) spat_sexp_list
     )
@@ -4461,22 +4464,20 @@ and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
     end
     else env
   in
+  if !Clflags.principal then end_def ();
   let exp_list =
-    List.map2 (fun {pvb_expr=sexp; pvb_attributes; _} expected_ty->
+    List.map2 (fun {pvb_expr=sexp; pvb_attributes; _} expected_ty ->
+(*       generalize_structure expected_ty; *)
       match expected_ty.desc with
       | Tpoly (ty, tl) ->
           begin_def ();
-          if !Clflags.principal then begin_def ();
           let vars, ty' = instance_poly ~keep_names:true true tl ty in
-          if !Clflags.principal then begin
-            end_def ();
-            generalize_structure ty'
-          end;
+          end_def ();
+          generalize ty';
           let exp =
             Builtin_attributes.warning_scope pvb_attributes
               (fun () -> type_expect exp_env sexp (mk_expected ty'))
           in
-          end_def ();
           let snap = snapshot () in
           check_univars env true "definition" exp expected_ty vars;
           backtrack snap;
@@ -4512,7 +4513,6 @@ and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
   (* Generalize the structure *)
   let pat_list =
     if !Clflags.principal then begin
-      end_def ();
       List.map (fun pat ->
         iter_pattern (fun pat -> generalize_structure pat.pat_type) pat;
         {pat with pat_type = instance pat.pat_type}
@@ -4520,7 +4520,7 @@ and type_let_nonrec ~check ~check_strict existential_context env spat_sexp_list
     end else
       pat_list
   in
-  List.iter (fun f -> f()) force;
+  List.iter (fun f -> f()) (force @ List.rev !late_force);
   List.iter2
     (fun pat (attrs, exp) ->
        Builtin_attributes.warning_scope ~ppwarning:false attrs
