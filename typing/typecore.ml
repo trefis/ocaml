@@ -477,7 +477,7 @@ let maybe_add_pattern_variable_ghost =
     match Env.lookup_value ~mark:false lid env with
     | _ -> env
     | exception Not_found ->
-      Env.add_value (Ident.create(*_local*) name)
+      Env.add_value (Ident.create_local name)
         { val_type = fake_ty;
           val_kind = Val_unbound Val_unbound_ghost_recursive;
           val_loc = loc_let;
