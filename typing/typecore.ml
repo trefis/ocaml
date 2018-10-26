@@ -4298,15 +4298,15 @@ and type_let_rec ~check ~check_strict existential_context env spat_sexp_list
      they are only allowed to be variables).
      And we must in fact, if we want to add those variables in the environment.
   *)
+  let initial_force = ref [] in
   let attrs_list, patl, _vbs, expected_tys =
     Stdlib.List.unzip4 (
       List.rev_map (fun {pvb_pat=spat; pvb_attributes=attrs; pvb_type; _} ->
         match pvb_type with
         | None -> attrs, spat, None, newvar ()
         | Some sty ->
-            (* No need to delay because patterns can only be variables. (in
-               particular: no polymorphic variant is involved) *)
-            let cty = Typetexp.transl_simple_type env false sty in
+            let cty, force = Typetexp.transl_simple_type_delayed env sty in
+            initial_force := force :: !initial_force;
             attrs, spat, Some cty, cty.ctyp_type
       ) spat_sexp_list
     )
@@ -4336,14 +4336,19 @@ and type_let_rec ~check ~check_strict existential_context env spat_sexp_list
   let pat_list =
     if !Clflags.principal then begin
       end_def ();
-      List.map (fun pat ->
+      List.map2 (fun {pvb_type; _} pat ->
         iter_pattern (fun pat -> generalize_structure pat.pat_type) pat;
-        {pat with pat_type = instance pat.pat_type}
-      ) pat_list
+        (* If there was an annotation: then the type is principally known, we
+           keep it generic. *)
+        match pvb_type with
+        | None -> {pat with pat_type = instance pat.pat_type}
+        | Some _ -> pat
+      ) spat_sexp_list pat_list
     end else
       pat_list
   in
   (* Only bind pattern variables after generalizing *)
+  List.iter (fun f -> f()) !initial_force;
   List.iter (fun f -> f()) force;
   let exp_env = new_env in
   (* *)
