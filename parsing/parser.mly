@@ -1220,6 +1220,11 @@ open_declaration:
         Opn.mk $4 ~override:$2 ~attrs:(attrs@$5) ~loc:(make_loc $sloc) ~docs
         , ext }
 ;
+%inline open_dot_declaration: mkrhs(mod_longident)
+  { let loc = make_loc $loc($1) in
+    let me = Mod.ident ~loc $1 in
+    Opn.mk ~loc me }
+;
 open_description:
   | OPEN override_flag ext_attributes mkrhs(mod_ext_longident)
       post_item_attributes
@@ -1912,16 +1917,10 @@ simple_expr:
       { Pexp_override [] }
   | simple_expr DOT mkrhs(label_longident)
       { Pexp_field($1, $3) }
-  | mkrhs(mod_longident) DOT LPAREN seq_expr RPAREN
-      { let loc = make_loc $loc($1) in
-        let me = Mod.ident ~loc $1 in
-        let od = Opn.mk ~loc me in
-        Pexp_open(od, $4) }
-  | mkrhs(mod_longident) DOT LBRACELESS field_expr_list GREATERRBRACE
+  | od=open_dot_declaration DOT LPAREN seq_expr RPAREN
+      { Pexp_open(od, $4) }
+  | od=open_dot_declaration DOT LBRACELESS field_expr_list GREATERRBRACE
       { (* TODO: review the location of Pexp_override *)
-        let loc = make_loc $loc($1) in
-        let me = Mod.ident ~loc $1 in
-        let od = Opn.mk ~loc me in
         Pexp_open(od, mkexp ~loc:$sloc (Pexp_override $4)) }
   | mod_longident DOT LBRACELESS field_expr_list error
       { unclosed "{<" $loc($3) ">}" $loc($5) }
@@ -1931,11 +1930,8 @@ simple_expr:
       { mkinfix $1 $2 $3 }
   | extension
       { Pexp_extension $1 }
-  | mkrhs(mod_longident) DOT mkrhs(LPAREN RPAREN {Lident "()"})
+  | od=open_dot_declaration DOT mkrhs(LPAREN RPAREN {Lident "()"})
       { (* TODO: review the location of Pexp_construct *)
-        let loc = make_loc $loc($1) in
-        let me = Mod.ident ~loc $1 in
-        let od = Opn.mk ~loc me in
         Pexp_open(od, mkexp ~loc:$sloc (Pexp_construct($3, None))) }
   | mod_longident DOT LPAREN seq_expr error
       { unclosed "(" $loc($3) ")" $loc($5) }
@@ -1944,12 +1940,9 @@ simple_expr:
         Pexp_record(fields, exten) }
   | LBRACE record_expr error
       { unclosed "{" $loc($1) "}" $loc($3) }
-  | mkrhs(mod_longident) DOT LBRACE record_expr RBRACE
+  | od=open_dot_declaration DOT LBRACE record_expr RBRACE
       { let (exten, fields) = $4 in
         (* TODO: review the location of Pexp_construct *)
-        let loc = make_loc $loc($1) in
-        let me = Mod.ident ~loc $1 in
-        let od = Opn.mk ~loc me in
         Pexp_open(od, mkexp ~loc:$sloc (Pexp_record(fields, exten))) }
   | mod_longident DOT LBRACE record_expr error
       { unclosed "{" $loc($3) "}" $loc($5) }
@@ -1959,17 +1952,11 @@ simple_expr:
       { unclosed "[|" $loc($1) "|]" $loc($3) }
   | LBRACKETBAR BARRBRACKET
       { Pexp_array [] }
-  | mkrhs(mod_longident) DOT LBRACKETBAR expr_semi_list BARRBRACKET
+  | od=open_dot_declaration DOT LBRACKETBAR expr_semi_list BARRBRACKET
       { (* TODO: review the location of Pexp_array *)
-        let loc = make_loc $loc($1) in
-        let me = Mod.ident ~loc $1 in
-        let od = Opn.mk ~loc me in
         Pexp_open(od, mkexp ~loc:$sloc (Pexp_array($4))) }
-  | mkrhs(mod_longident) DOT LBRACKETBAR BARRBRACKET
+  | od=open_dot_declaration DOT LBRACKETBAR BARRBRACKET
       { (* TODO: review the location of Pexp_array *)
-        let loc = make_loc $loc($1) in
-        let me = Mod.ident ~loc $1 in
-        let od = Opn.mk ~loc me in
         Pexp_open(od, mkexp ~loc:$sloc (Pexp_array [])) }
   | mod_longident DOT
     LBRACKETBAR expr_semi_list error
@@ -1978,33 +1965,24 @@ simple_expr:
       { fst (mktailexp $loc($3) $2) }
   | LBRACKET expr_semi_list error
       { unclosed "[" $loc($1) "]" $loc($3) }
-  | mkrhs(mod_longident) DOT LBRACKET expr_semi_list RBRACKET
+  | od=open_dot_declaration DOT LBRACKET expr_semi_list RBRACKET
       { let list_exp =
           (* TODO: review the location of list_exp *)
           let tail_exp, _tail_loc = mktailexp $loc($5) $4 in
           mkexp ~loc:$sloc tail_exp in
-        let loc = make_loc $loc($1) in
-        let me = Mod.ident ~loc $1 in
-        let od = Opn.mk ~loc me in
         Pexp_open(od, list_exp) }
-  | mkrhs(mod_longident) DOT mkrhs(LBRACKET RBRACKET {Lident "[]"})
+  | od=open_dot_declaration DOT mkrhs(LBRACKET RBRACKET {Lident "[]"})
       { (* TODO: review the location of Pexp_construct *)
-        let loc = make_loc $loc($1) in
-        let me = Mod.ident ~loc $1 in
-        let od = Opn.mk ~loc me in
         Pexp_open(od, mkexp ~loc:$sloc (Pexp_construct($3, None))) }
   | mod_longident DOT
     LBRACKET expr_semi_list error
       { unclosed "[" $loc($3) "]" $loc($5) }
-  | mkrhs(mod_longident) DOT LPAREN MODULE ext_attributes module_expr COLON
+  | od=open_dot_declaration DOT LPAREN MODULE ext_attributes module_expr COLON
     package_type RPAREN
       { (* TODO: review the location of Pexp_constraint *)
         let modexp =
           mkexp_attrs ~loc:$sloc
             (Pexp_constraint (ghexp ~loc:$sloc (Pexp_pack $6), $8)) $5 in
-        let loc = make_loc $loc($1) in
-        let me = Mod.ident ~loc $1 in
-        let od = Opn.mk ~loc me in
         Pexp_open(od, modexp) }
   | mod_longident DOT
     LPAREN MODULE ext_attributes module_expr COLON error
