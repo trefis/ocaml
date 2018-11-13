@@ -2369,4 +2369,28 @@ Empty variant type can be eliminated by refutation case of pattern matching.
 type t = |
 let f (x: t) = match x with _ -> .
 \end{caml_example*}
+
+\section{Generalized open statements\label{s:generalized-open}}
+
+(Introduced in 4.08)
+
+\begin{syntax}
+definition:
+      ...
+   |  'open'  module-expr
+   |  'open!' module-expr
+;
+specification:
+      ...
+   |  'open'  extended-module-path
+   |  'open!' extended-module-path
+;
+expr:
+       ...
+     | 'let' 'open'  module-expr 'in' expr
+     | 'let' 'open!' module-expr 'in' expr
+;
+\end{syntax}
+
+TODO: document
 %HEVEA\cutend
