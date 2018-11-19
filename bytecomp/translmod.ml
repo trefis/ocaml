@@ -787,7 +787,12 @@ let rec more_idents = function
     | Tstr_exception _ -> more_idents rem
     | Tstr_recmodule _ -> more_idents rem
     | Tstr_modtype _ -> more_idents rem
-    | Tstr_open _ -> more_idents rem
+    | Tstr_open od ->
+        let rest = more_idents rem in
+        begin match od.open_expr.mod_desc with
+        | Tmod_structure str -> all_idents str.str_items @ rest
+        | _ -> rest
+        end
     | Tstr_class _ -> more_idents rem
     | Tstr_class_type _ -> more_idents rem
     | Tstr_include{incl_mod={mod_desc =
@@ -823,6 +828,10 @@ and all_idents = function
         let rest = all_idents rem in
         begin match od.open_expr.mod_desc with
         | Tmod_ident _ -> rest
+        | Tmod_structure str ->
+          bound_value_identifiers od.open_type
+          @ all_idents str.str_items
+          @ rest
         | _ -> bound_value_identifiers od.open_type @ rest
         end
     | Tstr_class cl_list ->
@@ -1059,6 +1068,20 @@ let transl_store_structure glob map prims str =
             begin match od.open_expr.mod_desc with
             | Tmod_ident _ ->
                 transl_store rootpath subst rem
+            | Tmod_structure str ->
+                let lam = transl_store rootpath subst str.str_items in
+                let ids = Array.of_list (defined_idents str.str_items) in
+                let ids0 = bound_value_identifiers od.open_type in
+                let subst = !transl_store_subst in
+                let rec store_idents pos = function
+                  | [] -> transl_store rootpath subst rem
+                  | id :: idl ->
+                      Llet(Alias, Pgenval, id, Lvar ids.(pos),
+                           Lsequence(store_ident od.open_loc id,
+                                     store_idents (pos + 1) idl))
+                in
+                Lsequence(lam, Lambda.subst no_env_update subst
+                                 (store_idents 0 ids0))
             | _ ->
                 let ids = bound_value_identifiers od.open_type in
                 let mid = Ident.create_local "open" in
@@ -1307,6 +1330,7 @@ let transl_toplevel_item item =
       begin match od.open_expr.mod_desc with
       | Tmod_ident _ ->
           lambda_unit
+
       | _ ->
           let ids = bound_value_identifiers od.open_type in
           let mid = Ident.create_local "open" in

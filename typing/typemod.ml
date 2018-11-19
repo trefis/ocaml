@@ -1904,9 +1904,11 @@ and type_open_decl_aux ?used_slot ?toplevel names env od =
     open_descr, [], newenv
   | _ ->
     let md = type_module true false None env od.popen_expr in
-    let sg = extract_sig_open env md.mod_loc md.mod_type in
     let scope = Ctype.create_scope () in
-    let sg, newenv = Env.enter_signature ~scope sg env in
+    let sg, newenv =
+      Env.enter_signature ~scope (extract_sig_open env md.mod_loc md.mod_type)
+        env
+    in
     List.iter (Signature_names.check_sig_item ~info:`From_open names loc) sg;
     let sg =
       List.map (function
