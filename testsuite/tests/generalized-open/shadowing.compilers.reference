@@ -1,0 +1,10 @@
+File "shadowing.ml", line 1:
+Error: The implementation shadowing.ml
+       does not match the interface (inferred signature):
+       Type declarations do not match:
+         type t = B
+       is not included in
+         type t = A
+       File "shadowing.ml", line 8, characters 0-10: Expected declaration
+       File "shadowing.ml", line 11, characters 2-12: Actual declaration
+       Fields number 1 have different names, B and A.
