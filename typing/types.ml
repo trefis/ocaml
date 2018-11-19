@@ -267,10 +267,10 @@ and signature = signature_item list
 
 and signature_item =
     Sig_value of Ident.t * value_description
-  | Sig_type of Ident.t * type_declaration * rec_status
+  | Sig_type of Ident.t * type_declaration * rec_status * private_flag
   | Sig_typext of Ident.t * extension_constructor * ext_status
-  | Sig_module of Ident.t * module_declaration * rec_status
-  | Sig_modtype of Ident.t * modtype_declaration
+  | Sig_module of Ident.t * module_declaration * rec_status * private_flag
+  | Sig_modtype of Ident.t * modtype_declaration * private_flag
   | Sig_class of Ident.t * class_declaration * rec_status
   | Sig_class_type of Ident.t * class_type_declaration * rec_status
 
@@ -357,6 +357,6 @@ let rec bound_value_identifiers = function
   | Sig_value(id, {val_kind = Val_reg}) :: rem ->
       id :: bound_value_identifiers rem
   | Sig_typext(id, _, _) :: rem -> id :: bound_value_identifiers rem
-  | Sig_module(id, _, _) :: rem -> id :: bound_value_identifiers rem
+  | Sig_module(id, _, _, _) :: rem -> id :: bound_value_identifiers rem
   | Sig_class(id, _, _) :: rem -> id :: bound_value_identifiers rem
   | _ :: rem -> bound_value_identifiers rem

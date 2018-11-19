@@ -1495,10 +1495,10 @@ let hide ids env = List.fold_right
     ids env
 
 let hide_rec_items = function
-  | Sig_type(id, _decl, rs) ::rem
+  | Sig_type(id, _decl, rs, _) ::rem
     when rs = Trec_first && not !Clflags.real_paths ->
       let rec get_ids = function
-          Sig_type (id, _, Trec_next) :: rem ->
+          Sig_type (id, _, Trec_next, _) :: rem ->
             id :: get_ids rem
         | _ -> []
       in
@@ -1510,8 +1510,8 @@ let hide_rec_items = function
 let recursive_sigitem = function
   | Sig_class(id,_,rs) -> Some(id,rs,3)
   | Sig_class_type (id,_,rs) -> Some(id,rs,2)
-  | Sig_type(id, _, rs)
-  | Sig_module(id, _, rs) -> Some (id,rs,0)
+  | Sig_type(id, _, rs, _)
+  | Sig_module(id, _, rs, _) -> Some (id,rs,0)
   | _ -> None
 
 let skip k l = snd (Misc.Stdlib.List.split_at k l)
@@ -1568,20 +1568,20 @@ and tree_of_signature_rec env' in_type_group = function
 and trees_of_sigitem = function
   | Sig_value(id, decl) ->
       [tree_of_value_description id decl]
-  | Sig_type(id, _, _) when is_row_name (Ident.name id) ->
+  | Sig_type(id, _, _, _) when is_row_name (Ident.name id) ->
       []
-  | Sig_type(id, decl, rs) ->
+  | Sig_type(id, decl, rs, _) ->
       [tree_of_type_declaration id decl rs]
   | Sig_typext(id, ext, es) ->
       [tree_of_extension_constructor id ext es]
-  | Sig_module(id, md, rs) ->
+  | Sig_module(id, md, rs, _) ->
       let ellipsis =
         List.exists (function
           | Parsetree.{attr_name = {txt="..."}; attr_payload = PStr []} -> true
           | _ -> false)
           md.md_attributes in
       [tree_of_module id md.md_type rs ~ellipsis]
-  | Sig_modtype(id, decl) ->
+  | Sig_modtype(id, decl, _) ->
       [tree_of_modtype_declaration id decl]
   | Sig_class(id, decl, rs) ->
       [tree_of_class_declaration id decl rs]

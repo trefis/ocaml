@@ -49,15 +49,15 @@ module Signature_search =
           Hashtbl.add table (V (Name.from_ident ident)) signat
       | Types.Sig_typext (ident, _, _) ->
           Hashtbl.add table (X (Name.from_ident ident)) signat
-      | Types.Sig_type (ident, _, _) ->
+      | Types.Sig_type (ident, _, _, _) ->
           Hashtbl.add table (T (Name.from_ident ident)) signat
       | Types.Sig_class (ident, _, _) ->
           Hashtbl.add table (C (Name.from_ident ident)) signat
       | Types.Sig_class_type (ident, _, _) ->
           Hashtbl.add table (CT (Name.from_ident ident)) signat
-      | Types.Sig_module (ident, _, _) ->
+      | Types.Sig_module (ident, _, _, _) ->
           Hashtbl.add table (M (Name.from_ident ident)) signat
-      | Types.Sig_modtype (ident,_) ->
+      | Types.Sig_modtype (ident,_,_) ->
           Hashtbl.add table (MT (Name.from_ident ident)) signat
 
     let table signat =
@@ -77,7 +77,7 @@ module Signature_search =
 
     let search_type table name =
       match Hashtbl.find table (T name) with
-      | (Types.Sig_type (_, type_decl, _)) -> type_decl
+      | (Types.Sig_type (_, type_decl, _, _)) -> type_decl
       | _ -> assert false
 
     let search_class table name =
@@ -92,14 +92,14 @@ module Signature_search =
 
     let search_module table name =
       match Hashtbl.find table (M name) with
-      | (Types.Sig_module (_ident, md, _)) -> md.Types.md_type
+      | (Types.Sig_module (_ident, md, _, _)) -> md.Types.md_type
       | _ -> assert false
 
     let search_module_type table name =
       match Hashtbl.find table (MT name) with
-      | (Types.Sig_modtype (_, {Types.mtd_type = Some module_type})) ->
+      | (Types.Sig_modtype (_, {Types.mtd_type = Some module_type}, _)) ->
           Some module_type
-      | (Types.Sig_modtype (_, {Types.mtd_type = None})) ->
+      | (Types.Sig_modtype (_, {Types.mtd_type = None}, _)) ->
           None
       | _ -> assert false
 

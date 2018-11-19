@@ -1587,7 +1587,7 @@ let rec prefix_idents root pos sub = function
       let nextpos = match decl.val_kind with Val_prim _ -> pos | _ -> pos+1 in
       let (pl, final_sub) = prefix_idents root nextpos sub rem in
       (p::pl, final_sub)
-  | Sig_type(id, _, _) :: rem ->
+  | Sig_type(id, _, _, _) :: rem ->
       let p = Pdot(root, Ident.name id, nopos) in
       let (pl, final_sub) =
         prefix_idents root pos (Subst.add_type id p sub) rem in
@@ -1598,12 +1598,12 @@ let rec prefix_idents root pos sub = function
       let (pl, final_sub) =
         prefix_idents root (pos+1) (Subst.add_type id p sub) rem in
       (p::pl, final_sub)
-  | Sig_module(id, _, _) :: rem ->
+  | Sig_module(id, _, _, _) :: rem ->
       let p = Pdot(root, Ident.name id, pos) in
       let (pl, final_sub) =
         prefix_idents root (pos+1) (Subst.add_module id p sub) rem in
       (p::pl, final_sub)
-  | Sig_modtype(id, _) :: rem ->
+  | Sig_modtype(id, _, _) :: rem ->
       let p = Pdot(root, Ident.name id, nopos) in
       let (pl, final_sub) =
         prefix_idents root pos
@@ -1676,7 +1676,7 @@ and components_of_module_maker (env, sub, path, mty) =
             begin match decl.val_kind with
               Val_prim _ -> () | _ -> incr pos
             end
-        | Sig_type(id, decl, _) ->
+        | Sig_type(id, decl, _, _) ->
             let decl' = Subst.type_declaration sub decl in
             Datarepr.set_row_name decl' (Subst.type_path sub (Path.Pident id));
             let constructors =
@@ -1704,7 +1704,7 @@ and components_of_module_maker (env, sub, path, mty) =
             c.comp_constrs <-
               add_to_tbl (Ident.name id) descr c.comp_constrs;
             incr pos
-        | Sig_module(id, md, _) ->
+        | Sig_module(id, md, _, _) ->
             let md' = EnvLazy.create (sub, md) in
             c.comp_modules <-
               NameMap.add (Ident.name id) (md', !pos) c.comp_modules;
@@ -1719,7 +1719,7 @@ and components_of_module_maker (env, sub, path, mty) =
               NameMap.add (Ident.name id) (comps, !pos) c.comp_components;
             env := store_module ~check:false id md !env;
             incr pos
-        | Sig_modtype(id, decl) ->
+        | Sig_modtype(id, decl, _) ->
             let decl' = Subst.modtype_declaration sub decl in
             c.comp_modtypes <-
               NameMap.add (Ident.name id) (decl', nopos) c.comp_modtypes;
@@ -1981,12 +1981,12 @@ let enter_module ~scope ?arg s mty env =
 
 let add_item comp env =
   match comp with
-    Sig_value(id, decl)     -> add_value id decl env
-  | Sig_type(id, decl, _)   -> add_type ~check:false id decl env
-  | Sig_typext(id, ext, _)  -> add_extension ~check:false id ext env
-  | Sig_module(id, md, _)   -> add_module_declaration ~check:false id md env
-  | Sig_modtype(id, decl)   -> add_modtype id decl env
-  | Sig_class(id, decl, _)  -> add_class id decl env
+    Sig_value(id, decl)      -> add_value id decl env
+  | Sig_type(id, decl, _, _) -> add_type ~check:false id decl env
+  | Sig_typext(id, ext, _)   -> add_extension ~check:false id ext env
+  | Sig_module(id, md, _, _) -> add_module_declaration ~check:false id md env
+  | Sig_modtype(id, decl, _) -> add_modtype id decl env
+  | Sig_class(id, decl, _)   -> add_class id decl env
   | Sig_class_type(id, decl, _) -> add_cltype id decl env
 
 let rec add_signature sg env =
@@ -1999,23 +1999,23 @@ let refresh_signature ~scope sg =
     let open Subst in
     function
       [] -> sg, s
-    | Sig_type(id, td, rs) :: rest ->
+    | Sig_type(id, td, rs, priv) :: rest ->
         let id' = Ident.create_scoped ~scope (Ident.name id) in
         refresh_bound_idents
           (add_type id (Pident id') s)
-          (Sig_type(id', td, rs) :: sg)
+          (Sig_type(id', td, rs, priv) :: sg)
           rest
-    | Sig_module(id, md, rs) :: rest ->
+    | Sig_module(id, md, rs, priv) :: rest ->
         let id' = Ident.create_scoped ~scope (Ident.name id) in
         refresh_bound_idents
           (add_module id (Pident id') s)
-          (Sig_module (id', md, rs) :: sg)
+          (Sig_module (id', md, rs, priv) :: sg)
           rest
-    | Sig_modtype(id, mtd) :: rest ->
+    | Sig_modtype(id, mtd, priv) :: rest ->
         let id' = Ident.create_scoped ~scope (Ident.name id) in
         refresh_bound_idents
           (add_modtype id (Mty_ident(Pident id')) s)
-          (Sig_modtype(id', mtd) :: sg)
+          (Sig_modtype(id', mtd, priv) :: sg)
           rest
     | Sig_class(id, cd, rs) :: rest ->
         (* cheat and pretend they are types cf. PR#6650 *)

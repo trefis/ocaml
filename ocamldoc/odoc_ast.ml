@@ -935,7 +935,7 @@ module Analyser =
         let f = match ele with
           Element_module m ->
             (function
-                Types.Sig_module (ident,md,_) ->
+                Types.Sig_module (ident,md,_,_) ->
                   let n1 = Name.simple m.m_name
                   and n2 = Ident.name ident in
                   (
@@ -946,7 +946,7 @@ module Analyser =
               | _ -> false)
         | Element_module_type mt ->
             (function
-                Types.Sig_modtype (ident,{Types.mtd_type=Some t}) ->
+                Types.Sig_modtype (ident,{Types.mtd_type=Some t},_) ->
                   let n1 = Name.simple mt.mt_name
                   and n2 = Ident.name ident in
                   (
@@ -964,7 +964,7 @@ module Analyser =
               | _ -> false)
         | Element_type t ->
              (function
-                Types.Sig_type (ident,_,_) ->
+                Types.Sig_type (ident,_,_,_) ->
                   (* FIXME: type details can be hidden *)
                   let n1 = Name.simple t.ty_name
                   and n2 = Ident.name ident in

@@ -54,16 +54,16 @@ let rec add_signature env root ?rel signat =
   let f env item =
     match item with
       Types.Sig_value (ident, _) -> { env with env_values = (rel_name ident, qualify ident) :: env.env_values }
-    | Types.Sig_type (ident,_,_) -> { env with env_types = (rel_name ident, qualify ident) :: env.env_types }
+    | Types.Sig_type (ident,_,_,_) -> { env with env_types = (rel_name ident, qualify ident) :: env.env_types }
     | Types.Sig_typext (ident, _, _) -> { env with env_extensions = (rel_name ident, qualify ident) :: env.env_extensions }
-    | Types.Sig_module (ident, md, _) ->
+    | Types.Sig_module (ident, md, _,_) ->
         let env2 =
           match md.Types.md_type with (* FIXME: we don't have signature for identifiers *)
             Types.Mty_signature s -> add_signature env (qualify ident) ~rel: (rel_name ident) s
           |  _ -> env
         in
         { env2 with env_modules = (rel_name ident, qualify ident) :: env2.env_modules }
-    | Types.Sig_modtype (ident, modtype_decl) ->
+    | Types.Sig_modtype (ident, modtype_decl, _) ->
         let env2 =
           match modtype_decl.Types.mtd_type with
             None ->

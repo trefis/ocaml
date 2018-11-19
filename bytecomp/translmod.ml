@@ -237,15 +237,15 @@ let init_shape id modl =
         init_shape_struct env rem
     | Sig_value _ :: _rem ->
         assert false
-    | Sig_type(id, tdecl, _) :: rem ->
+    | Sig_type(id, tdecl, _, _) :: rem ->
         init_shape_struct (Env.add_type ~check:false id tdecl env) rem
     | Sig_typext (subid, {ext_loc=loc},_) :: _ ->
         raise (Initialization_failure {reason=Unsafe_typext; loc; subid})
-    | Sig_module(id, md, _) :: rem ->
+    | Sig_module(id, md, _, _) :: rem ->
         init_shape_mod id md.md_loc env md.md_type ::
         init_shape_struct (Env.add_module_declaration ~check:false
                              id md env) rem
-    | Sig_modtype(id, minfo) :: rem ->
+    | Sig_modtype(id, minfo, _) :: rem ->
         init_shape_struct (Env.add_modtype id minfo env) rem
     | Sig_class _ :: rem ->
         Const_pointer 2 (* camlinternalMod.Class *)
