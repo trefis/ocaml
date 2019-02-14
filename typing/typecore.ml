@@ -2311,7 +2311,13 @@ and type_expect_
         exp_attributes = sexp.pexp_attributes;
         exp_env = env }
   | Pexp_fun (l, Some default, spat, sbody) ->
-      assert(is_optional l); (* default allowed only with optional argument *)
+      let label_name =
+        match l with
+        | Optional label_name -> label_name
+        | Nolabel
+        | Labelled _ -> (* default allowed only with optional argument *)
+          assert false
+      in
       let open Ast_helper in
       let default_loc = default.pexp_loc in
       let scases = [
@@ -2332,12 +2338,6 @@ and type_expect_
         { Location.loc_start = spat.ppat_loc.Location.loc_start;
           loc_end = default_loc.Location.loc_end;
           loc_ghost = true }
-      in
-      let label_name =
-        match l with
-        | Nolabel
-        | Labelled _ -> assert false  (* see above *)
-        | Optional label_name -> label_name
       in
       let ident_name = "*opt*" ^ label_name in
       let smatch =
