@@ -100,6 +100,11 @@ class virtual fail = object (self)
 end
 [%%expect {|
 class setup : object method with_ : (int -> unit) -> unit end
+Lines 4-6, characters 21-3:
+4 | .....................object (self)
+5 |   method trigger = (self :> setup )
+6 | end
+Warning 17 [undeclared-virtual-method]: the virtual method with_ is not declared.
 class virtual fail :
   object
     method trigger : setup

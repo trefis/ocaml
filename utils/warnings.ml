@@ -41,7 +41,7 @@ type t =
   | Illegal_backslash                       (* 14 *)
   | Implicit_public_methods of string list  (* 15 *)
   | Unerasable_optional_argument            (* 16 *)
-  | Undeclared_virtual_method of string     (* 17 *)
+  | Undeclared_virtual_method of string list (* 17 *)
   | Not_principal of string                 (* 18 *)
   | Non_principal_labels of string          (* 19 *)
   | Ignored_extra_argument                  (* 20 *)
@@ -635,7 +635,12 @@ let message = function
       "the following private methods were made public implicitly:\n "
       ^ String.concat " " l ^ "."
   | Unerasable_optional_argument -> "this optional argument cannot be erased."
-  | Undeclared_virtual_method m -> "the virtual method "^m^" is not declared."
+  | Undeclared_virtual_method([]) -> assert false
+  | Undeclared_virtual_method([m]) ->
+      "the virtual method "^m^" is not declared."
+  | Undeclared_virtual_method(l) ->
+      "the following virtual methods were not declared:\n "
+       ^ String.concat " " l ^ "."
   | Not_principal s -> s^" is not principal."
   | Non_principal_labels s -> s^" without principality."
   | Ignored_extra_argument -> "this argument will not be used by the function."
