@@ -47,6 +47,10 @@ Working version
 - GPR#2286: Functorise [Consistbl]
   (Mark Shinwell, review by Gabriel Radanne)
 
+- GPR#2294: Add more locations to [Lambda] code; produce accurate location
+  information in the pattern matching and switch compilers.
+  (Mark Shinwell, review by Thomas Refis)
+
 ### Runtime system:
 
 - GPR#1725: Deprecate Obj.set_tag
