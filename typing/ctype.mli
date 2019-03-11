@@ -165,7 +165,6 @@ val close_object: type_expr -> bool
 val set_object_name:
         Ident.t -> type_expr list -> type_expr -> unit
 val remove_object_name: type_expr -> unit
-val hide_private_methods: type_expr -> unit
 val find_cltype_for_path: Env.t -> Path.t -> type_declaration * type_expr
 
 val sort_row_fields: (label * row_field) list -> (label * row_field) list
