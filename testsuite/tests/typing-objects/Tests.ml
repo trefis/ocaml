@@ -103,8 +103,8 @@ class x () = object
   method virtual f : int
 end;;
 [%%expect{|
-Lines 1-3, characters 0-3:
-1 | class x () = object
+Lines 1-3, characters 13-3:
+1 | .............object
 2 |   method virtual f : int
 3 | end..
 Error: This class should be virtual. The following methods are undefined : f
@@ -990,11 +990,8 @@ class type ['a] ct = object ('a) constraint 'a = < .. > end
 Line 2, characters 10-31:
 2 | class c : [ < a : int; ..> ] ct = object method a = 3 end;;
               ^^^^^^^^^^^^^^^^^^^^^
-Warning 17 [undeclared-virtual-method]: the virtual method a is not declared.
-Line 2, characters 0-57:
-2 | class c : [ < a : int; ..> ] ct = object method a = 3 end;;
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This class should be virtual. The following methods are undefined : a
+Error: This class has undeclared virtual methods.
+       The following virtual methods were not declared : a
 |}];;
 
 class virtual c : [ < a : int; ..> ] ct = object method a = 3 end;;
@@ -1150,18 +1147,18 @@ class c : object method foo : int end
 
 class c = object method virtual foo : int end;;
 [%%expect {|
-Line 1, characters 0-45:
+Line 1, characters 10-45:
 1 | class c = object method virtual foo : int end;;
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This class should be virtual.
        The following methods are undefined : foo
 |}];;
 
 class type ct = object method virtual foo : int end;;
 [%%expect {|
-Line 1, characters 0-51:
+Line 1, characters 16-51:
 1 | class type ct = object method virtual foo : int end;;
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This class type should be virtual.
        The following methods are undefined : foo
 |}];;
@@ -1177,15 +1174,10 @@ Error: This object has virtual methods.
 
 class c = object(self) initializer self#foo end;;
 [%%expect {|
-Line 1, characters 35-43:
+Line 1, characters 35-39:
 1 | class c = object(self) initializer self#foo end;;
-                                       ^^^^^^^^
-Warning 17 [undeclared-virtual-method]: the virtual method foo is not declared.
-Line 1, characters 0-47:
-1 | class c = object(self) initializer self#foo end;;
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This class should be virtual.
-       The following methods are undefined : foo
+                                       ^^^^
+Error: This expression has no method foo
 |}];;
 
 let o = object(self) initializer self#foo end;;
@@ -1193,8 +1185,7 @@ let o = object(self) initializer self#foo end;;
 Line 1, characters 33-37:
 1 | let o = object(self) initializer self#foo end;;
                                      ^^^^
-Error: This expression has type <  >
-       It has no method foo
+Error: This expression has no method foo
 |}];;
 
 let has_foo (x : < foo : int; ..>) = ()
@@ -1204,12 +1195,8 @@ val has_foo : < foo : int; .. > -> unit = <fun>
 Line 2, characters 10-51:
 2 | class c = object(self) initializer has_foo self end;;
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Warning 17 [undeclared-virtual-method]: the virtual method foo is not declared.
-Line 2, characters 0-51:
-2 | class c = object(self) initializer has_foo self end;;
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This class should be virtual.
-       The following methods are undefined : foo
+Error: This class has undeclared virtual methods.
+       The following virtual methods were not declared : foo
 |}];;
 
 let o = object(self) initializer has_foo self end;;
@@ -1227,12 +1214,8 @@ class c = object(_ : < foo : int; ..>) end;;
 Line 1, characters 10-42:
 1 | class c = object(_ : < foo : int; ..>) end;;
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Warning 17 [undeclared-virtual-method]: the virtual method foo is not declared.
-Line 1, characters 0-42:
-1 | class c = object(_ : < foo : int; ..>) end;;
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This class should be virtual.
-       The following methods are undefined : foo
+Error: This class has undeclared virtual methods.
+       The following virtual methods were not declared : foo
 |}];;
 
 class type ct = object(< foo : int; ..>) end;;
@@ -1240,12 +1223,8 @@ class type ct = object(< foo : int; ..>) end;;
 Line 1, characters 16-44:
 1 | class type ct = object(< foo : int; ..>) end;;
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Warning 17 [undeclared-virtual-method]: the virtual method foo is not declared.
-Line 1, characters 0-44:
-1 | class type ct = object(< foo : int; ..>) end;;
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This class type should be virtual.
-       The following methods are undefined : foo
+Error: This class type has undeclared virtual methods.
+       The following virtual methods were not declared : foo
 |}];;
 
 let o = object(_ : < foo : int; ..>) end;;
@@ -1253,12 +1232,8 @@ let o = object(_ : < foo : int; ..>) end;;
 Line 1, characters 8-40:
 1 | let o = object(_ : < foo : int; ..>) end;;
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Warning 17 [undeclared-virtual-method]: the virtual method foo is not declared.
-Line 1, characters 8-40:
-1 | let o = object(_ : < foo : int; ..>) end;;
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This object has virtual methods.
-       The following methods are undefined : foo
+Error: This object has undeclared virtual methods.
+       The following virtual methods were not declared : foo
 |}];;
 
 (* Shadowing/overriding methods in class types *)
