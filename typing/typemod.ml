@@ -1136,8 +1136,9 @@ and transl_modtype_aux env smty =
             (tcstr :: rev_tcstrs, sg)
         )
         ([],init_sg) constraints in
+      let scope = Ctype.create_scope () in
       mkmty (Tmty_with ( body, List.rev rev_tcstrs))
-        (Mtype.freshen (Mty_signature final_sg)) env loc
+        (Mty_signature (Env.refresh_signature ~scope final_sg)) env loc
         smty.pmty_attributes
   | Pmty_typeof smod ->
       let env = Env.in_signature false env in
