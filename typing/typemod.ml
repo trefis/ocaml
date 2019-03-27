@@ -616,7 +616,8 @@ let merge_constraint initial_env remove_aliases loc sg constr =
             fun s path -> Subst.add_type_function path ~params ~body s
        in
        let sub = List.fold_left how_to_extend_subst Subst.identity !real_ids in
-       Subst.signature sub sg
+       let scope = Ctype.create_scope () in
+       Subst.signature ~scope sub sg
     | (_, _, Twith_modsubst (real_path, _)) ->
        let sub =
          List.fold_left
@@ -624,7 +625,8 @@ let merge_constraint initial_env remove_aliases loc sg constr =
            Subst.identity
            !real_ids
        in
-       Subst.signature sub sg
+       let scope = Ctype.create_scope () in
+       Subst.signature ~scope sub sg
     | _ ->
        sg
     in
