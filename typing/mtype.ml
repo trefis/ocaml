@@ -30,6 +30,10 @@ let rec scrape env mty =
       end
   | _ -> mty
 
+let freshen mty =
+  let scope = Ctype.create_scope () in
+  Subst.modtype ~scope Subst.identity mty
+
 let rec strengthen ~aliasable env mty p =
   match scrape env mty with
     Mty_signature sg ->
