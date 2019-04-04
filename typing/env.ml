@@ -391,7 +391,7 @@ type t = {
 }
 
 and module_declaration_lazy =
-  (Subst.t * module_declaration, module_declaration) EnvLazy.t
+  (Subst.t * int * module_declaration, module_declaration) EnvLazy.t
 
 and module_components =
   {
@@ -402,6 +402,7 @@ and module_components =
 
 and components_maker = {
   cm_env: t;
+  cm_subst_scope: int;
   cm_freshening_subst: Subst.t option;
   cm_prefixing_subst: Subst.t;
   cm_path: Path.t;
@@ -430,6 +431,7 @@ and functor_components = {
   fcomp_param: Ident.t;                 (* Formal parameter *)
   fcomp_arg: module_type option;        (* Argument signature *)
   fcomp_res: module_type;               (* Result signature *)
+  fcomp_scope: int;
   fcomp_cache: (Path.t, module_components) Hashtbl.t;  (* For memoization *)
   fcomp_subst_cache: (Path.t, module_type) Hashtbl.t
 }
@@ -484,8 +486,8 @@ let check_shadowing env = function
   | `Class None | `Class_type None | `Component None ->
       None
 
-let subst_modtype_maker (subst, md) =
-  {md with md_type = Subst.modtype subst md.md_type}
+let subst_modtype_maker (subst, scope, md) =
+  {md with md_type = Subst.modtype ~scope subst md.md_type}
 
 let empty = {
   values = IdTbl.empty; constrs = TycompTbl.empty;
@@ -524,10 +526,20 @@ let diff env1 env2 =
 (* Forward declarations *)
 
 let components_of_module' =
-  ref ((fun ~alerts:_ ~loc:_ _env _fsub _psub _path _addr _mty -> assert false):
-         alerts:alerts -> loc:Location.t -> t ->
-       Subst.t option -> Subst.t -> Path.t -> address_lazy -> module_type ->
-       module_components)
+  ref (
+    (fun ~alerts:_ ~loc:_ _env _scope _fsub _psub _path _addr _mty ->
+       assert false)
+    : alerts:alerts
+    -> loc:Location.t
+    -> t
+    -> int
+    -> Subst.t option
+    -> Subst.t
+    -> Path.t
+    -> address_lazy
+    -> module_type
+    -> module_components
+  )
 let components_of_module_maker' =
   ref ((fun _ -> assert false) :
           components_maker -> module_components_repr option)
@@ -614,10 +626,15 @@ let sign_of_cmi ~freshen { Persistent_env.Persistent_signature.cmi; _ } =
   let loc = Location.none in
   let pm_signature = lazy (Subst.signature Subst.identity sign) in
   let pm_components =
-    let freshening_subst =
-      if freshen then (Some Subst.identity) else None in
+    let scope, freshening_subst =
+      if freshen then (
+        Ident.lowest_scope, Some Subst.identity
+      ) else
+        Ident.highest_scope, None
+    in
     !components_of_module' ~alerts ~loc
-      empty freshening_subst Subst.identity path addr (Mty_signature sign) in
+      empty scope freshening_subst Subst.identity path addr (Mty_signature sign)
+  in
   {
     pm_signature;
     pm_components;
@@ -820,7 +837,7 @@ let find_module ~alias path env =
                   Hashtbl.find f.fcomp_subst_cache p2
                 with Not_found ->
                   let mty =
-                    Subst.modtype
+                    Subst.modtype ~scope:f.fcomp_scope
                       (Subst.add_module f.fcomp_param p2 Subst.identity)
                       f.fcomp_res in
                   Hashtbl.add f.fcomp_subst_cache p2 mty;
@@ -1630,12 +1647,13 @@ let module_declaration_address env id presence md =
   | Mp_present ->
       EnvLazy.create_forced (Aident id)
 
-let rec components_of_module ~alerts ~loc env fs ps path addr mty =
+let rec components_of_module ~alerts ~loc env scope fs ps path addr mty =
   {
     alerts;
     loc;
     comps = EnvLazy.create {
       cm_env = env;
+      cm_subst_scope = scope;
       cm_freshening_subst = fs;
       cm_prefixing_subst = ps;
       cm_path = path;
@@ -1645,7 +1663,7 @@ let rec components_of_module ~alerts ~loc env fs ps path addr mty =
   }
 
 and components_of_module_maker {cm_env; cm_freshening_subst; cm_prefixing_subst;
-                                cm_path; cm_addr; cm_mty} =
+                                cm_subst_scope; cm_path; cm_addr; cm_mty} =
   match scrape_alias cm_env cm_freshening_subst cm_mty with
     Mty_signature sg ->
       let c =
@@ -1667,7 +1685,10 @@ and components_of_module_maker {cm_env; cm_freshening_subst; cm_prefixing_subst;
         incr pos;
         EnvLazy.create addr
       in
-      let sub = may_subst Subst.compose freshening_sub prefixing_sub in
+      let sub =
+        may_subst (Subst.compose ~scope:cm_subst_scope)
+          freshening_sub prefixing_sub
+      in
       List.iter (fun (item, path) ->
         match item with
           Sig_value(id, decl, _) ->
@@ -1712,7 +1733,7 @@ and components_of_module_maker {cm_env; cm_freshening_subst; cm_prefixing_subst;
             c.comp_constrs <-
               add_to_tbl (Ident.name id) (descr, Some addr) c.comp_constrs
         | Sig_module(id, pres, md, _, _) ->
-            let md' = EnvLazy.create (sub, md) in
+            let md' = EnvLazy.create (sub, cm_subst_scope, md) in
             let addr =
               match pres with
               | Mp_absent -> begin
@@ -1730,8 +1751,8 @@ and components_of_module_maker {cm_env; cm_freshening_subst; cm_prefixing_subst;
               Builtin_attributes.alerts_of_attrs md.md_attributes
             in
             let comps =
-              components_of_module ~alerts ~loc:md.md_loc !env freshening_sub
-                prefixing_sub path addr md.md_type
+              components_of_module ~alerts ~loc:md.md_loc !env cm_subst_scope
+                freshening_sub prefixing_sub path addr md.md_type
             in
             c.comp_components <-
               NameMap.add (Ident.name id) (comps, addr) c.comp_components;
@@ -1739,10 +1760,12 @@ and components_of_module_maker {cm_env; cm_freshening_subst; cm_prefixing_subst;
               store_module ~freshening_sub ~check:false id addr pres md !env
         | Sig_modtype(id, decl, _) ->
             let fresh_decl =
-              may_subst Subst.modtype_declaration freshening_sub decl
+              may_subst (Subst.modtype_declaration ~scope:cm_subst_scope)
+                freshening_sub decl
             in
             let final_decl =
-              Subst.modtype_declaration prefixing_sub fresh_decl
+              Subst.modtype_declaration ~scope:cm_subst_scope
+                prefixing_sub fresh_decl
             in
             c.comp_modtypes <-
               NameMap.add (Ident.name id) final_decl c.comp_modtypes;
@@ -1760,14 +1783,16 @@ and components_of_module_maker {cm_env; cm_freshening_subst; cm_prefixing_subst;
         Some (Structure_comps c)
   | Mty_functor(param, ty_arg, ty_res) ->
       let sub =
-        may_subst Subst.compose cm_freshening_subst cm_prefixing_subst
+        may_subst (Subst.compose ~scope:cm_subst_scope)
+          cm_freshening_subst cm_prefixing_subst
       in
         Some (Functor_comps {
           fcomp_param = param;
           (* fcomp_arg and fcomp_res must be prefixed eagerly, because
              they are interpreted in the outer environment *)
-          fcomp_arg = may_map (Subst.modtype sub) ty_arg;
-          fcomp_res = Subst.modtype sub ty_res;
+          fcomp_arg = may_map (Subst.modtype ~scope:cm_subst_scope sub) ty_arg;
+          fcomp_res = Subst.modtype ~scope:cm_subst_scope sub ty_res;
+          fcomp_scope = cm_subst_scope;
           fcomp_cache = Hashtbl.create 17;
           fcomp_subst_cache = Hashtbl.create 17 })
   | Mty_ident _
@@ -1890,6 +1915,7 @@ and store_extension ~check id addr ext env =
 
 and store_module ~check ~freshening_sub id addr presence md env =
   let loc = md.md_loc in
+  let scope = Ident.scope id in
   if check then
     check_usage loc id (fun s -> Warnings.Unused_module s)
       module_declarations;
@@ -1897,15 +1923,15 @@ and store_module ~check ~freshening_sub id addr presence md env =
   let module_decl_lazy =
     match freshening_sub with
     | None -> EnvLazy.create_forced md
-    | Some s -> EnvLazy.create (s, md)
+    | Some s -> EnvLazy.create (s, scope, md)
   in
   { env with
     modules = IdTbl.add id (Value (module_decl_lazy, addr)) env.modules;
     components =
       IdTbl.add id
         (Value
-           (components_of_module ~alerts ~loc:md.md_loc
-              env freshening_sub Subst.identity (Pident id) addr md.md_type,
+           (components_of_module ~alerts ~loc:md.md_loc env
+              scope freshening_sub Subst.identity (Pident id) addr md.md_type,
             addr))
         env.components;
     summary = Env_module(env.summary, id, presence, md) }
@@ -1937,7 +1963,7 @@ let components_of_functor_appl f env p1 p2 =
     let sub = Subst.add_module f.fcomp_param p2 Subst.identity in
     (* we have to apply eagerly instead of passing sub to [components_of_module]
        because of the call to [check_well_formed_module]. *)
-    let mty = Subst.modtype sub f.fcomp_res in
+    let mty = Subst.modtype ~scope:f.fcomp_scope sub f.fcomp_res in
     let addr = EnvLazy.create_failed Not_found in
     !check_well_formed_module env Location.(in_file !input_name)
       ("the signature of " ^ Path.name p) mty;
@@ -1945,7 +1971,7 @@ let components_of_functor_appl f env p1 p2 =
       components_of_module ~alerts:Misc.Stdlib.String.Map.empty
         ~loc:Location.none
         (*???*)
-        env None Subst.identity p addr mty
+        env f.fcomp_scope None Subst.identity p addr mty
     in
     Hashtbl.add f.fcomp_cache p2 comps;
     comps
