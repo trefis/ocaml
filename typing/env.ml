@@ -627,6 +627,14 @@ let sign_of_cmi ~freshen { Persistent_env.Persistent_signature.cmi; _ } =
   let pm_signature = lazy (Subst.signature Subst.identity sign) in
   let pm_components =
     let scope, freshening_subst =
+      (* [freshen = true] <=> we're reading a cmi.
+           In that case, we indeed need to freshen the identifiers (cf #2231),
+           and we give these new identifiers the same scope as global ones.
+
+         [freshen = false] <=> we're about to save a signature to a cmi.
+           In that case, the signature won't be used anymore: we don't need to
+           do the extra freshening. And when applying the prefixing substitution
+           the items of the signature, we can make their scope local. *)
       if freshen then (
         Ident.lowest_scope, Some Subst.identity
       ) else
