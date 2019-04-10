@@ -54,6 +54,18 @@ val extension_constructor:
         t -> extension_constructor -> extension_constructor
 val class_declaration: t -> class_declaration -> class_declaration
 val cltype_declaration: t -> class_type_declaration -> class_type_declaration
+
+(*
+   When applied to a signature item, a substitution not only modifies the types
+   present in its declaration, but also refreshes the identifier of the item.
+   Effectively this creates new declarations, and so one should decide what the
+   scope of this new declaration should be.
+
+   The following functions, which all directly or indirectly apply to signature
+   items, take an optional [scope] argument.
+   When it is omitted, the new item is made "local", cf {!Ident.create_local}.
+*)
+
 val modtype: ?scope:int -> t -> module_type -> module_type
 val signature: ?scope:int -> t -> signature -> signature
 val signature_item: ?scope:int -> t -> signature_item -> signature_item
