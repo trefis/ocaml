@@ -836,8 +836,9 @@ let find_module ~alias path env =
                 try
                   Hashtbl.find f.fcomp_subst_cache p2
                 with Not_found ->
+                  let scope = max f.fcomp_scope (Path.scope p2) in
                   let mty =
-                    Subst.modtype ~scope:f.fcomp_scope
+                    Subst.modtype ~scope
                       (Subst.add_module f.fcomp_param p2 Subst.identity)
                       f.fcomp_res in
                   Hashtbl.add f.fcomp_subst_cache p2 mty;
@@ -1963,7 +1964,8 @@ let components_of_functor_appl f env p1 p2 =
     let sub = Subst.add_module f.fcomp_param p2 Subst.identity in
     (* we have to apply eagerly instead of passing sub to [components_of_module]
        because of the call to [check_well_formed_module]. *)
-    let mty = Subst.modtype ~scope:f.fcomp_scope sub f.fcomp_res in
+    let scope = max f.fcomp_scope (Path.scope p2) in
+    let mty = Subst.modtype ~scope sub f.fcomp_res in
     let addr = EnvLazy.create_failed Not_found in
     !check_well_formed_module env Location.(in_file !input_name)
       ("the signature of " ^ Path.name p) mty;
@@ -1971,7 +1973,7 @@ let components_of_functor_appl f env p1 p2 =
       components_of_module ~alerts:Misc.Stdlib.String.Map.empty
         ~loc:Location.none
         (*???*)
-        env f.fcomp_scope None Subst.identity p addr mty
+        env scope None Subst.identity p addr mty
     in
     Hashtbl.add f.fcomp_cache p2 comps;
     comps
