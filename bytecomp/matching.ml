@@ -3677,8 +3677,33 @@ let do_for_multiple_match loc paraml pat_act_list partial =
   in
   try
     try
+      (* the following comment feels weird. We're not checking if it's possible.
+         I think:
+
+           "first try compiling a flattened matched, and fallback to regular
+            compilation if that fails"
+
+         would be more in line with what's actually going on. *)
       (* Once for checking that compilation is possible *)
+
+      (* The next line can theoretically raise [Cannot_flatten]
+
+         However, if it does, then [compile_match] which calls
+         [split_and_precompile] will raise as well. So there is no point calling
+         [compile_match] in that case.
+
+         The enclosing [try .. with Cannot_flatten -> ..] is then only useful
+         if calls to [flatten_precompiled] raise.
+
+         ---
+
+         Additionally, none of the callers of [for_multiple_match] catch
+         [Cannot_flatten], so it looks like [split_and_precompile] doesn't
+         actually raise.
+      *)
       let next, nexts = split_and_precompile None pm1 in
+      (* The following (and the fold_right2 below) seems redundant with the
+         wrapping that happens in [for_multiple_match]. *)
       let size = List.length paraml
       and idl = List.map (fun _ -> Ident.create_local "*match*") paraml in
       let args = List.map (fun id -> (Lvar id, Alias)) idl in
