@@ -2327,6 +2327,8 @@ let split_extension_cases tag_lambda_list =
 
 let combine_constructor loc arg ex_pat cstr partial ctx def
     (tag_lambda_list, total1, pats) =
+  (* Let's not rely on that, it's just fragile. We could either match on
+     cstr_tag or expose a predicate from Datarepr. *)
   if cstr.cstr_consts < 0 then begin
     (* Special cases for extensions *)
     let fail, local_jumps =
