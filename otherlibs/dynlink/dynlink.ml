@@ -16,7 +16,7 @@
 (*                                                                        *)
 (**************************************************************************)
 
-[@@@ocaml.warning "+a-4-30-40-41-42"]
+[@@@ocaml.warning "+a-4-30-40-41-42-66"]
 
 open! Dynlink_compilerlibs  (* REMOVE_ME for ../../debugger/dynlink.ml *)
 
