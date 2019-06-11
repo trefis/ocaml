@@ -658,20 +658,36 @@ let cons_default matrix raise_num default =
   | _ -> (matrix, raise_num) :: default
 
 let default_compat p def =
-  List.fold_right
-    (fun (pss, i) r ->
-      let qss =
-        List.fold_right
-          (fun qs r ->
-            match qs with
-            | q :: rem when may_compat p q -> rem :: r
-            | _ -> r)
-          pss []
-      in
-      match qss with
-      | [] -> r
-      | _ -> (qss, i) :: r)
-    def []
+  let specialize_row qs =
+    match qs with
+    | q :: rem when may_compat p q -> Some rem
+    | _ -> None
+  in
+  List.filter_map
+    (fun (pss, i) ->
+      match List.filter_map specialize_row pss with
+      | [] -> None
+      | qss -> Some (qss, i))
+    def
+
+let rec optim_default = function
+  | [] -> []
+  | ( [] :: _, i) :: _ -> [ ([ [] ], i) ]
+  | (pss, i) :: rem -> (pss, i) :: optim_default rem
+
+let other_default_compat p def =
+  let compat_matcher q rem =
+    if may_compat p q then rem
+    else raise NoMatch
+  in
+  specialize_default compat_matcher def
+
+let default_compat p def =
+  let v1 = default_compat p def in
+  let v2 = other_default_compat p def in
+  let v1_optim = optim_default v1 in
+  assert (v1_optim = v2 || (pretty_def v1_optim; pretty_def v2; false));
+  v1
 
 (* Or-pattern expansion, variables are a complication w.r.t. the article *)
 
