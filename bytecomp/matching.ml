@@ -257,7 +257,7 @@ let ctx_matcher p =
     )
   | _ -> fatal_error "Matching.ctx_matcher"
 
-let filter_ctx q ctx =
+let specialize_ctx q ctx =
   let matcher = ctx_matcher q in
   let rec filter_rec = function
     | ({ right = p :: ps } as l) :: rem -> (
@@ -279,7 +279,7 @@ let filter_ctx q ctx =
           )
       )
     | [] -> []
-    | _ -> fatal_error "Matching.filter_ctx"
+    | _ -> fatal_error "Matching.specialize_ctx"
   in
   filter_rec ctx
 
@@ -1277,8 +1277,9 @@ let get_args_constant _ rem = rem
 let make_constant_matching p def ctx = function
   | [] -> fatal_error "Matching.make_constant_matching"
   | _ :: argl ->
-      let def = specialize_default (matcher_const (get_key_constant "make" p)) def
-      and ctx = filter_ctx p ctx in
+      let def =
+        specialize_default (matcher_const (get_key_constant "make" p)) def
+      and ctx = specialize_ctx p ctx in
       { pm = { cases = []; args = argl; default = def };
         ctx;
         pat = normalize_pat p
@@ -1397,7 +1398,7 @@ let make_constr_matching p def ctx = function
             args = newargs;
             default = specialize_default (matcher_constr cstr) def
           };
-        ctx = filter_ctx p ctx;
+        ctx = specialize_ctx p ctx;
         pat = normalize_pat p
       }
 
@@ -1420,7 +1421,7 @@ let make_variant_matching_constant p lab def ctx = function
   | [] -> fatal_error "Matching.make_variant_matching_constant"
   | _ :: argl ->
       let def = specialize_default (matcher_variant_const lab) def
-      and ctx = filter_ctx p ctx in
+      and ctx = specialize_ctx p ctx in
       { pm = { cases = []; args = argl; default = def };
         ctx;
         pat = normalize_pat p
@@ -1437,7 +1438,7 @@ let make_variant_matching_nonconst p lab def ctx = function
   | [] -> fatal_error "Matching.make_variant_matching_nonconst"
   | (arg, _mut) :: argl ->
       let def = specialize_default (matcher_variant_nonconst lab) def
-      and ctx = filter_ctx p ctx in
+      and ctx = specialize_ctx p ctx in
       { pm =
           { cases = [];
             args = (Lprim (Pfield 1, [ arg ], p.pat_loc), Alias) :: argl;
@@ -1487,7 +1488,10 @@ let get_args_var _ rem = rem
 let make_var_matching def = function
   | [] -> fatal_error "Matching.make_var_matching"
   | _ :: argl ->
-      { cases = []; args = argl; default = specialize_default get_args_var def }
+      { cases = [];
+        args = argl;
+        default = specialize_default get_args_var def
+      }
 
 let divide_var ctx pm =
   divide_line ctx_lshift make_var_matching get_args_var omega ctx pm
@@ -1650,7 +1654,7 @@ let make_lazy_matching def = function
       }
 
 let divide_lazy p ctx pm =
-  divide_line (filter_ctx p) make_lazy_matching get_arg_lazy p ctx pm
+  divide_line (specialize_ctx p) make_lazy_matching get_arg_lazy p ctx pm
 
 (* Matching against a tuple pattern *)
 
@@ -1684,7 +1688,7 @@ let make_tuple_matching loc arity def = function
       }
 
 let divide_tuple arity p ctx pm =
-  divide_line (filter_ctx p)
+  divide_line (specialize_ctx p)
     (make_tuple_matching p.pat_loc arity)
     (get_args_tuple arity) p ctx pm
 
@@ -1745,7 +1749,7 @@ let make_record_matching loc all_labels def = function
 
 let divide_record all_labels p ctx pm =
   let get_args = get_args_record (Array.length all_labels) in
-  divide_line (filter_ctx p)
+  divide_line (specialize_ctx p)
     (make_record_matching p.pat_loc all_labels)
     get_args p ctx pm
 
@@ -1783,7 +1787,7 @@ let make_array_matching kind p def ctx = function
           :: make_args (pos + 1)
       in
       let def = specialize_default (matcher_array len) def
-      and ctx = filter_ctx p ctx in
+      and ctx = specialize_ctx p ctx in
       { pm = { cases = []; args = make_args 0; default = def };
         ctx;
         pat = normalize_pat p
