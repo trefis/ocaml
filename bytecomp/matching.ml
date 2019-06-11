@@ -354,7 +354,29 @@ let specialize_default matcher env =
   in
   make_rec env
 
-module Jumps = struct
+module Jumps : sig
+  type t
+
+  val is_empty : t -> bool
+
+  val empty : t
+
+  val singleton : int -> Context.t -> t
+
+  val add : int -> Context.t -> t -> t
+
+  val union : t -> t -> t
+
+  val unions : t list -> t
+
+  val map : (Context.t -> Context.t) -> t -> t
+
+  val remove : int -> t -> t
+
+  val extract : int -> t -> Context.t * t
+
+  val eprintf : t -> unit
+end = struct
   type t = (int * Context.t) list
 
   let eprintf (env : t) =
