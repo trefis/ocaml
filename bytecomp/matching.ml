@@ -1015,9 +1015,9 @@ let rec split_or argo cls args def =
 (* Ultra-naive splitting, close to semantics, used for extension,
    as potential rebind prevents any kind of optimisation *)
 and split_naive cls args def k =
-  let rec split_exc cstr0 yes = function
+  let rec split_exc cstr0 rev_yes = function
     | [] ->
-        let yes = List.rev yes in
+        let yes = List.rev rev_yes in
         ( { me = Pm { cases = yes; args; default = def };
             matrix = as_matrix yes;
             top_default = def
@@ -1027,9 +1027,9 @@ and split_naive cls args def k =
         if group_constructor p then
           let cstr = pat_as_constr p in
           if cstr = cstr0 then
-            split_exc cstr0 (cl :: yes) rem
+            split_exc cstr0 (cl :: rev_yes) rem
           else
-            let yes = List.rev yes in
+            let yes = List.rev rev_yes in
             let { me = next; matrix; top_default = def }, nexts =
               split_exc cstr [ cl ] rem
             in
@@ -1041,7 +1041,7 @@ and split_naive cls args def k =
               },
               (idef, next) :: nexts )
         else
-          let yes = List.rev yes in
+          let yes = List.rev rev_yes in
           let { me = next; matrix; top_default = def }, nexts =
             split_noexc [ cl ] rem
           in
@@ -1053,11 +1053,14 @@ and split_naive cls args def k =
             },
             (idef, next) :: nexts )
     | _ -> assert false
-  and split_noexc yes = function
-    | [] -> precompile_var args (List.rev yes) def k
+  and split_noexc rev_yes = function
+    | ([], _) :: _ -> assert false
+    | [] -> precompile_var args (List.rev rev_yes) def k
     | ((p :: _, _) as cl) :: rem ->
-        if group_constructor p then
-          let yes = List.rev yes in
+        if not (group_constructor p) then
+          split_noexc (cl :: rev_yes) rem
+        else
+          let yes = List.rev rev_yes in
           let { me = next; matrix; top_default = def }, nexts =
             split_exc (pat_as_constr p) [ cl ] rem
           in
@@ -1065,9 +1068,6 @@ and split_naive cls args def k =
           precompile_var args yes
             (cons_default matrix idef def)
             ((idef, next) :: nexts)
-        else
-          split_noexc (cl :: yes) rem
-    | _ -> assert false
   in
   match cls with
   | [] -> assert false
@@ -1124,7 +1124,8 @@ and split_constr cls args def k =
          are only variables. How is that correct in presence of GADTs? *)
       and split_noex rev_yes rev_no = function
         | ([], _) :: _ -> assert false
-        | [ ((ps, _) as cl) ] when List.for_all group_var ps && rev_yes <> [] ->
+        | [ ((ps, _) as cl) ] when List.for_all group_var ps && rev_yes <> []
+          ->
             (* This enables an extra division in some frequent cases:
                last row is made of variables only *)
             split_noex rev_yes (cl :: rev_no) []
