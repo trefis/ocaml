@@ -631,10 +631,10 @@ let safe_before (ps, act_p) l =
   (* Test for swapping two clauses *)
   let same_actions act1 act2 =
     match (make_key act1, make_key act2) with
-      | Some key1, Some key2 -> key1 = key2
-      | None, _
-        | _, None ->
-         false
+    | Some key1, Some key2 -> key1 = key2
+    | None, _
+    | _, None ->
+        false
   in
   List.for_all
     (fun (qs, act_q) -> same_actions act_p act_q || not (may_compats ps qs))
@@ -907,45 +907,43 @@ let rec extract_equiv_head p l =
 
 let insert_or_append p ps act ors no =
   let rec attempt seen = function
+    | [] -> ((p :: ps, act) :: ors, no)
+    | ([], _act) :: _ -> assert false
     | ((q :: qs, act_q) as cl) :: rem ->
-        if is_or q then
-          if may_compat p q then
-            if
-              Typedtree.pat_bound_idents p = []
-              && Typedtree.pat_bound_idents q = []
-              && equiv_pat p q
-            then
-              (* attempt insert, for equivalent orpats with no variables *)
-              let _, not_e = extract_equiv_head q rem in
-              if
-                safe_below_or_matrix not_e (p, ps)
-                && (* check append condition for head of O *)
-                   List.for_all (* check insert condition for tail of O *)
-                     (fun cl ->
-                       match cl with
-                       | q :: _, _ -> disjoint p q
-                       | _ -> assert false)
-                     seen
-              then
-                (* insert *)
-                (List.rev_append seen ((p :: ps, act) :: cl :: rem), no)
-              else
-                (* fail to insert or append *)
-                (ors, (p :: ps, act) :: no)
-            else if safe_below (qs, act_q) ps then
-              (* check condition (b) for append *)
-              attempt (cl :: seen) rem
-            else
-              (ors, (p :: ps, act) :: no)
-          else
-            (* p # q, go on with append/insert *)
-            attempt (cl :: seen) rem
-        else
+        if not (is_or q) then
           (* q is not an or-pat, go on with append/insert *)
           attempt (cl :: seen) rem
-    | _ ->
-        (* [] in fact *)
-        ((p :: ps, act) :: ors, no)
+        else if disjoint p q then
+          (* p # q, go on with append/insert *)
+          attempt (cl :: seen) rem
+        else if
+          Typedtree.pat_bound_idents p = []
+          && Typedtree.pat_bound_idents q = []
+          && equiv_pat p q
+        then
+          (* attempt insert, for equivalent orpats with no variables *)
+          let _, not_e = extract_equiv_head q rem in
+          if
+            (* check append condition for head of O *)
+            safe_below_or_matrix not_e (p, ps)
+            && (* check insert condition for tail of O *)
+               List.for_all
+                 (fun cl ->
+                   match cl with
+                   | q :: _, _ -> disjoint p q
+                   | _ -> assert false)
+                 seen
+          then
+            (* insert *)
+            (List.rev_append seen ((p :: ps, act) :: cl :: rem), no)
+          else
+            (* fail to insert or append *)
+            (ors, (p :: ps, act) :: no)
+        else if safe_below (qs, act_q) ps then
+          (* check condition (b) for append *)
+          attempt (cl :: seen) rem
+        else
+          (ors, (p :: ps, act) :: no)
   in
   (* success in appending *)
   attempt [] ors
