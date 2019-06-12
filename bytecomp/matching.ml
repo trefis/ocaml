@@ -1120,6 +1120,8 @@ and split_constr cls args def k =
                       (idef, next) :: nexts )
               )
           )
+      (* QUESTION: split_noex seems to assume that the non-group cases
+         are only variables. How is that correct in presence of GADTs? *)
       and split_noex rev_yes rev_no = function
         | ([], _) :: _ -> assert false
         | [ ((ps, _) as cl) ] when List.for_all group_var ps && rev_yes <> [] ->
