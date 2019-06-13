@@ -1121,7 +1121,18 @@ and split_constr cls args def k =
               )
           )
       (* QUESTION: split_noex seems to assume that the non-group cases
-         are only variables. How is that correct in presence of GADTs? *)
+         are only variables. How is that correct in presence of GADTs?
+
+         PARTIAL ANSWER: all the split/precompile functions only do work on the
+         first column of a matching.
+         And I think we can assume that, contrary to parmatch, the first
+         column is always well typed.
+         The issue we had in parmatch was due to "default clauses" ending
+         up in subsequent specialized matrices (cf. comment on
+         Parmatch.all_coherent).
+         This doesn't happen here: variables/omegas are in a dedicated group,
+         so rows with omegas at the head end up in a dedicated matrix.
+      *)
       and split_noex rev_yes rev_no = function
         | ([], _) :: _ -> assert false
         | [ ((ps, _) as cl) ] when List.for_all group_var ps && rev_yes <> []
