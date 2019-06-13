@@ -1296,7 +1296,7 @@ and precompile_or argo cls ors args def k =
     },
     k )
 
-let split_precompile argo pm =
+let split_and_precompile argo pm =
   let { me = next }, nexts = split_or argo pm.cases pm.args pm.default in
   if
     dbg
@@ -2964,7 +2964,7 @@ let rec compile_match repr partial ctx m =
   | { args = (arg, str) :: argl } ->
       let v, newarg = arg_to_var arg m.cases in
       let first_match, rem =
-        split_precompile (Some v) { m with args = (newarg, Alias) :: argl }
+        split_and_precompile (Some v) { m with args = (newarg, Alias) :: argl }
       in
       let lam, total =
         comp_match_handlers
@@ -3491,7 +3491,7 @@ let do_for_multiple_match loc paraml pat_act_list partial =
 
       (* The next line can theoretically raise [Cannot_flatten]
 
-         However, if it does, then [compile_match] which calls [split_precompile]
+         However, if it does, then [compile_match] which calls [split_and_precompile]
          will raise as well. So there is no point calling [compile_match] in
          that case.
 
@@ -3501,10 +3501,10 @@ let do_for_multiple_match loc paraml pat_act_list partial =
          ---
 
          Additionally, none of the callers of [for_multiple_match] catch
-         [Cannot_flatten], so it looks like [split_precompile] doesn't actually
+         [Cannot_flatten], so it looks like [split_and_precompile] doesn't actually
          raise.
       *)
-      let next, nexts = split_precompile None pm1 in
+      let next, nexts = split_and_precompile None pm1 in
       (* The following (and the fold_right2 below) seems redundant with the
          wrapping that happens in [for_multiple_match]. *)
       let size = List.length paraml
