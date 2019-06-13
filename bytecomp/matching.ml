@@ -883,19 +883,20 @@ let rec extract_equiv_head p l =
   | _ -> ([], l)
 
 module Or_matrix = struct
-  (* Splitting a matrix uses an or-matrix that contains or-patterns (at
-   the head of some of its rows).
+  (* Splitting a matrix uses an or-matrix that contains or-patterns
+     (at the head of some of its rows).
 
-   The property that we want to maintain for the rows of the or-matrix
-   is that if the row p::ps is before q::qs, and v::vs matches p but
-   not ps, then we don't need to try q::qs.
+     The property that we want to maintain for the rows of the
+     or-matrix is that if the row p::ps is before q::qs and p is an
+     or-pattern, and v::vs matches p but not ps, then we don't need to
+     try q::qs. This is necessary because the compilation of the
+     or-pattern p will exit to a sub-matrix and never come back.
 
-   For this to hold, (p::ps) and (q::qs) must satify one of:
-   - disjointness: p and q are not compatible
-   - ordering: if p and q are compatible, ps is more general than qs
-     (this only works if the row p::ps is not guarded; otherwise the
-      guard could fail and q::qs should still be tried)
-*)
+     For this to hold, (p::ps) and (q::qs) must satify one of: -
+     disjointness: p and q are not compatible - ordering: if p and
+     q are compatible, ps is more general than qs (this only works if
+     the row p::ps is not guarded; otherwise the guard could fail and
+     q::qs should still be tried) *)
 
   (* Conditions for appending to the Or matrix *)
   let disjoint p q = not (may_compat p q)
