@@ -970,7 +970,11 @@ end
 let as_matrix cases = get_mins le_pats (List.map (fun (ps, _) -> ps) cases)
 
 (*
-  Split a matching.
+  Split a matching along the first column.
+
+    The first column is assumed to be well typed (note: this
+    assumption would be incorrect in parmatch)
+
     Splitting is first directed by or-patterns, then by
     tests (e.g. constructors)/variable transitions.
 
