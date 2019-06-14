@@ -28,6 +28,41 @@ val omegas : int -> pattern list
 val omega_list : 'a list -> pattern list
 (** [List.map (fun _ -> omega)] *)
 
+module Simple_head_pat : sig
+  type desc =
+    | Any
+    | Construct of constructor_description
+    | Constant of constant
+    | Tuple of int
+    | Record of label_description list
+    | Variant of { tag: label; has_arg: bool; row: row_desc ref }
+    | Array of int
+    | Lazy
+
+  type t
+
+  val desc : t -> desc
+  val env : t -> Env.t
+  val loc : t -> Location.t
+  val typ : t -> Types.type_expr
+
+  (** [of_pattern p] raises [Invalid_arg _] if [p] is an or-pattern or an
+      exception-pattern. *)
+  val of_pattern : pattern -> t
+
+  (** reconstructs a pattern, putting wildcards as sub-patterns. *)
+  val to_pattern : t -> pattern
+
+  val make_record
+    :  loc:Location.t
+    -> typ:Types.type_expr
+    -> env:Env.t
+    -> label_description list
+    -> t
+
+  val row_of_discr : t -> Types.row_desc
+end
+
 val normalize_pat : pattern -> pattern
 (** Keep only the "head" of a pattern: all arguments are replaced by [omega], so
     are variables. *)
