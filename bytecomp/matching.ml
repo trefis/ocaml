@@ -498,7 +498,7 @@ type handler = {
 }
 
 type pm_or_compiled = {
-  body : initial_row pattern_matching;
+  body : half_compiled_row pattern_matching;
   handlers : handler list;
   or_matrix : matrix
 }
@@ -553,7 +553,7 @@ let rec pretty_precompiled = function
       pretty_precompiled x.inside
   | PmOr x ->
       Format.eprintf "++++ OR ++++\n";
-      pretty_pm x.body;
+      pretty_hc_pm x.body;
       pretty_matrix Format.err_formatter x.or_matrix;
       List.iter
         (fun { exit = i; pm; _ } ->
@@ -784,10 +784,10 @@ let rec explode_or_pat p arg patl mk_action vars aliases rem =
       explode_or_pat p arg patl mk_action vars (id :: aliases) rem
   | Tpat_var (x, _) ->
       let env = mk_alpha_env arg (x :: aliases) vars in
-      (omega :: patl, mk_action (List.map snd env)) :: rem
+      (omega, patl, mk_action (List.map snd env)) :: rem
   | _ ->
       let env = mk_alpha_env arg aliases vars in
-      (alpha_pat env p :: patl, mk_action (List.map snd env)) :: rem
+      (alpha_pat env p, patl, mk_action (List.map snd env)) :: rem
 
 let pm_free_variables { cases } =
   List.fold_right
@@ -1198,28 +1198,22 @@ and precompile_or argo cls ors args def k =
           { provenance = [ [ orp ] ]; exit = or_num; vars; pm = orpm }
         in
         (cases, handler :: rem_handlers)
-    | (p, ps, act) :: rem ->
+    | cl :: rem ->
         let new_ord, new_to_catch = do_cases rem in
-        ((p :: ps, act) :: new_ord, new_to_catch)
+        (cl :: new_ord, new_to_catch)
     | [] -> ([], [])
   in
   let cases, handlers = do_cases ors in
   let matrix = as_matrix (cls @ ors)
-  and body =
-    { cases = List.map (fun (p, ps, act) -> (p :: ps, act)) cls @ cases;
-      args;
-      default = def
-    }
-  in
+  and body = { cases = cls @ cases; args; default = def } in
   ( { me = PmOr { body; handlers; or_matrix = matrix };
       matrix;
       top_default = def
     },
     k )
 
-let split_and_precompile argo pm =
-  let cases = half_simplify_cases pm.args pm.cases in
-  let { me = next }, nexts = split_or argo cases pm.args pm.default in
+let split_and_precompile_half_simplified argo pm =
+  let { me = next }, nexts = split_or argo pm.cases pm.args pm.default in
   if
     dbg
     && (nexts <> []
@@ -1230,10 +1224,14 @@ let split_and_precompile argo pm =
        )
   then (
     Format.eprintf "** SPLIT **\n";
-    pretty_pm pm;
+    pretty_hc_pm pm;
     pretty_precompiled_res next nexts
   );
   (next, nexts)
+
+let split_and_precompile argo pm =
+  let pm = { pm with cases = half_simplify_cases pm.args pm.cases } in
+  split_and_precompile_half_simplified argo pm
 
 (* General divide functions *)
 
@@ -2911,6 +2909,29 @@ let rec compile_match repr partial ctx (m : initial_row pattern_matching) =
       (bind_check str v arg lam, total)
   | _ -> assert false
 
+and compile_half_compiled repr partial ctx
+    (m : half_compiled_row pattern_matching) =
+  match m with
+  | { cases = []; args = [] } -> comp_exit ctx m
+  | { args = ((Lvar v as arg), str) :: argl } ->
+      (* Not sure we need to do anything with arg/v *)
+      let first_match, rem =
+        split_and_precompile_half_simplified (Some v)
+          { m with args = (arg, Alias) :: argl }
+      in
+      let lam, total =
+        comp_match_handlers
+          (( if dbg then
+             do_compile_matching_pr
+           else
+             do_compile_matching
+           )
+             repr)
+          partial ctx first_match rem
+      in
+      (bind_check str v arg lam, total)
+  | _ -> assert false
+
 (* verbose version of do_compile_matching, for debug *)
 and do_compile_matching_pr repr partial ctx x =
   Format.eprintf "COMPILE: %s\nMATCH\n"
@@ -2991,7 +3012,7 @@ and do_compile_matching repr partial ctx pmh =
       in
       (lam, Jumps.map Context.rshift total)
   | PmOr { body; handlers } ->
-      let lam, total = compile_match repr partial ctx body in
+      let lam, total = compile_half_compiled repr partial ctx body in
       compile_orhandlers (compile_match repr partial) lam total ctx handlers
 
 and compile_no_test divide up_ctx repr partial ctx to_match =
@@ -3355,14 +3376,6 @@ let rec flatten_pat_line size p k =
 
 let flatten_cases size cases =
   List.map
-    (fun (ps, action) ->
-      match ps with
-      | [ p ] -> (flatten_pattern size p, action)
-      | _ -> fatal_error "Matching.flatten_case")
-    cases
-
-let flatten_hc_cases size cases =
-  List.map
     (function
       | p, [], action -> (
           match flatten_pattern size p with
@@ -3394,7 +3407,7 @@ let flatten_handler size handler =
 
 let flatten_precompiled size args pmh =
   match pmh with
-  | Pm pm -> Pm (flatten_pm flatten_hc_cases size args pm)
+  | Pm pm -> Pm (flatten_pm flatten_cases size args pm)
   | PmOr { body = b; handlers = hs; or_matrix = m } ->
       PmOr
         { body = flatten_pm flatten_cases size args b;
@@ -3410,13 +3423,9 @@ let flatten_precompiled size args pmh =
 
 let compile_flattened repr partial ctx pmh =
   match pmh with
-  | Pm pm ->
-      compile_match repr partial ctx
-        { pm with
-          cases = List.map (fun (p, ps, act) -> (p :: ps, act)) pm.cases
-        }
+  | Pm pm -> compile_half_compiled repr partial ctx pm
   | PmOr { body = b; handlers = hs } ->
-      let lam, total = compile_match repr partial ctx b in
+      let lam, total = compile_half_compiled repr partial ctx b in
       compile_orhandlers (compile_match repr partial) lam total ctx hs
   | PmVar _ -> assert false
 
