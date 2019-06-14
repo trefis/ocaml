@@ -822,6 +822,11 @@ and group_constructor = function
   | { pat_desc = Tpat_construct (_, _, _) } -> true
   | _ -> false
 
+and same_constructor tag = function
+  | { pat_desc = Tpat_construct (_, cstr, _) } ->
+      Types.equal_tag tag cstr.cstr_tag
+  | _ -> false
+
 and group_variant = function
   | { pat_desc = Tpat_variant (_, _, _) } -> true
   | _ -> false
@@ -856,6 +861,8 @@ let get_group p =
   | Tpat_constant (Const_int32 _) -> group_const_int32
   | Tpat_constant (Const_int64 _) -> group_const_int64
   | Tpat_constant (Const_nativeint _) -> group_const_nativeint
+  | Tpat_construct (_, { cstr_tag = Cstr_extension _ as t }, _) ->
+      same_constructor t
   | Tpat_construct _ -> group_constructor
   | Tpat_tuple _ -> group_tuple
   | Tpat_record _ -> group_record
@@ -891,11 +898,12 @@ module Or_matrix = struct
      try q::qs. This is necessary because the compilation of the
      or-pattern p will exit to a sub-matrix and never come back.
 
-     For this to hold, (p::ps) and (q::qs) must satify one of: -
-     disjointness: p and q are not compatible - ordering: if p and
-     q are compatible, ps is more general than qs (this only works if
-     the row p::ps is not guarded; otherwise the guard could fail and
-     q::qs should still be tried) *)
+     For this to hold, (p::ps) and (q::qs) must satify one of:
+       - disjointness: p and q are not compatible
+       - ordering: if p and q are compatible, ps is more general than qs (this
+         only works if the row p::ps is not guarded; otherwise the guard could
+         fail and q::qs should still be tried)
+  *)
 
   (* Conditions for appending to the Or matrix *)
   let disjoint p q = not (may_compat p q)
@@ -1009,153 +1017,76 @@ let rec split_or argo cls args def =
           (cons_default matrix idef def, (idef, next) :: nexts)
     in
     match yesor with
-    | [] -> split_constr yes args def nexts
+    | [] -> split_no_or yes args def nexts
     | _ -> precompile_or argo yes yesor args def nexts
   in
   do_split [] [] [] cls
 
-(* Ultra-naive splitting, close to semantics, used for extension,
-   as potential rebind prevents any kind of optimisation *)
-and split_naive cls args def k =
-  let rec split_exc cstr0 rev_yes = function
-    | [] ->
-        let yes = List.rev rev_yes in
-        ( { me = Pm { cases = yes; args; default = def };
-            matrix = as_matrix yes;
-            top_default = def
-          },
-          k )
+and split_no_or cls args def k =
+  let rec collect_group can_group rev_yes rev_no = function
+    | ([], _) :: _ -> assert false
     | ((p :: _, _) as cl) :: rem ->
-        if group_constructor p then
-          let cstr = pat_as_constr p in
-          if cstr = cstr0 then
-            split_exc cstr0 (cl :: rev_yes) rem
-          else
-            let yes = List.rev rev_yes in
-            let { me = next; matrix; top_default = def }, nexts =
-              split_exc cstr [ cl ] rem
-            in
-            let idef = next_raise_count () in
-            let def = cons_default matrix idef def in
+        if can_group p && safe_before cl rev_no then
+          collect_group can_group (cl :: rev_yes) rev_no rem
+        else
+          collect_group can_group rev_yes (cl :: rev_no) rem
+    | [] -> (
+        let yes = List.rev rev_yes and no = List.rev rev_no in
+        match no with
+        | [] ->
             ( { me = Pm { cases = yes; args; default = def };
                 matrix = as_matrix yes;
                 top_default = def
               },
-              (idef, next) :: nexts )
-        else
-          let yes = List.rev rev_yes in
-          let { me = next; matrix; top_default = def }, nexts =
-            split_noexc [ cl ] rem
-          in
-          let idef = next_raise_count () in
-          let def = cons_default matrix idef def in
-          ( { me = Pm { cases = yes; args; default = def };
-              matrix = as_matrix yes;
-              top_default = def
-            },
-            (idef, next) :: nexts )
-    | _ -> assert false
-  and split_noexc rev_yes = function
-    | ([], _) :: _ -> assert false
-    | [] -> precompile_var args (List.rev rev_yes) def k
-    | ((p :: _, _) as cl) :: rem ->
-        if not (group_constructor p) then
-          split_noexc (cl :: rev_yes) rem
-        else
-          let yes = List.rev rev_yes in
-          let { me = next; matrix; top_default = def }, nexts =
-            split_exc (pat_as_constr p) [ cl ] rem
-          in
-          let idef = next_raise_count () in
-          precompile_var args yes
-            (cons_default matrix idef def)
-            ((idef, next) :: nexts)
-  in
-  match cls with
-  | [] -> assert false
-  | ((p :: _, _) as cl) :: rem ->
-      if group_constructor p then
-        split_exc (pat_as_constr p) [ cl ] rem
-      else
-        split_noexc [ cl ] rem
-  | _ -> assert false
-
-and split_constr cls args def k =
-  let ex_pat = what_is_cases cls in
-  match ex_pat.pat_desc with
-  | Tpat_any -> precompile_var args cls def k
-  | Tpat_construct (_, { cstr_tag = Cstr_extension _ }, _) ->
-      split_naive cls args def k
-  | _ -> (
-      let group = get_group ex_pat in
-      let rec split_ex rev_yes rev_no = function
-        | ([], _) :: _ -> assert false
-        | ((p :: _, _) as cl) :: rem ->
-            if group p && safe_before cl rev_no then
-              split_ex (cl :: rev_yes) rev_no rem
-            else
-              split_ex rev_yes (cl :: rev_no) rem
-        | [] -> (
-            let yes = List.rev rev_yes and no = List.rev rev_no in
-            match no with
+              k )
+        | cl :: rem -> (
+            match yes with
             | [] ->
+                (* Could not succeeed in raising up a constr matching up *)
+                collect_vars [ cl ] [] rem
+            | _ ->
+                let { me = next; matrix; top_default = def }, nexts =
+                  split no
+                in
+                let idef = next_raise_count () in
+                let def = cons_default matrix idef def in
                 ( { me = Pm { cases = yes; args; default = def };
                     matrix = as_matrix yes;
                     top_default = def
                   },
-                  k )
-            | cl :: rem -> (
-                match yes with
-                | [] ->
-                    (* Could not succeeed in raising up a constr matching up *)
-                    split_noex [ cl ] [] rem
-                | _ ->
-                    let { me = next; matrix; top_default = def }, nexts =
-                      split_noex [ cl ] [] rem
-                    in
-                    let idef = next_raise_count () in
-                    let def = cons_default matrix idef def in
-                    ( { me = Pm { cases = yes; args; default = def };
-                        matrix = as_matrix yes;
-                        top_default = def
-                      },
-                      (idef, next) :: nexts )
-              )
+                  (idef, next) :: nexts )
           )
-      and split_noex rev_yes rev_no = function
-        | ([], _) :: _ -> assert false
-        | [ ((ps, _) as cl) ] when List.for_all group_var ps && rev_yes <> []
-          ->
-            (* This enables an extra division in some frequent cases:
+      )
+  and collect_vars rev_yes rev_no = function
+    | ([], _) :: _ -> assert false
+    | [ ((ps, _) as cl) ] when List.for_all group_var ps && rev_yes <> [] ->
+        (* This enables an extra division in some frequent cases:
                last row is made of variables only *)
-            split_noex rev_yes (cl :: rev_no) []
-        | ((p :: _, _) as cl) :: rem ->
-            if (not (group p)) && safe_before cl rev_no then
-              split_noex (cl :: rev_yes) rev_no rem
-            else
-              split_noex rev_yes (cl :: rev_no) rem
-        | [] -> (
-            let yes = List.rev rev_yes and no = List.rev rev_no in
-            match no with
-            | [] -> precompile_var args yes def k
-            | cl :: rem ->
-                let { me = next; matrix; top_default = def }, nexts =
-                  split_ex [ cl ] [] rem
-                in
-                let idef = next_raise_count () in
-                precompile_var args yes
-                  (cons_default matrix idef def)
-                  ((idef, next) :: nexts)
-          )
-      in
-      match cls with
-      | ((p :: _, _) as cl) :: rem ->
-          if group p then
-            split_ex [ cl ] [] rem
-          else
-            split_noex [ cl ] [] rem
-      | _ -> assert false
-    )
+        collect_vars rev_yes (cl :: rev_no) []
+    | ((p :: _, _) as cl) :: rem ->
+        if group_var p && safe_before cl rev_no then
+          collect_vars (cl :: rev_yes) rev_no rem
+        else
+          collect_vars rev_yes (cl :: rev_no) rem
+    | [] -> (
+        let yes = List.rev rev_yes and no = List.rev rev_no in
+        match no with
+        | [] -> precompile_var args yes def k
+        | _ ->
+            let { me = next; matrix; top_default = def }, nexts = split no in
+            let idef = next_raise_count () in
+            precompile_var args yes
+              (cons_default matrix idef def)
+              ((idef, next) :: nexts)
+      )
+  and split cls =
+    let discr = what_is_cases cls in
+    if group_var discr then
+      collect_vars [] [] cls
+    else
+      collect_group (get_group discr) [] [] cls
+  in
+  split cls
 
 and precompile_var args cls def k =
   (* Strategy: pop the first column,
