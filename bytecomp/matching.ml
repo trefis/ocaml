@@ -679,7 +679,7 @@ let safe_before (p, ps, act_p) l =
    In particular, or-patterns may still occur in the head of the output row,
    so this is only a "half-simplification".
 *)
-let half_simplify_cases args cls =
+let half_simplify_clause args cls =
   let rec simpl_pat p =
     match p.pat_desc with
     | Tpat_any
@@ -738,7 +738,9 @@ let half_simplify_cases args cls =
             (pat, patl, action)
       )
   in
-  List.map simpl_clause cls
+  simpl_clause cls
+
+let half_simplify_cases args cls = List.map (half_simplify_clause args) cls
 
 (* Once matchings are *fully* simplified, one can easily find
    their nature. *)
@@ -1022,7 +1024,6 @@ let as_matrix cases =
 *)
 
 let rec split_or argo cls args def =
-  let cls = half_simplify_cases args cls in
   let rec do_split rev_before rev_ors rev_no = function
     | [] ->
         cons_next (List.rev rev_before) (List.rev rev_ors) (List.rev rev_no)
@@ -1134,15 +1135,16 @@ and precompile_var args cls def k =
           dont_precompile_var args cls def k
       | _ -> (
           (* Precompile *)
+          let var_args = arg :: rargs in
           let var_cls =
             List.map
               (fun (p, ps, act) ->
                 assert (group_var p);
-                (ps, act))
+                half_simplify_clause var_args (ps, act))
               cls
           and var_def = default_pop_column def in
           let { me = first; matrix }, nexts =
-            split_or (Some v) var_cls (arg :: rargs) var_def
+            split_or (Some v) var_cls var_args var_def
           in
           (* Compute top information *)
           match nexts with
@@ -1242,7 +1244,8 @@ and precompile_or argo cls ors args def k =
     k )
 
 let split_and_precompile argo pm =
-  let { me = next }, nexts = split_or argo pm.cases pm.args pm.default in
+  let cases = half_simplify_cases pm.args pm.cases in
+  let { me = next }, nexts = split_or argo cases pm.args pm.default in
   if
     dbg
     && (nexts <> []
