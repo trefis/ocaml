@@ -124,31 +124,37 @@ module Context : sig
   val union : t -> t -> t
 end = struct
   module Row = struct
-    type t = { left : pattern list; right : pattern list }
+    type t = { left : Simple_head_pat.t list; right : pattern list }
 
     let eprintf { left; right } =
-      Format.eprintf "LEFT:%a RIGHT:%a\n" pretty_line left pretty_line right
+      Format.eprintf "LEFT:%a RIGHT:%a\n" pretty_line
+        (List.map Simple_head_pat.to_pattern left)
+        pretty_line right
 
-    let le c1 c2 = le_pats c1.left c2.left && le_pats c1.right c2.right
+    let le c1 c2 =
+      List.for_all2 Simple_head_pat.( <= ) c1.left c2.left
+      && le_pats c1.right c2.right
 
     let lshift { left; right } =
       match right with
-      | x :: xs -> { left = x :: left; right = xs }
+      | x :: xs -> { left = Simple_head_pat.of_pattern x :: left; right = xs }
       | _ -> assert false
 
     let lforget { left; right } =
       match right with
-      | _ :: xs -> { left = omega :: left; right = xs }
+      | _ :: xs ->
+          { left = Simple_head_pat.of_pattern omega :: left; right = xs }
       | _ -> assert false
 
+    (* rshift only ever happens on variables. *)
     let rshift { left; right } =
       match left with
-      | p :: ps -> { left = ps; right = p :: right }
+      | p :: ps -> { left = ps; right = Simple_head_pat.to_pattern p :: right }
       | _ -> assert false
 
     let rshift_num n { left; right } =
       let shifted, left = rev_split_at n left in
-      { left; right = shifted @ right }
+      { left; right = List.map Simple_head_pat.to_pattern shifted @ right }
 
     (** Recombination of contexts (eg: (_,_)::p1::p2::rem ->  (p1,p2)::rem)
   All mutable fields are replaced by '_', since side-effects in
@@ -275,7 +281,9 @@ end = struct
               let rem = filter_rec rem in
               try
                 let to_left, right = matcher p ps in
-                { left = to_left :: l.left; right } :: rem
+                (* FIXME *)
+                { left = Simple_head_pat.of_pattern to_left :: l.left; right }
+                :: rem
               with NoMatch -> rem
             )
         )
@@ -290,7 +298,11 @@ end = struct
       let transfer, right = rev_split_at n right in
       match lubs transfer ps with
       | exception Empty -> None
-      | inter -> Some { Row.left = inter @ left; right }
+      | inter ->
+          Some
+            { Row.left = List.map Simple_head_pat.of_pattern inter @ left;
+              right
+            }
     in
     let lub_with_ctx ps = List.filter_map (lub_row ps) ctx in
     List.flatten (List.map lub_with_ctx pss)

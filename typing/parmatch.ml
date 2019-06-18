@@ -44,6 +44,21 @@ let omega_list l = List.map (fun _ -> omega) l
 
 let zero = make_pat (Tpat_constant (Const_int 0)) Ctype.none Env.empty
 
+let const_compare x y =
+  match x,y with
+  | Const_float f1, Const_float f2 ->
+      Stdlib.compare (float_of_string f1) (float_of_string f2)
+  | Const_string (s1, _), Const_string (s2, _) ->
+      String.compare s1 s2
+  | (Const_int _
+    |Const_char _
+    |Const_string (_, _)
+    |Const_float _
+    |Const_int32 _
+    |Const_int64 _
+    |Const_nativeint _
+    ), _ -> Stdlib.compare x y
+
 module Simple_head_pat : sig
   type desc =
     | Any
@@ -57,10 +72,15 @@ module Simple_head_pat : sig
 
   type t
 
+  val equals : t -> t -> bool
+  val (<=) : t -> t -> bool
+
   val desc : t -> desc
   val env : t -> Env.t
   val loc : t -> Location.t
   val typ : t -> Types.type_expr
+
+  val arity : t -> int
 
   (** [of_pattern p] raises [Invalid_arg _] if [p] is an or-pattern or an
       exception-pattern. *)
@@ -101,6 +121,18 @@ end = struct
   let env { env } = env
   let loc { loc } = loc
   let typ { typ } = typ
+
+  let arity { desc } =
+    match desc with
+    | Any
+    | Variant { has_arg = false }-> 0
+    | Lazy
+    | Constant _
+    | Variant { has_arg = true }-> 1
+    | Tuple n
+    | Array n -> n
+    | Record l -> List.length l
+    | Construct cd -> cd.cstr_arity
 
   let row_of_discr d =
     match Ctype.expand_head d.env d.typ with
@@ -161,6 +193,25 @@ end = struct
 
   let make_record ~loc ~typ ~env lbls =
     { desc = Record lbls; loc; typ; env; attributes = [] }
+
+  let equals d1 d2 =
+    match desc d1, desc d2 with
+    | Any, Any
+    | Lazy, Lazy
+    | Record _, Record _ -> true
+    | Constant c1, Constant c2 -> const_compare c1 c2 = 0
+    | Construct c1, Construct c2 ->
+        Types.equal_tag c1.cstr_tag c2.cstr_tag
+    | Variant { tag = t1; has_arg = ha1; _ },
+      Variant { tag = t2; has_arg = ha2; _ } -> ha1 = ha2 && t1 = t2
+    | Tuple len1, Tuple len2
+    | Array len1, Array len2 -> len1 = len2
+    | _, _ -> false
+  
+  let (<=) d1 d2 =
+    match desc d1 with
+    | Any -> true
+    | _ -> equals d1 d2
 end
 
 let normalize_pat p = Simple_head_pat.(to_pattern @@ of_pattern p)
@@ -364,21 +415,6 @@ let is_absent_pat d =
   match Simple_head_pat.desc d with
   | Variant { tag; row; _ } -> is_absent tag row
   | _ -> false
-
-let const_compare x y =
-  match x,y with
-  | Const_float f1, Const_float f2 ->
-      Stdlib.compare (float_of_string f1) (float_of_string f2)
-  | Const_string (s1, _), Const_string (s2, _) ->
-      String.compare s1 s2
-  | (Const_int _
-    |Const_char _
-    |Const_string (_, _)
-    |Const_float _
-    |Const_int32 _
-    |Const_int64 _
-    |Const_nativeint _
-    ), _ -> Stdlib.compare x y
 
 let records_args l1 l2 =
   (* Invariant: fields are already sorted by Typecore.type_label_a_list *)
@@ -621,56 +657,58 @@ let rec read_args xs r = match xs,r with
 | _,_ ->
     fatal_error "Parmatch.read_args"
 
-let do_set_args ~erase_mutable q r = match q with
-| {pat_desc = Tpat_tuple omegas} ->
-    let args,rest = read_args omegas r in
-    make_pat (Tpat_tuple args) q.pat_type q.pat_env::rest
-| {pat_desc = Tpat_record (omegas,closed)} ->
-    let args,rest = read_args omegas r in
-    make_pat
-      (Tpat_record
-         (List.map2 (fun (lid, lbl,_) arg ->
-           if
-             erase_mutable &&
-             (match lbl.lbl_mut with
-             | Mutable -> true | Immutable -> false)
-           then
-             lid, lbl, omega
-           else
-             lid, lbl, arg)
-            omegas args, closed))
-      q.pat_type q.pat_env::
-    rest
-| {pat_desc = Tpat_construct (lid, c,omegas)} ->
-    let args,rest = read_args omegas r in
-    make_pat
-      (Tpat_construct (lid, c,args))
-      q.pat_type q.pat_env::
-    rest
-| {pat_desc = Tpat_variant (l, omega, row)} ->
-    let arg, rest =
-      match omega, r with
-        Some _, a::r -> Some a, r
-      | None, r -> None, r
-      | _ -> assert false
-    in
-    make_pat
-      (Tpat_variant (l, arg, row)) q.pat_type q.pat_env::
-    rest
-| {pat_desc = Tpat_lazy _omega} ->
-    begin match r with
-      arg::rest ->
-        make_pat (Tpat_lazy arg) q.pat_type q.pat_env::rest
-    | _ -> fatal_error "Parmatch.do_set_args (lazy)"
-    end
-| {pat_desc = Tpat_array omegas} ->
-    let args,rest = read_args omegas r in
-    make_pat
-      (Tpat_array args) q.pat_type q.pat_env::
-    rest
-| {pat_desc=Tpat_constant _|Tpat_any} ->
-    q::r (* case any is used in matching.ml *)
-| _ -> fatal_error "Parmatch.set_args"
+let do_set_args ~erase_mutable q r =
+  let q = Simple_head_pat.to_pattern q in
+  match q with
+  | {pat_desc = Tpat_tuple omegas} ->
+      let args,rest = read_args omegas r in
+      make_pat (Tpat_tuple args) q.pat_type q.pat_env::rest
+  | {pat_desc = Tpat_record (omegas,closed)} ->
+      let args,rest = read_args omegas r in
+      make_pat
+        (Tpat_record
+           (List.map2 (fun (lid, lbl,_) arg ->
+             if
+               erase_mutable &&
+               (match lbl.lbl_mut with
+               | Mutable -> true | Immutable -> false)
+             then
+               lid, lbl, omega
+             else
+               lid, lbl, arg)
+              omegas args, closed))
+        q.pat_type q.pat_env::
+      rest
+  | {pat_desc = Tpat_construct (lid, c,omegas)} ->
+      let args,rest = read_args omegas r in
+      make_pat
+        (Tpat_construct (lid, c,args))
+        q.pat_type q.pat_env::
+      rest
+  | {pat_desc = Tpat_variant (l, omega, row)} ->
+      let arg, rest =
+        match omega, r with
+          Some _, a::r -> Some a, r
+        | None, r -> None, r
+        | _ -> assert false
+      in
+      make_pat
+        (Tpat_variant (l, arg, row)) q.pat_type q.pat_env::
+      rest
+  | {pat_desc = Tpat_lazy _omega} ->
+      begin match r with
+        arg::rest ->
+          make_pat (Tpat_lazy arg) q.pat_type q.pat_env::rest
+      | _ -> fatal_error "Parmatch.do_set_args (lazy)"
+      end
+  | {pat_desc = Tpat_array omegas} ->
+      let args,rest = read_args omegas r in
+      make_pat
+        (Tpat_array args) q.pat_type q.pat_env::
+      rest
+  | {pat_desc=Tpat_constant _|Tpat_any} ->
+      q::r (* case any is used in matching.ml *)
+  | _ -> fatal_error "Parmatch.set_args"
 
 let set_args q r = do_set_args ~erase_mutable:false q r
 and set_args_erase_mutable q r = do_set_args ~erase_mutable:true q r
@@ -1327,7 +1365,7 @@ let rec list_satisfying_vectors pss qs =
                           list_satisfying_vectors pss
                             (simple_match_args p omega @ qs)
                         in
-                        List.map (set_args (Simple_head_pat.to_pattern p)) witnesses
+                        List.map (set_args p) witnesses
                     ) constrs
                   )
                 in
@@ -1348,7 +1386,7 @@ let rec list_satisfying_vectors pss qs =
             []
           else begin
             let q0 = discr_pat q pss in
-            List.map (set_args (Simple_head_pat.to_pattern q0))
+            List.map (set_args q0)
               (list_satisfying_vectors
                  (build_specialized_submatrix ~extend_row:(@) q0 pss)
                  (simple_match_args q0 q @ qs))
@@ -1472,7 +1510,7 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
                   ext pss (List.length (simple_match_args p omega) + n - 1)
               with
               | Witnesses r ->
-                  Witnesses (List.map (set_args (Simple_head_pat.to_pattern p)) r)
+                  Witnesses (List.map (set_args p) r)
               | r       -> r in
           let before = try_many try_non_omega constrs in
           if

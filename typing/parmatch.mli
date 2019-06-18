@@ -41,10 +41,15 @@ module Simple_head_pat : sig
 
   type t
 
+  val equals : t -> t -> bool
+  val (<=) : t -> t -> bool
+
   val desc : t -> desc
   val env : t -> Env.t
   val loc : t -> Location.t
   val typ : t -> Types.type_expr
+
+  val arity : t -> int
 
   (** [of_pattern p] raises [Invalid_arg _] if [p] is an or-pattern or an
       exception-pattern. *)
@@ -62,6 +67,9 @@ module Simple_head_pat : sig
 
   val row_of_discr : t -> Types.row_desc
 end
+
+val simple_match : Simple_head_pat.t -> pattern -> bool
+val simple_match_args : Simple_head_pat.t -> pattern -> pattern list
 
 val normalize_pat : pattern -> pattern
 (** Keep only the "head" of a pattern: all arguments are replaced by [omega], so
@@ -110,8 +118,8 @@ val get_mins : ('a -> 'a -> bool) -> 'a list -> 'a list
       (_,_)::p1::p2::rem -> (p1, p2)::rem
     The second one will replace mutable arguments by '_'
 *)
-val set_args : pattern -> pattern list -> pattern list
-val set_args_erase_mutable : pattern -> pattern list -> pattern list
+val set_args : Simple_head_pat.t -> pattern list -> pattern list
+val set_args_erase_mutable : Simple_head_pat.t -> pattern list -> pattern list
 
 val pat_of_constr : pattern -> constructor_description -> pattern
 val complete_constrs :
