@@ -1247,25 +1247,6 @@ module Division = struct
   (** a submatrix after specializing by discriminant pattern;
     [ctx] is the context shared by all rows. *)
 
-  type division = { args : (lambda * let_kind) list; cells : cell list }
-
-  let add_in_div make_matching_fun key patl_action division =
-    let cells =
-      match
-        List.find_opt
-          (fun cell -> Simple_head_pat.same_key key cell.discr)
-          division.cells
-      with
-      | None ->
-          let cell = make_matching_fun division.args in
-          cell.pm.cases <- [ patl_action ];
-          cell :: division.cells
-      | Some cell ->
-          cell.pm.cases <- patl_action :: cell.pm.cases;
-          division.cells
-    in
-    { division with cells }
-
   let matcher_array len p rem =
     match p.pat_desc with
     | Tpat_or (_, _, _) -> raise OrPat
@@ -1341,6 +1322,23 @@ module Division = struct
           | _ -> raise NoMatch
       )
 
+  let rec matcher_variant_const lab p rem =
+    match p.pat_desc with
+    | Tpat_or (p1, p2, _) -> (
+        try matcher_variant_const lab p1 rem
+        with NoMatch -> matcher_variant_const lab p2 rem
+      )
+    | Tpat_variant (lab1, _, _) when lab1 = lab -> rem
+    | Tpat_any -> rem
+    | _ -> raise NoMatch
+
+  let matcher_variant_nonconst lab p rem =
+    match p.pat_desc with
+    | Tpat_or (_, _, _) -> raise OrPat
+    | Tpat_variant (lab1, Some arg, _) when lab1 = lab -> arg :: rem
+    | Tpat_any -> omega :: rem
+    | _ -> raise NoMatch
+
   let make_field_args loc binding_kind arg first_pos last_pos argl =
     let rec make_args pos =
       if pos > last_pos then
@@ -1366,12 +1364,11 @@ module Division = struct
         | Tpat_lazy _ ->
             (* Goes through divide line *)
             assert false
-        | Tpat_variant _ ->
-            (* Has its own divide function *)
-            assert false
         | Tpat_any
-        | Tpat_constant _ ->
+        | Tpat_constant _
+        | Tpat_variant (_, None, _) ->
             []
+        | Tpat_variant (_, Some pat, _) -> [ pat ]
         | Tpat_construct (_, _, patl)
         | Tpat_array patl ->
             patl
@@ -1432,9 +1429,15 @@ module Division = struct
                 | Lazy ->
                     (* These all end up in divide_line *)
                     assert false
-                | Variant _ ->
-                    (* Has its own divide function. *)
-                    assert false
+                | Variant { tag; has_arg = false } ->
+                    (argl, matcher_variant_const tag)
+                | Variant { tag; has_arg = true } ->
+                    let args =
+                      ( Lprim (Pfield 1, [ arg ], Simple_head_pat.loc discr),
+                        Alias )
+                      :: argl
+                    in
+                    (args, matcher_variant_nonconst tag)
               )
           in
           let default = specialize_default matcher pm.default in
@@ -1498,74 +1501,6 @@ let get_key_constr d =
 *)
 
 (* Matching against a variant *)
-
-let rec matcher_variant_const lab p rem =
-  match p.pat_desc with
-  | Tpat_or (p1, p2, _) -> (
-      try matcher_variant_const lab p1 rem
-      with NoMatch -> matcher_variant_const lab p2 rem
-    )
-  | Tpat_variant (lab1, _, _) when lab1 = lab -> rem
-  | Tpat_any -> rem
-  | _ -> raise NoMatch
-
-let make_variant_matching_constant discr lab def ctx = function
-  | [] -> fatal_error "Matching.make_variant_matching_constant"
-  | _ :: argl ->
-      let def = specialize_default (matcher_variant_const lab) def
-      and ctx = Context.specialize discr ctx in
-      { pm = { cases = []; args = argl; default = def }; ctx; discr }
-
-let matcher_variant_nonconst lab p rem =
-  match p.pat_desc with
-  | Tpat_or (_, _, _) -> raise OrPat
-  | Tpat_variant (lab1, Some arg, _) when lab1 = lab -> arg :: rem
-  | Tpat_any -> omega :: rem
-  | _ -> raise NoMatch
-
-let make_variant_matching_nonconst discr lab def ctx = function
-  | [] -> fatal_error "Matching.make_variant_matching_nonconst"
-  | (arg, _mut) :: argl ->
-      let def = specialize_default (matcher_variant_nonconst lab) def
-      and ctx = Context.specialize discr ctx in
-      let loc = Simple_head_pat.loc discr in
-      { pm =
-          { cases = [];
-            args = (Lprim (Pfield 1, [ arg ], loc), Alias) :: argl;
-            default = def
-          };
-        ctx;
-        discr
-      }
-
-let divide_variant row ctx { cases = cl; args; default = def } =
-  let row = Btype.row_repr row in
-  let rec divide = function
-    | (({ pat_desc = Tpat_variant (lab, pato, _) } as p), patl, action) :: rem
-      -> (
-        let variants = divide rem in
-        if
-          try Btype.row_field_repr (List.assoc lab row.row_fields) = Rabsent
-          with Not_found -> true
-        then
-          variants
-        else
-          let discr = Simple_head_pat.of_pattern p in
-          match pato with
-          | None ->
-              add_in_div
-                (make_variant_matching_constant discr lab def ctx)
-                discr (patl, action) variants
-          | Some pat ->
-              add_in_div
-                (make_variant_matching_nonconst discr lab def ctx)
-                discr
-                (pat :: patl, action)
-                variants
-      )
-    | _ -> { args; cells = [] }
-  in
-  (divide cl).cells
 
 (*
   Three ``no-test'' cases
@@ -2643,7 +2578,6 @@ let combine_variant loc row arg partial ctx def
         | _ -> assert false)
       discr_lambda_list
   in
-  let row = Btype.row_repr row in
   let num_constr = ref 0 in
   if row.row_closed then
     List.iter
@@ -2804,7 +2738,7 @@ let compile_orhandlers compile_fun lambda1 total1 ctx to_catch =
   in
   do_rec lambda1 total1 to_catch
 
-let compile_test compile_fun partial divide combine ctx to_match =
+let compile_test compile_fun partial combine ctx to_match =
   let division = divide ctx to_match in
   let c_div = compile_list compile_fun division in
   match c_div with
@@ -3030,13 +2964,13 @@ and do_compile_matching repr partial ctx pmh =
       | Constant cst ->
           compile_test
             (compile_match repr partial)
-            partial divide
+            partial
             (combine_constant (Simple_head_pat.loc discr) arg cst partial)
             ctx pm
       | Construct cstr ->
           compile_test
             (compile_match repr partial)
-            partial divide
+            partial
             (combine_constructor
                (Simple_head_pat.loc discr)
                arg discr cstr partial)
@@ -3049,17 +2983,36 @@ and do_compile_matching repr partial ctx pmh =
           in
           compile_test
             (compile_match repr partial)
-            partial divide
+            partial
             (combine_array (Simple_head_pat.loc discr) arg kind partial)
             ctx pm
       | Lazy ->
           compile_no_test (divide_lazy discr) Context.combine repr partial ctx
             pm
       | Variant { row } ->
+          (* Preliminary step: eliminate rows starting with an absent
+           constructor *)
+          let row = Btype.row_repr !row in
+          let cases =
+            List.filter
+              (fun (p, _, _) ->
+                match p.pat_desc with
+                | Tpat_variant (lab, _, _) -> (
+                    try
+                      Btype.row_field_repr (List.assoc lab row.row_fields)
+                      <> Rabsent
+                    with Not_found -> false
+                  )
+                | _ -> assert false)
+              pm.cases
+          in
+          pm.cases <- cases;
+
+          (* Proceed with normal compilation *)
           compile_test
             (compile_match repr partial)
-            partial (divide_variant !row)
-            (combine_variant (Simple_head_pat.loc discr) !row arg partial)
+            partial
+            (combine_variant (Simple_head_pat.loc discr) row arg partial)
             ctx pm
       | _ -> assert false
     )
