@@ -1238,55 +1238,82 @@ let split_and_precompile argo pm =
 
 (* General divide functions *)
 
-type cell = {
-  pm : initial_row pattern_matching;
-  ctx : Context.t;
-  discr : Simple_head_pat.t
-}
-(** a submatrix after specializing by discriminant pattern;
+module Division = struct
+  type cell = {
+    pm : initial_row pattern_matching;
+    ctx : Context.t;
+    discr : Simple_head_pat.t
+  }
+  (** a submatrix after specializing by discriminant pattern;
     [ctx] is the context shared by all rows. *)
 
-type division = { args : (lambda * let_kind) list; cells : cell list }
+  type division = { args : (lambda * let_kind) list; cells : cell list }
 
-let add_in_div make_matching_fun key patl_action division =
-  let cells =
-    match
-      List.find_opt
-        (fun cell -> Simple_head_pat.same_key key cell.discr)
-        division.cells
-    with
-    | None ->
-        let cell = make_matching_fun division.args in
-        cell.pm.cases <- [ patl_action ];
-        cell :: division.cells
-    | Some cell ->
-        cell.pm.cases <- patl_action :: cell.pm.cases;
-        division.cells
-  in
-  { division with cells }
+  let add_in_div make_matching_fun key patl_action division =
+    let cells =
+      match
+        List.find_opt
+          (fun cell -> Simple_head_pat.same_key key cell.discr)
+          division.cells
+      with
+      | None ->
+          let cell = make_matching_fun division.args in
+          cell.pm.cases <- [ patl_action ];
+          cell :: division.cells
+      | Some cell ->
+          cell.pm.cases <- patl_action :: cell.pm.cases;
+          division.cells
+    in
+    { division with cells }
 
-let divide make get_args ctx (pm : half_compiled_row pattern_matching) =
-  let add (p, patl, action) division =
-    let discr = Simple_head_pat.of_pattern p in
-    add_in_div
-      (make discr pm.default ctx)
-      discr
-      (get_args p patl, action)
-      division
-  in
-  List.fold_right add pm.cases { args = pm.args; cells = [] }
+  let divide make ctx (pm : half_compiled_row pattern_matching) =
+    let add (p, patl, action) division =
+      let discr = Simple_head_pat.of_pattern p in
+      let children_pats =
+        match p.pat_desc with
+        | Tpat_or _
+        | Tpat_var _
+        | Tpat_alias _
+        | Tpat_exception _ ->
+            (* The pattern has been simplified. *)
+            assert false
+        | Tpat_tuple _
+        | Tpat_record _
+        | Tpat_lazy _ ->
+            (* Goes through divide line *)
+            assert false
+        | Tpat_variant _ ->
+            (* Has its own divide function *)
+            assert false
+        | Tpat_any
+        | Tpat_constant _ ->
+            []
+        | Tpat_construct (_, _, patl)
+        | Tpat_array patl ->
+            patl
+      in
+      add_in_div
+        (make discr pm.default ctx)
+        discr
+        (children_pats @ patl, action)
+        division
+    in
+    List.fold_right add pm.cases { args = pm.args; cells = [] }
 
-let add_line patl_action pm =
-  pm.cases <- patl_action :: pm.cases;
-  pm
+  let add_line patl_action pm =
+    pm.cases <- patl_action :: pm.cases;
+    pm
 
-let divide_line make_ctx make get_args discr ctx
-    (pm : half_compiled_row pattern_matching) =
-  let add (p, patl, action) submatrix =
-    add_line (get_args p patl, action) submatrix
-  in
-  let pm = List.fold_right add pm.cases (make pm.default pm.args) in
-  { pm; ctx = make_ctx ctx; discr }
+  let divide_line make_ctx make get_args discr ctx
+      (pm : half_compiled_row pattern_matching) =
+    let add (p, patl, action) submatrix =
+      add_line (get_args p patl, action) submatrix
+    in
+    let pm = List.fold_right add pm.cases (make pm.default pm.args) in
+    { pm; ctx = make_ctx ctx; discr }
+end
+
+open Division (* REMOVE ME *)
 
 (* Then come various functions,
    There is one set of functions per matching style
@@ -1320,8 +1347,6 @@ let get_key_constant caller d =
       pretty_pat (Simple_head_pat.to_pattern d);
       assert false
 
-let get_args_constant _ rem = rem
-
 let make_constant_matching discr def ctx = function
   | [] -> fatal_error "Matching.make_constant_matching"
   | _ :: argl ->
@@ -1330,8 +1355,7 @@ let make_constant_matching discr def ctx = function
       and ctx = Context.specialize discr ctx in
       { pm = { cases = []; args = argl; default = def }; ctx; discr }
 
-let divide_constant ctx m =
-  divide make_constant_matching get_args_constant ctx m
+let divide_constant ctx m = divide make_constant_matching ctx m
 
 (* Matching against a constructor *)
 
@@ -1347,11 +1371,6 @@ let make_field_args loc binding_kind arg first_pos last_pos argl =
 let get_key_constr d =
   match Simple_head_pat.desc d with
   | Construct cstr -> cstr.cstr_tag
-  | _ -> assert false
-
-let get_args_constr p rem =
-  match p with
-  | { pat_desc = Tpat_construct (_, _, args) } -> args @ rem
   | _ -> assert false
 
 (* NB: matcher_constr applies to default matrices.
@@ -1450,8 +1469,7 @@ let make_constr_matching discr def ctx = function
         discr
       }
 
-let divide_constructor ctx pm =
-  divide make_constr_matching get_args_constr ctx pm
+let divide_constructor ctx pm = divide make_constr_matching ctx pm
 
 (* Matching against a variant *)
 
@@ -1802,11 +1820,6 @@ let divide_record all_labels p ctx pm =
 
 (* Matching against an array pattern *)
 
-let get_args_array p rem =
-  match p with
-  | { pat_desc = Tpat_array patl } -> patl @ rem
-  | _ -> assert false
-
 let matcher_array len p rem =
   match p.pat_desc with
   | Tpat_or (_, _, _) -> raise OrPat
@@ -1837,8 +1850,7 @@ let make_array_matching kind discr def ctx = function
       and ctx = Context.specialize discr ctx in
       { pm = { cases = []; args = make_args 0; default = def }; ctx; discr }
 
-let divide_array kind ctx pm =
-  divide (make_array_matching kind) get_args_array ctx pm
+let divide_array kind ctx pm = divide (make_array_matching kind) ctx pm
 
 (*
    Specific string test sequence
