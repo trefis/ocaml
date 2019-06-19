@@ -75,6 +75,8 @@ module Simple_head_pat : sig
   val equals : t -> t -> bool
   val (<=) : t -> t -> bool
 
+  val same_key : t -> t -> bool
+
   val desc : t -> desc
   val env : t -> Env.t
   val loc : t -> Location.t
@@ -94,6 +96,19 @@ module Simple_head_pat : sig
     -> typ:Types.type_expr
     -> env:Env.t
     -> label_description list
+    -> t
+
+  val make_constr
+    :  loc:Location.t
+    -> typ:Types.type_expr
+    -> env:Env.t
+    -> constructor_description
+    -> t
+
+  val make_any
+    :  loc:Location.t
+    -> typ:Types.type_expr
+    -> env:Env.t
     -> t
 
   val row_of_discr : t -> Types.row_desc
@@ -194,6 +209,12 @@ end = struct
   let make_record ~loc ~typ ~env lbls =
     { desc = Record lbls; loc; typ; env; attributes = [] }
 
+  let make_constr ~loc ~typ ~env cstr =
+    { desc = Construct cstr; loc; typ; env; attributes = [] }
+
+  let make_any ~loc ~typ ~env =
+    { desc = Any; loc; typ; env; attributes = [] }
+
   let equals d1 d2 =
     match desc d1, desc d2 with
     | Any, Any
@@ -207,7 +228,14 @@ end = struct
     | Tuple len1, Tuple len2
     | Array len1, Array len2 -> len1 = len2
     | _, _ -> false
-  
+
+  let same_key d1 d2 =
+    match desc d1, desc d2 with
+    | Variant { tag = t1; has_arg = ha1; _ },
+      Variant { tag = t2; has_arg = ha2; _ } ->
+      ha1 = ha2 && Btype.hash_variant t1 = Btype.hash_variant t2
+    | _, _ -> equals d1 d2
+
   let (<=) d1 d2 =
     match desc d1 with
     | Any -> true
@@ -1000,9 +1028,10 @@ let complete_tags nconsts nconstrs tags =
 
 (* build a pattern from a constructor description *)
 let pat_of_constr ex_pat cstr =
-  {ex_pat with pat_desc =
-   Tpat_construct (mknoloc (Longident.Lident "?pat_of_constr?"),
-                   cstr, omegas cstr.cstr_arity)}
+  Simple_head_pat.(
+    make_constr ~loc:(loc ex_pat) ~typ:(typ ex_pat) ~env:(env ex_pat) cstr
+    |> to_pattern
+  )
 
 let orify x y = make_pat (Tpat_or (x, y, None)) x.pat_type x.pat_env
 
@@ -1013,7 +1042,6 @@ let rec orify_many = function
 
 (* build an or-pattern from a constructor list *)
 let pat_of_constrs ex_pat cstrs =
-  let ex_pat = Simple_head_pat.to_pattern ex_pat in
   if cstrs = [] then raise Empty else
   orify_many (List.map (pat_of_constr ex_pat) cstrs)
 
@@ -1025,7 +1053,10 @@ let pats_of_type ?(always=false) env ty =
       | Type_variant cl when always || List.length cl = 1 ||
         List.for_all (fun cd -> cd.Types.cd_res <> None) cl ->
           let cstrs = fst (Env.find_type_descrs path env) in
-          List.map (pat_of_constr (make_pat Tpat_any ty env)) cstrs
+          List.map
+            (pat_of_constr
+               (Simple_head_pat.make_any ~loc:Location.none ~typ:ty ~env))
+            cstrs
       | Type_record _ ->
           let labels = snd (Env.find_type_descrs path env) in
           let fields =
@@ -1079,9 +1110,6 @@ let build_other_constrs env p =
       let all_tags =  List.map (fun (p,_) -> get_tag p) env in
       pat_of_constrs p (complete_constrs p all_tags)
   | _ -> extra_pat
-
-let complete_constrs p all_tags =
-  complete_constrs (Simple_head_pat.of_pattern p) all_tags
 
 (* Auxiliary for build_other *)
 

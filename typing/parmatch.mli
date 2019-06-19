@@ -44,6 +44,8 @@ module Simple_head_pat : sig
   val equals : t -> t -> bool
   val (<=) : t -> t -> bool
 
+  val same_key : t -> t -> bool
+
   val desc : t -> desc
   val env : t -> Env.t
   val loc : t -> Location.t
@@ -67,6 +69,8 @@ module Simple_head_pat : sig
 
   val row_of_discr : t -> Types.row_desc
 end
+
+val discr_pat : pattern -> (pattern * pattern list) list -> Simple_head_pat.t
 
 val simple_match : Simple_head_pat.t -> pattern -> bool
 val simple_match_args : Simple_head_pat.t -> pattern -> pattern list
@@ -121,9 +125,9 @@ val get_mins : ('a -> 'a -> bool) -> 'a list -> 'a list
 val set_args : Simple_head_pat.t -> pattern list -> pattern list
 val set_args_erase_mutable : Simple_head_pat.t -> pattern list -> pattern list
 
-val pat_of_constr : pattern -> constructor_description -> pattern
+val pat_of_constr : Simple_head_pat.t -> constructor_description -> pattern
 val complete_constrs :
-    pattern -> constructor_tag list -> constructor_description  list
+    Simple_head_pat.t -> constructor_tag list -> constructor_description  list
 
 (** [ppat_of_type] builds an untyped or-pattern from its expected type.
      May raise [Empty] when [type_expr] is an empty variant *)
