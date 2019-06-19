@@ -1266,8 +1266,92 @@ module Division = struct
     in
     { division with cells }
 
-  let divide make ctx (pm : half_compiled_row pattern_matching) =
-    let add (p, patl, action) division =
+  let matcher_array len p rem =
+    match p.pat_desc with
+    | Tpat_or (_, _, _) -> raise OrPat
+    | Tpat_array args when List.length args = len -> args @ rem
+    | Tpat_any -> Parmatch.omegas len @ rem
+    | _ -> raise NoMatch
+
+  let rec matcher_const cst p rem =
+    match p.pat_desc with
+    | Tpat_or (p1, p2, _) -> (
+        try matcher_const cst p1 rem with NoMatch -> matcher_const cst p2 rem
+      )
+    | Tpat_constant c1 when const_compare c1 cst = 0 -> rem
+    | Tpat_any -> rem
+    | _ -> raise NoMatch
+
+  let matcher_constr cstr =
+    match cstr.cstr_arity with
+    | 0 ->
+        let rec matcher_rec q rem =
+          match q.pat_desc with
+          | Tpat_or (p1, p2, _) -> (
+              try matcher_rec p1 rem with NoMatch -> matcher_rec p2 rem
+            )
+          | Tpat_construct (_, cstr', [])
+            when Types.may_equal_constr cstr cstr' ->
+              rem
+          | Tpat_any -> rem
+          | _ -> raise NoMatch
+        in
+        matcher_rec
+    | 1 ->
+        let rec matcher_rec q rem =
+          match q.pat_desc with
+          | Tpat_or (p1, p2, _) -> (
+              (* if both sides of the or-pattern match the head constructor,
+            (K p1 | K p2) :: rem
+          return (p1 | p2) :: rem *)
+              let r1 = try Some (matcher_rec p1 rem) with NoMatch -> None
+              and r2 = try Some (matcher_rec p2 rem) with NoMatch -> None in
+              match (r1, r2) with
+              | None, None -> raise NoMatch
+              | Some r1, None -> r1
+              | None, Some r2 -> r2
+              | Some (a1 :: _), Some (a2 :: _) ->
+                  { a1 with
+                    pat_loc = Location.none;
+                    pat_desc = Tpat_or (a1, a2, None)
+                  }
+                  :: rem
+              | _, _ -> assert false
+            )
+          | Tpat_construct (_, cstr', [ arg ])
+            when Types.may_equal_constr cstr cstr' ->
+              arg :: rem
+          | Tpat_any -> omega :: rem
+          | _ -> raise NoMatch
+        in
+        matcher_rec
+    | _ -> (
+        fun q rem ->
+          match q.pat_desc with
+          | Tpat_or (_, _, _) ->
+              (* we cannot preserve the or-pattern as in the arity-1 case,
+          because we cannot express
+            (K (p1, .., pn) | K (q1, .. qn))
+          as (p1 .. pn | q1 .. qn) *)
+              raise OrPat
+          | Tpat_construct (_, cstr', args)
+            when Types.may_equal_constr cstr cstr' ->
+              args @ rem
+          | Tpat_any -> Parmatch.omegas cstr.cstr_arity @ rem
+          | _ -> raise NoMatch
+      )
+
+  let make_field_args loc binding_kind arg first_pos last_pos argl =
+    let rec make_args pos =
+      if pos > last_pos then
+        argl
+      else
+        (Lprim (Pfield pos, [ arg ], loc), binding_kind) :: make_args (pos + 1)
+    in
+    make_args first_pos
+
+  let divide ctx (pm : half_compiled_row pattern_matching) =
+    let add (p, patl, action) cells =
       let discr = Simple_head_pat.of_pattern p in
       let children_pats =
         match p.pat_desc with
@@ -1292,13 +1376,82 @@ module Division = struct
         | Tpat_array patl ->
             patl
       in
-      add_in_div
-        (make discr pm.default ctx)
-        discr
-        (children_pats @ patl, action)
-        division
+      match
+        List.find_opt
+          (fun cell -> Simple_head_pat.same_key discr cell.discr)
+          cells
+      with
+      | Some cell ->
+          cell.pm.cases <- (children_pats @ patl, action) :: cell.pm.cases;
+          cells
+      | None ->
+          let newargs, matcher =
+            match pm.args with
+            | [] -> fatal_error "Matching.divide"
+            | (arg, _) :: argl -> (
+                match Simple_head_pat.desc discr with
+                | Constant cst -> (argl, matcher_const cst)
+                | Construct cstr ->
+                    let newargs =
+                      if cstr.cstr_inlined <> None then
+                        (arg, Alias) :: argl
+                      else
+                        let loc = Simple_head_pat.loc discr in
+                        match cstr.cstr_tag with
+                        | Cstr_constant _
+                        | Cstr_block _ ->
+                            make_field_args loc Alias arg 0
+                              (cstr.cstr_arity - 1) argl
+                        | Cstr_unboxed -> (arg, Alias) :: argl
+                        | Cstr_extension _ ->
+                            make_field_args loc Alias arg 1 cstr.cstr_arity
+                              argl
+                    in
+                    (newargs, matcher_constr cstr)
+                | Array len ->
+                    let kind =
+                      Typeopt.array_type_kind
+                        (Simple_head_pat.env discr)
+                        (Simple_head_pat.typ discr)
+                    in
+                    let rec make_args pos =
+                      if pos >= len then
+                        argl
+                      else
+                        ( Lprim
+                            ( Parrayrefu kind,
+                              [ arg; Lconst (Const_base (Const_int pos)) ],
+                              Simple_head_pat.loc discr ),
+                          StrictOpt )
+                        :: make_args (pos + 1)
+                    in
+                    (make_args 0, matcher_array len)
+                | Any
+                | Record _
+                | Tuple _
+                | Lazy ->
+                    (* These all end up in divide_line *)
+                    assert false
+                | Variant _ ->
+                    (* Has its own divide function. *)
+                    assert false
+              )
+          in
+          let default = specialize_default matcher pm.default in
+          let ctx = Context.specialize discr ctx in
+          let cell =
+            { pm =
+                { cases = [ (children_pats @ patl, action) ];
+                  args = newargs;
+                  default
+                };
+              ctx;
+              discr
+            }
+          in
+          cell :: cells
     in
-    List.fold_right add pm.cases { args = pm.args; cells = [] }
+    List.fold_right add pm.cases []
 
   let add_line patl_action pm =
     pm.cases <- patl_action :: pm.cases;
@@ -1330,43 +1483,7 @@ open Division (* REMOVE ME *)
    new  ``pattern_matching'' records.
 *)
 
-let rec matcher_const cst p rem =
-  match p.pat_desc with
-  | Tpat_or (p1, p2, _) -> (
-      try matcher_const cst p1 rem with NoMatch -> matcher_const cst p2 rem
-    )
-  | Tpat_constant c1 when const_compare c1 cst = 0 -> rem
-  | Tpat_any -> rem
-  | _ -> raise NoMatch
-
-let get_key_constant caller d =
-  match Simple_head_pat.desc d with
-  | Constant cst -> cst
-  | _ ->
-      Format.eprintf "BAD: %s" caller;
-      pretty_pat (Simple_head_pat.to_pattern d);
-      assert false
-
-let make_constant_matching discr def ctx = function
-  | [] -> fatal_error "Matching.make_constant_matching"
-  | _ :: argl ->
-      let def =
-        specialize_default (matcher_const (get_key_constant "make" discr)) def
-      and ctx = Context.specialize discr ctx in
-      { pm = { cases = []; args = argl; default = def }; ctx; discr }
-
-let divide_constant ctx m = divide make_constant_matching ctx m
-
 (* Matching against a constructor *)
-
-let make_field_args loc binding_kind arg first_pos last_pos argl =
-  let rec make_args pos =
-    if pos > last_pos then
-      argl
-    else
-      (Lprim (Pfield pos, [ arg ], loc), binding_kind) :: make_args (pos + 1)
-  in
-  make_args first_pos
 
 let get_key_constr d =
   match Simple_head_pat.desc d with
@@ -1379,97 +1496,6 @@ let get_key_constr d =
        types degrades to arity checking, due to potential rebinding.
        This comparison is performed by Types.may_equal_constr.
 *)
-
-let matcher_constr cstr =
-  match cstr.cstr_arity with
-  | 0 ->
-      let rec matcher_rec q rem =
-        match q.pat_desc with
-        | Tpat_or (p1, p2, _) -> (
-            try matcher_rec p1 rem with NoMatch -> matcher_rec p2 rem
-          )
-        | Tpat_construct (_, cstr', []) when Types.may_equal_constr cstr cstr'
-          ->
-            rem
-        | Tpat_any -> rem
-        | _ -> raise NoMatch
-      in
-      matcher_rec
-  | 1 ->
-      let rec matcher_rec q rem =
-        match q.pat_desc with
-        | Tpat_or (p1, p2, _) -> (
-            (* if both sides of the or-pattern match the head constructor,
-            (K p1 | K p2) :: rem
-          return (p1 | p2) :: rem *)
-            let r1 = try Some (matcher_rec p1 rem) with NoMatch -> None
-            and r2 = try Some (matcher_rec p2 rem) with NoMatch -> None in
-            match (r1, r2) with
-            | None, None -> raise NoMatch
-            | Some r1, None -> r1
-            | None, Some r2 -> r2
-            | Some (a1 :: _), Some (a2 :: _) ->
-                { a1 with
-                  pat_loc = Location.none;
-                  pat_desc = Tpat_or (a1, a2, None)
-                }
-                :: rem
-            | _, _ -> assert false
-          )
-        | Tpat_construct (_, cstr', [ arg ])
-          when Types.may_equal_constr cstr cstr' ->
-            arg :: rem
-        | Tpat_any -> omega :: rem
-        | _ -> raise NoMatch
-      in
-      matcher_rec
-  | _ -> (
-      fun q rem ->
-        match q.pat_desc with
-        | Tpat_or (_, _, _) ->
-            (* we cannot preserve the or-pattern as in the arity-1 case,
-          because we cannot express
-            (K (p1, .., pn) | K (q1, .. qn))
-          as (p1 .. pn | q1 .. qn) *)
-            raise OrPat
-        | Tpat_construct (_, cstr', args)
-          when Types.may_equal_constr cstr cstr' ->
-            args @ rem
-        | Tpat_any -> Parmatch.omegas cstr.cstr_arity @ rem
-        | _ -> raise NoMatch
-    )
-
-let make_constr_matching discr def ctx = function
-  | [] -> fatal_error "Matching.make_constr_matching"
-  | (arg, _mut) :: argl ->
-      let cstr =
-        match Simple_head_pat.desc discr with
-        | Construct c -> c
-        | _ -> assert false
-      in
-      let newargs =
-        if cstr.cstr_inlined <> None then
-          (arg, Alias) :: argl
-        else
-          let loc = Simple_head_pat.loc discr in
-          match cstr.cstr_tag with
-          | Cstr_constant _
-          | Cstr_block _ ->
-              make_field_args loc Alias arg 0 (cstr.cstr_arity - 1) argl
-          | Cstr_unboxed -> (arg, Alias) :: argl
-          | Cstr_extension _ ->
-              make_field_args loc Alias arg 1 cstr.cstr_arity argl
-      in
-      { pm =
-          { cases = [];
-            args = newargs;
-            default = specialize_default (matcher_constr cstr) def
-          };
-        ctx = Context.specialize discr ctx;
-        discr
-      }
-
-let divide_constructor ctx pm = divide make_constr_matching ctx pm
 
 (* Matching against a variant *)
 
@@ -1539,7 +1565,7 @@ let divide_variant row ctx { cases = cl; args; default = def } =
       )
     | _ -> { args; cells = [] }
   in
-  divide cl
+  (divide cl).cells
 
 (*
   Three ``no-test'' cases
@@ -1819,38 +1845,6 @@ let divide_record all_labels p ctx pm =
     get_args p ctx pm
 
 (* Matching against an array pattern *)
-
-let matcher_array len p rem =
-  match p.pat_desc with
-  | Tpat_or (_, _, _) -> raise OrPat
-  | Tpat_array args when List.length args = len -> args @ rem
-  | Tpat_any -> Parmatch.omegas len @ rem
-  | _ -> raise NoMatch
-
-let make_array_matching kind discr def ctx = function
-  | [] -> fatal_error "Matching.make_array_matching"
-  | (arg, _mut) :: argl ->
-      let len =
-        match Simple_head_pat.desc discr with
-        | Array len -> len
-        | _ -> assert false
-      in
-      let rec make_args pos =
-        if pos >= len then
-          argl
-        else
-          ( Lprim
-              ( Parrayrefu kind,
-                [ arg; Lconst (Const_base (Const_int pos)) ],
-                Simple_head_pat.loc discr ),
-            StrictOpt )
-          :: make_args (pos + 1)
-      in
-      let def = specialize_default (matcher_array len) def
-      and ctx = Context.specialize discr ctx in
-      { pm = { cases = []; args = make_args 0; default = def }; ctx; discr }
-
-let divide_array kind ctx pm = divide (make_array_matching kind) ctx pm
 
 (*
    Specific string test sequence
@@ -2812,7 +2806,7 @@ let compile_orhandlers compile_fun lambda1 total1 ctx to_catch =
 
 let compile_test compile_fun partial divide combine ctx to_match =
   let division = divide ctx to_match in
-  let c_div = compile_list compile_fun division.cells in
+  let c_div = compile_list compile_fun division in
   match c_div with
   | [], _, _ -> (
       match mk_failaction_neg partial ctx to_match.default with
@@ -3036,13 +3030,13 @@ and do_compile_matching repr partial ctx pmh =
       | Constant cst ->
           compile_test
             (compile_match repr partial)
-            partial divide_constant
+            partial divide
             (combine_constant (Simple_head_pat.loc discr) arg cst partial)
             ctx pm
       | Construct cstr ->
           compile_test
             (compile_match repr partial)
-            partial divide_constructor
+            partial divide
             (combine_constructor
                (Simple_head_pat.loc discr)
                arg discr cstr partial)
@@ -3055,7 +3049,7 @@ and do_compile_matching repr partial ctx pmh =
           in
           compile_test
             (compile_match repr partial)
-            partial (divide_array kind)
+            partial divide
             (combine_array (Simple_head_pat.loc discr) arg kind partial)
             ctx pm
       | Lazy ->
