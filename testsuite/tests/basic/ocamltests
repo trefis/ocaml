@@ -18,6 +18,7 @@ maps.ml
 min_int.ml
 opt_variants.ml
 patmatch.ml
+patmatch_for_multiple.ml
 patmatch_incoherence.ml
 pr7253.ml
 pr7533.ml
