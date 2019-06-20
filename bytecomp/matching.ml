@@ -591,11 +591,14 @@ module Simplified_clause : sig
   val explode_or_pat :
     Half_simplified_clause.head ->
     pattern list ->
-    arg:Ident.t option ->
+    arg_id:Ident.t option ->
     mk_action:(vars:Ident.t list -> lambda) ->
     vars:Ident.t list ->
     t list ->
     t list
+  (** If the toplevel pattern is given a name, but the scrutine is not named
+      (because we're matching a literal tuple), then this will raise
+      [Cannot_flatten]. *)
 
   val assert_no_or : Half_simplified_clause.t -> t
 
@@ -609,36 +612,36 @@ end = struct
 
   let pat_of_head p = p
 
-  let mk_alpha_env arg aliases ids =
+  let mk_alpha_env arg_id aliases ids =
     List.map
       (fun id ->
         ( id,
           if List.mem id aliases then
-            match arg with
+            match arg_id with
             | Some v -> v
             | _ -> raise Cannot_flatten
           else
             Ident.create_local (Ident.name id) ))
       ids
 
-  let rec explode_or_pat p arg patl mk_action vars aliases rem =
+  let rec explode_or_pat p arg_id patl mk_action vars aliases rem =
     match p.pat_desc with
     | Tpat_or (p1, p2, _) ->
-        explode_or_pat p1 arg patl mk_action vars aliases
-          (explode_or_pat p2 arg patl mk_action vars aliases rem)
+        explode_or_pat p1 arg_id patl mk_action vars aliases
+          (explode_or_pat p2 arg_id patl mk_action vars aliases rem)
     | Tpat_alias (p, id, _) ->
-        explode_or_pat p arg patl mk_action vars (id :: aliases) rem
+        explode_or_pat p arg_id patl mk_action vars (id :: aliases) rem
     | Tpat_var (x, _) ->
-        let env = mk_alpha_env arg (x :: aliases) vars in
+        let env = mk_alpha_env arg_id (x :: aliases) vars in
         ((omega, patl), mk_action ~vars:(List.map snd env)) :: rem
     | _ ->
-        let env = mk_alpha_env arg aliases vars in
+        let env = mk_alpha_env arg_id aliases vars in
         ((alpha_pat env p, patl), mk_action ~vars:(List.map snd env)) :: rem
 
-  let explode_or_pat p patl ~arg ~mk_action ~vars rem =
+  let explode_or_pat p patl ~arg_id ~mk_action ~vars rem =
     explode_or_pat
       (Half_simplified_clause.pat_of_head p)
-      arg patl mk_action vars [] rem
+      arg_id patl mk_action vars [] rem
 
   let assert_no_or ((p, ps), act) =
     let p = Half_simplified_clause.pat_of_head p in
@@ -1125,7 +1128,7 @@ let as_matrix pat_of_head cases =
 
 *)
 
-let rec split_or argo (cls : Half_simplified_clause.t list) args def =
+let rec split_or ~arg_id (cls : Half_simplified_clause.t list) args def =
   let rec do_split rev_before rev_ors rev_no = function
     | [] ->
         cons_next
@@ -1157,7 +1160,7 @@ let rec split_or argo (cls : Half_simplified_clause.t list) args def =
     in
     match yesor with
     | [] -> split_no_or yes args def nexts
-    | _ -> precompile_or argo yes yesor args def nexts
+    | _ -> precompile_or ~arg_id yes yesor args def nexts
   in
   do_split [] [] [] cls
 
@@ -1253,7 +1256,7 @@ and precompile_var args cls def k =
               cls
           and var_def = default_pop_column def in
           let { me = first; matrix }, nexts =
-            split_or (Some v) var_cls var_args var_def
+            split_or ~arg_id:(Some v) var_cls var_args var_def
           in
           (* Compute top information *)
           match nexts with
@@ -1295,7 +1298,7 @@ and dont_precompile_var args cls def k =
     },
     k )
 
-and precompile_or argo cls ors args def k =
+and precompile_or ~arg_id cls ors args def k =
   let rec do_cases = function
     | [] -> ([], [])
     | (((p, patl), action) as cl) :: rem -> (
@@ -1332,7 +1335,7 @@ and precompile_or argo cls ors args def k =
             in
             let rem_cases, rem_handlers = do_cases rem in
             let cases =
-              Simplified_clause.explode_or_pat p ~arg:argo new_patl
+              Simplified_clause.explode_or_pat p ~arg_id new_patl
                 ~mk_action:mk_new_action ~vars:(List.map fst vars) rem_cases
             in
             let handler =
@@ -1367,14 +1370,14 @@ and precompile_or argo cls ors args def k =
     },
     k )
 
-let split_and_precompile_nonempty argo pm =
+let split_and_precompile_nonempty ~arg_id pm =
   let pm =
     { pm with
       cases =
         List.map (Half_simplified_clause.of_non_empty ~args:pm.args) pm.cases
     }
   in
-  let { me = next }, nexts = split_or argo pm.cases pm.args pm.default in
+  let { me = next }, nexts = split_or ~arg_id pm.cases pm.args pm.default in
   if
     dbg
     && (nexts <> []
@@ -1407,9 +1410,9 @@ let split_and_precompile_simplified pm =
   );
   (next, nexts)
 
-let split_and_precompile argo pm =
+let split_and_precompile ~arg_id pm =
   let pm = { pm with cases = half_simplify_cases pm.args pm.cases } in
-  let { me = next }, nexts = split_or argo pm.cases pm.args pm.default in
+  let { me = next }, nexts = split_or ~arg_id pm.cases pm.args pm.default in
   if
     dbg
     && (nexts <> []
@@ -3096,7 +3099,8 @@ let rec compile_match repr partial ctx (m : initial_clause pattern_matching) =
   | { args = (arg, str) :: argl } ->
       let v, newarg = arg_to_var arg m.cases in
       let first_match, rem =
-        split_and_precompile (Some v) { m with args = (newarg, Alias) :: argl }
+        split_and_precompile ~arg_id:(Some v)
+          { m with args = (newarg, Alias) :: argl }
       in
       let lam, total =
         comp_match_handlers
@@ -3140,7 +3144,7 @@ and compile_half_compiled repr partial ctx
   | { args = ((Lvar v as arg), str) :: argl } ->
       (* Not sure we need to do anything with arg/v *)
       let first_match, rem =
-        split_and_precompile_nonempty (Some v)
+        split_and_precompile_nonempty ~arg_id:(Some v)
           { m with args = (arg, Alias) :: argl }
       in
       let lam, total =
@@ -3676,60 +3680,38 @@ let do_for_multiple_match loc paraml pat_act_list partial =
       } )
   in
   try
-    try
-      (* the following comment feels weird. We're not checking if it's possible.
-         I think:
-
-           "first try compiling a flattened matched, and fallback to regular
-            compilation if that fails"
-
-         would be more in line with what's actually going on. *)
-      (* Once for checking that compilation is possible *)
-
-      (* The next line can theoretically raise [Cannot_flatten]
-
-         However, if it does, then [compile_match] which calls
-         [split_and_precompile] will raise as well. So there is no point calling
-         [compile_match] in that case.
-
-         The enclosing [try .. with Cannot_flatten -> ..] is then only useful
-         if calls to [flatten_precompiled] raise.
-
-         ---
-
-         Additionally, none of the callers of [for_multiple_match] catch
-         [Cannot_flatten], so it looks like [split_and_precompile] doesn't
-         actually raise.
-      *)
-      let next, nexts = split_and_precompile None pm1 in
-      (* The following (and the fold_right2 below) seems redundant with the
-         wrapping that happens in [for_multiple_match]. *)
-      let size = List.length paraml
-      and idl = List.map (fun _ -> Ident.create_local "*match*") paraml in
-      let args = List.map (fun id -> (Lvar id, Alias)) idl in
-      let flat_next = flatten_precompiled size args next
-      and flat_nexts =
-        List.map (fun (e, pm) -> (e, flatten_precompiled size args pm)) nexts
-      in
-      let lam, total =
-        comp_match_handlers (compile_flattened repr) partial
-          (Context.start size) flat_next flat_nexts
-      in
-      List.fold_right2 (bind Strict) idl paraml
-        ( match partial with
-        | Partial -> check_total total lam raise_num (partial_function loc)
+    match split_and_precompile ~arg_id:None pm1 with
+    | exception Cannot_flatten -> (
+        (* One pattern binds the whole tuple, flattening is not possible, we
+           need to allocate the scrutinee. *)
+        let lambda, total = compile_match None partial (Context.start 1) pm1 in
+        match partial with
+        | Partial -> check_total total lambda raise_num (partial_function loc)
         | Total ->
             assert (Jumps.is_empty total);
-            lam
-        )
-    with Cannot_flatten -> (
-      let lambda, total = compile_match None partial (Context.start 1) pm1 in
-      match partial with
-      | Partial -> check_total total lambda raise_num (partial_function loc)
-      | Total ->
-          assert (Jumps.is_empty total);
-          lambda
-    )
+            lambda
+      )
+    | next, nexts ->
+        (* The following (and the fold_right2 below) seems redundant with the
+         wrapping that happens in [for_multiple_match]. *)
+        let size = List.length paraml
+        and idl = List.map (fun _ -> Ident.create_local "*match*") paraml in
+        let args = List.map (fun id -> (Lvar id, Alias)) idl in
+        let flat_next = flatten_precompiled size args next
+        and flat_nexts =
+          List.map (fun (e, pm) -> (e, flatten_precompiled size args pm)) nexts
+        in
+        let lam, total =
+          comp_match_handlers (compile_flattened repr) partial
+            (Context.start size) flat_next flat_nexts
+        in
+        List.fold_right2 (bind Strict) idl paraml
+          ( match partial with
+          | Partial -> check_total total lam raise_num (partial_function loc)
+          | Total ->
+              assert (Jumps.is_empty total);
+              lam
+          )
   with Unused -> assert false
 
 (* ; partial_function loc () *)
