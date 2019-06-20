@@ -3120,7 +3120,6 @@ and compile_simplified repr partial ctx
   match m with
   | { cases = []; args = [] } -> comp_exit ctx m
   | { args = ((Lvar v as arg), str) :: argl } ->
-      (* Not sure we need to do anything with arg/v *)
       let first_match, rem =
         split_and_precompile_simplified { m with args = (arg, Alias) :: argl }
       in
@@ -3142,7 +3141,6 @@ and compile_half_compiled repr partial ctx
   match m with
   | { cases = []; args = [] } -> comp_exit ctx m
   | { args = ((Lvar v as arg), str) :: argl } ->
-      (* Not sure we need to do anything with arg/v *)
       let first_match, rem =
         split_and_precompile_nonempty ~arg_id:(Some v)
           { m with args = (arg, Alias) :: argl }
@@ -3574,6 +3572,7 @@ let for_tupled_function loc paraml pats_act_list partial =
   let omegas = [ List.map (fun _ -> omega) paraml ] in
   let pm =
     { cases = pats_act_list;
+      (* I think the binding kind should be Alias here. *)
       args = List.map (fun id -> (Lvar id, Strict)) paraml;
       default = [ (omegas, raise_num) ]
     }
