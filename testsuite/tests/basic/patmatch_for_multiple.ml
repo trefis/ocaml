@@ -11,17 +11,11 @@ match (3, 2, 1) with
 | _ -> false
 ;;
 [%%expect{|
-(let
-  (*match*/87 = 3
-   *match*/88 = 2
-   *match*/89 = 1
-   *match*/90 = *match*/87
-   *match*/91 = *match*/88
-   *match*/92 = *match*/89)
+(let (*match*/87 = 3 *match*/88 = 2 *match*/89 = 1)
   (catch
     (catch
-      (catch (if (!= *match*/90 1) (exit 3) (exit 1)) with (3)
-        (if (!= *match*/91 3) (exit 2) (exit 1)))
+      (catch (if (!= *match*/87 1) (exit 3) (exit 1)) with (3)
+        (if (!= *match*/88 3) (exit 2) (exit 1)))
      with (2) 0a)
    with (1) 1a))
 - : bool = false
@@ -36,29 +30,29 @@ match (3, 2, 1) with
 ;;
 [%%expect{|
 (let
-  (*match*/95 = 3
-   *match*/96 = 2
-   *match*/97 = 1
-   *match*/98 = (makeblock 0 *match*/95 *match*/96 *match*/97))
+  (*match*/92 = 3
+   *match*/93 = 2
+   *match*/94 = 1
+   *match*/95 = (makeblock 0 *match*/92 *match*/93 *match*/94))
   (catch
-    (let (*match*/99 =a (field 0 *match*/98))
+    (let (*match*/96 =a (field 0 *match*/95))
       (catch
         (catch
-          (if (!= *match*/99 1) (exit 7)
+          (if (!= *match*/96 1) (exit 7)
             (let
-              (*match*/101 =a (field 2 *match*/98)
-               *match*/100 =a (field 1 *match*/98))
-              (exit 5 *match*/98)))
+              (*match*/98 =a (field 2 *match*/95)
+               *match*/97 =a (field 1 *match*/95))
+              (exit 5 *match*/95)))
          with (7)
-          (let (*match*/102 =a (field 1 *match*/98))
-            (if (!= *match*/102 3) (exit 6)
-              (let (*match*/103 =a (field 2 *match*/98)) (exit 5 *match*/98)))))
+          (let (*match*/99 =a (field 1 *match*/95))
+            (if (!= *match*/99 3) (exit 6)
+              (let (*match*/100 =a (field 2 *match*/95)) (exit 5 *match*/95)))))
        with (6)
         (let
-          (*match*/105 =a (field 2 *match*/98)
-           *match*/104 =a (field 1 *match*/98))
+          (*match*/102 =a (field 2 *match*/95)
+           *match*/101 =a (field 1 *match*/95))
           0a)))
-   with (5 x/93) (seq (ignore x/93) 1a)))
+   with (5 x/90) (seq (ignore x/90) 1a)))
 - : bool = false
 |}];;
 

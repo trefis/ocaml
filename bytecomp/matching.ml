@@ -3691,12 +3691,9 @@ let do_for_multiple_match loc paraml pat_act_list partial =
             assert (Jumps.is_empty total);
             lambda
       )
-    | next, nexts ->
-        (* The following (and the fold_right2 below) seems redundant with the
-         wrapping that happens in [for_multiple_match]. *)
-        let size = List.length paraml
-        and idl = List.map (fun _ -> Ident.create_local "*match*") paraml in
-        let args = List.map (fun id -> (Lvar id, Alias)) idl in
+    | next, nexts -> (
+        let size = List.length paraml in
+        let args = List.map (fun lvar -> (lvar, Alias)) paraml in
         let flat_next = flatten_precompiled size args next
         and flat_nexts =
           List.map (fun (e, pm) -> (e, flatten_precompiled size args pm)) nexts
@@ -3705,13 +3702,12 @@ let do_for_multiple_match loc paraml pat_act_list partial =
           comp_match_handlers (compile_flattened repr) partial
             (Context.start size) flat_next flat_nexts
         in
-        List.fold_right2 (bind Strict) idl paraml
-          ( match partial with
-          | Partial -> check_total total lam raise_num (partial_function loc)
-          | Total ->
-              assert (Jumps.is_empty total);
-              lam
-          )
+        match partial with
+        | Partial -> check_total total lam raise_num (partial_function loc)
+        | Total ->
+            assert (Jumps.is_empty total);
+            lam
+      )
   with Unused -> assert false
 
 (* ; partial_function loc () *)
