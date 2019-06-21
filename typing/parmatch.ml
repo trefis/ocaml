@@ -67,7 +67,7 @@ module Pattern_head : sig
   val of_pattern : pattern -> t
 
   (** reconstructs a pattern, putting wildcards as sub-patterns. *)
-  val to_pattern : t -> pattern
+  val to_omega_pattern : t -> pattern
 
   val make
     :  loc:Location.t
@@ -131,7 +131,7 @@ end = struct
     { desc = get_desc q.pat_desc; typ = q.pat_type; loc = q.pat_loc;
       env = q.pat_env; attributes = q.pat_attributes }
 
-  let to_pattern t =
+  let to_omega_pattern t =
     let pat_desc =
       match t.desc with
       | Any -> Tpat_any
@@ -168,7 +168,7 @@ end
    all arguments are omega (simple pattern) and no more variables
 *)
 
-let normalize_pat p = Pattern_head.(to_pattern @@ of_pattern p)
+let normalize_pat p = Pattern_head.(to_omega_pattern @@ of_pattern p)
 
 (*******************)
 (* Coherence check *)
@@ -974,7 +974,7 @@ let rec orify_many = function
 
 (* build an or-pattern from a constructor list *)
 let pat_of_constrs ex_pat cstrs =
-  let ex_pat = Pattern_head.to_pattern ex_pat in
+  let ex_pat = Pattern_head.to_omega_pattern ex_pat in
   if cstrs = [] then raise Empty else
   orify_many (List.map (pat_of_constr ex_pat) cstrs)
 
@@ -1326,7 +1326,8 @@ let rec list_satisfying_vectors pss qs =
                           list_satisfying_vectors pss
                             (simple_match_args p omega @ qs)
                         in
-                        List.map (set_args (Pattern_head.to_pattern p)) witnesses
+                        let p = Pattern_head.to_omega_pattern p in
+                        List.map (set_args p) witnesses
                     ) constrs
                   )
                 in
@@ -1347,7 +1348,7 @@ let rec list_satisfying_vectors pss qs =
             []
           else begin
             let q0 = discr_pat q pss in
-            List.map (set_args (Pattern_head.to_pattern q0))
+            List.map (set_args (Pattern_head.to_omega_pattern q0))
               (list_satisfying_vectors
                  (build_specialized_submatrix ~extend_row:(@) q0 pss)
                  (simple_match_args q0 q @ qs))
@@ -1458,7 +1459,8 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
           (* first column of pss is made of variables only *)
           begin match exhaust ext default (n-1) with
           | Witnesses r ->
-              Witnesses (List.map (fun row -> Pattern_head.to_pattern q0::row) r)
+              let q0 = Pattern_head.to_omega_pattern q0 in
+              Witnesses (List.map (fun row -> q0::row) r)
           | r -> r
         end
       | { default; constrs } ->
@@ -1471,7 +1473,8 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
                   ext pss (List.length (simple_match_args p omega) + n - 1)
               with
               | Witnesses r ->
-                  Witnesses (List.map (set_args (Pattern_head.to_pattern p)) r)
+                  let p = Pattern_head.to_omega_pattern p in
+                  Witnesses (List.map (set_args p) r)
               | r       -> r in
           let before = try_many try_non_omega constrs in
           if
