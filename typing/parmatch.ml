@@ -42,8 +42,6 @@ let rec omegas i =
 
 let omega_list l = List.map (fun _ -> omega) l
 
-let zero = make_pat (Tpat_constant (Const_int 0)) Ctype.none Env.empty
-
 module Pattern_head : sig
   type desc =
     | Any
@@ -62,9 +60,10 @@ module Pattern_head : sig
   val loc : t -> Location.t
   val typ : t -> Types.type_expr
 
-  (** [of_pattern p] raises [Invalid_arg _] if [p] is an or-pattern or an
-      exception-pattern. *)
-  val of_pattern : pattern -> t
+  (** [deconstruct p] returns the head of [p] and the list of sub patterns.
+
+      @raises [Invalid_arg _] if [p] is an or- or an exception-pattern.  *)
+  val deconstruct : pattern -> t * pattern list
 
   (** reconstructs a pattern, putting wildcards as sub-patterns. *)
   val to_omega_pattern : t -> pattern
@@ -75,6 +74,8 @@ module Pattern_head : sig
     -> env:Env.t
     -> desc
     -> t
+
+  val omega : t
 
   val row_of_discr : t -> Types.row_desc
 
@@ -107,29 +108,38 @@ end = struct
     | {desc = Tvariant row} -> Btype.row_repr row
     | _ -> assert false
 
-  let of_pattern q =
-    let rec get_desc = function
-      | Tpat_any -> Any
-      | Tpat_constant c -> Constant c
-      | Tpat_var _ -> Any
-      | Tpat_alias (p,_,_) -> get_desc p.pat_desc
+  let deconstruct q =
+    let rec deconstruct_desc = function
+      | Tpat_any
+      | Tpat_var _ -> Any, []
+      | Tpat_constant c -> Constant c, []
+      | Tpat_alias (p,_,_) -> deconstruct_desc p.pat_desc
       | Tpat_tuple args ->
-          Tuple (List.length args)
-      | Tpat_construct (_, c, _) ->
-          Construct c
+          Tuple (List.length args), args
+      | Tpat_construct (_, c, args) ->
+          Construct c, args
       | Tpat_variant (tag, arg, row) ->
-          Variant {tag; has_arg = Option.is_some arg; row}
+          let has_arg, pats =
+            match arg with
+            | None -> false, []
+            | Some a -> true, [a]
+          in
+          Variant {tag; has_arg; row}, pats
       | Tpat_array args ->
-          Array (List.length args)
+          Array (List.length args), args
       | Tpat_record (largs, _) ->
-          Record (List.map (fun (_,lbl,_) -> lbl) largs)
-      | Tpat_lazy _ ->
-          Lazy
-      | Tpat_or _
-      | Tpat_exception _ -> invalid_arg "Parmatch.Pattern_head.of_pattern"
+          let lbls = List.map (fun (_,lbl,_) -> lbl) largs in
+          let pats = List.map (fun (_,_,pat) -> pat) largs in
+          Record lbls, pats
+      | Tpat_lazy p ->
+          Lazy, [p]
+      | Tpat_or _ -> invalid_arg "Parmatch.Pattern_head.of_pattern: (P | Q)"
+      | Tpat_exception _ ->
+          invalid_arg "Parmatch.Pattern_head.of_pattern: (exception P)"
     in
-    { desc = get_desc q.pat_desc; typ = q.pat_type; loc = q.pat_loc;
-      env = q.pat_env; attributes = q.pat_attributes }
+    let desc, pats = deconstruct_desc q.pat_desc in
+    { desc; typ = q.pat_type; loc = q.pat_loc;
+      env = q.pat_env; attributes = q.pat_attributes }, pats
 
   let to_omega_pattern t =
     let pat_desc =
@@ -161,6 +171,14 @@ end = struct
 
   let make ~loc ~typ ~env desc =
     { desc; loc; typ; env; attributes = [] }
+
+  let omega =
+    { desc = Any
+    ; loc = Location.none
+    ; typ = Ctype.none
+    ; env = Env.empty
+    ; attributes = []
+    }
 end
 
 (*
@@ -168,7 +186,7 @@ end
    all arguments are omega (simple pattern) and no more variables
 *)
 
-let normalize_pat p = Pattern_head.(to_omega_pattern @@ of_pattern p)
+let normalize_pat p = Pattern_head.(to_omega_pattern @@ fst @@ deconstruct p)
 
 (*******************)
 (* Coherence check *)
@@ -247,14 +265,11 @@ let normalize_pat p = Pattern_head.(to_omega_pattern @@ of_pattern p)
 *)
 let all_coherent column =
   let coherent_heads hp1 hp2 =
-    match hp1.pat_desc, hp2.pat_desc with
-    | (Tpat_var _ | Tpat_alias _ | Tpat_or _), _
-    | _, (Tpat_var _ | Tpat_alias _ | Tpat_or _) ->
-      assert false
-    | Tpat_construct (_, c, _), Tpat_construct (_, c', _) ->
+    match Pattern_head.desc hp1, Pattern_head.desc hp2 with
+    | Construct c, Construct c' ->
       c.cstr_consts = c'.cstr_consts
       && c.cstr_nonconsts = c'.cstr_nonconsts
-    | Tpat_constant c1, Tpat_constant c2 -> begin
+    | Constant c1, Constant c2 -> begin
         match c1, c2 with
         | Const_char _, Const_char _
         | Const_int _, Const_int _
@@ -271,22 +286,21 @@ let all_coherent column =
           | Const_float _
           | Const_string _), _ -> false
       end
-    | Tpat_tuple l1, Tpat_tuple l2 -> List.length l1 = List.length l2
-    | Tpat_record ((_, lbl1, _) :: _, _), Tpat_record ((_, lbl2, _) :: _, _) ->
+    | Tuple l1, Tuple l2 -> l1 = l2
+    | Record (lbl1 :: _), Record (lbl2 :: _) ->
       Array.length lbl1.lbl_all = Array.length lbl2.lbl_all
-    | Tpat_any, _
-    | _, Tpat_any
-    | Tpat_record ([], _), Tpat_record ([], _)
-    | Tpat_variant _, Tpat_variant _
-    | Tpat_array _, Tpat_array _
-    | Tpat_lazy _, Tpat_lazy _ -> true
+    | Any, _
+    | _, Any
+    | Record [], Record []
+    | Variant _, Variant _
+    | Array _, Array _
+    | Lazy, Lazy -> true
     | _, _ -> false
   in
   match
     List.find (fun head_pat ->
-      match head_pat.pat_desc with
-      | Tpat_var _ | Tpat_alias _ | Tpat_or _ -> assert false
-      | Tpat_any -> false
+      match Pattern_head.desc head_pat with
+      | Any -> false
       | _ -> true
     ) column
   with
@@ -297,7 +311,7 @@ let all_coherent column =
     List.for_all (coherent_heads discr_pat) column
 
 let first_column simplified_matrix =
-  List.map fst simplified_matrix
+  List.map (fun ((head, _args), _rest) -> head) simplified_matrix
 
 (***********************)
 (* Compatibility check *)
@@ -485,18 +499,18 @@ let get_constructor_type_path ty tenv =
 (****************************)
 
 (* Check top matching *)
-let simple_match d p2 =
-  match Pattern_head.desc d, p2.pat_desc with
-  | Construct c1, Tpat_construct(_, c2, _) ->
+let simple_match d1 d2 =
+  match Pattern_head.desc d1, Pattern_head.desc d2 with
+  | Construct c1, Construct c2 ->
       Types.equal_tag c1.cstr_tag c2.cstr_tag
-  | Variant { tag = t1; _ }, Tpat_variant(t2, _, _) ->
+  | Variant { tag = t1; _ }, Variant { tag = t2 } ->
       t1 = t2
-  | Constant c1, Tpat_constant(c2) -> const_compare c1 c2 = 0
-  | Lazy, Tpat_lazy _ -> true
-  | Record _, Tpat_record _ -> true
-  | Tuple len, Tpat_tuple p2s
-  | Array len, Tpat_array p2s -> len = List.length p2s
-  | _, (Tpat_any | Tpat_var(_)) -> true
+  | Constant c1, Constant c2 -> const_compare c1 c2 = 0
+  | Lazy, Lazy -> true
+  | Record _, Record _ -> true
+  | Tuple len1, Tuple len2
+  | Array len1, Array len2 -> len1 = len2
+  | _, Any -> true
   | _, _ -> false
 
 
@@ -510,7 +524,7 @@ let record_arg p = match Pattern_head.desc p with
 
 (* Raise Not_found when pos is not present in arg *)
 let get_field pos arg =
-  let _,_, p = List.find (fun (_,lbl,_) -> pos = lbl.lbl_pos) arg in
+  let _, p = List.find (fun (lbl,_) -> pos = lbl.lbl_pos) arg in
   p
 
 let extract_fields lbls arg =
@@ -520,16 +534,15 @@ let extract_fields lbls arg =
   ) lbls
 
 (* Build argument list when p2 >= p1, where p1 is a simple pattern *)
-let rec simple_match_args d p2 = match p2.pat_desc with
-| Tpat_alias (p2,_,_) -> simple_match_args d p2
-| Tpat_construct(_, _, args) -> args
-| Tpat_variant(_, Some arg, _) -> [arg]
-| Tpat_tuple(args)  -> args
-| Tpat_record(args,_) ->  extract_fields (record_arg d) args
-| Tpat_array(args) -> args
-| Tpat_lazy arg -> [arg]
-| (Tpat_any | Tpat_var(_)) ->
-    begin match Pattern_head.desc d with
+let simple_match_args d1 d2 args = match Pattern_head.desc d2 with
+| Construct _
+| Variant _
+| Tuple _
+| Array _
+| Lazy -> args
+| Record lbls ->  extract_fields (record_arg d1) (List.combine lbls args)
+| Any ->
+    begin match Pattern_head.desc d1 with
     | Construct cstr -> omegas cstr.cstr_arity
     | Variant { has_arg = true }
     | Lazy -> [omega]
@@ -537,7 +550,7 @@ let rec simple_match_args d p2 = match p2.pat_desc with
     | Array len
     | Tuple len -> omegas len
     | Variant { has_arg = false }
-    | Any 
+    | Any
     | Constant _ -> []
     end
 | _ -> []
@@ -572,12 +585,11 @@ let rec simple_match_args d p2 = match p2.pat_desc with
 let discr_pat q pss =
   let rec refine_pat acc = function
     | [] -> acc
-    | (head, _) :: rows ->
-      match head.pat_desc with
-      | Tpat_or _ | Tpat_var _ | Tpat_alias _ -> assert false
-      | Tpat_any -> refine_pat acc rows
-      | Tpat_tuple _ | Tpat_lazy _ -> Pattern_head.of_pattern head
-      | Tpat_record (largs, _) ->
+    | ((head, _), _) :: rows ->
+      match Pattern_head.desc head with
+      | Any -> refine_pat acc rows
+      | Tuple _ | Lazy -> head
+      | Record lbls ->
         (* N.B. we could make this case "simpler" by refining the record case
            using [all_record_args].
            In which case we wouldn't need to fold over the first column for
@@ -585,22 +597,21 @@ let discr_pat q pss =
            However it makes the witness we generate for the exhaustivity warning
            less pretty. *)
         let fields =
-          List.fold_right (fun (_, lbl, _) r ->
+          List.fold_right (fun lbl r ->
             if List.exists (fun l -> l.lbl_pos = lbl.lbl_pos) r then
               r
             else
               lbl :: r
-          ) largs (record_arg acc)
+          ) lbls (record_arg acc)
         in
         let d =
-          Pattern_head.make
-            ~loc:head.pat_loc ~typ:head.pat_type ~env:head.pat_env
-            (Record fields)
+          let open Pattern_head in
+          make ~loc:(loc head) ~typ:(typ head) ~env:(env head) (Record fields)
         in
         refine_pat d rows
       | _ -> acc
   in
-  let q = Pattern_head.of_pattern q in
+  let q, _ = Pattern_head.deconstruct q in
   match Pattern_head.desc q with
   (* short-circuiting: clearly if we have anything other than [Tpat_record] or
      [Tpat_any] to start with, we're not going to be able refine at all. So
@@ -701,10 +712,12 @@ and set_args_erase_mutable q r = do_set_args true q r
 let simplify_head_pat ~add_column p ps k =
   let rec simplify_head_pat p ps k =
     match p.pat_desc with
-    | Tpat_alias (p,_,_) -> simplify_head_pat p ps k
-    | Tpat_var (_,_) -> add_column omega ps k
+    | Tpat_alias (p,_,_) ->
+        (* We have to handle aliases here, because there can be or-patterns
+           underneath, that [Pattern_head.deconstruct] won't handle. *)
+        simplify_head_pat p ps k
     | Tpat_or (p1,p2,_) -> simplify_head_pat p1 ps (simplify_head_pat p2 ps k)
-    | _ -> add_column p ps k
+    | _ -> add_column (Pattern_head.deconstruct p) ps k
   in simplify_head_pat p ps k
 
 let rec simplify_first_col = function
@@ -727,11 +740,9 @@ let rec simplify_first_col = function
 *)
 let build_specialized_submatrix ~extend_row q pss =
   let rec filter_rec = function
-    | ({pat_desc = (Tpat_alias _ | Tpat_or _ | Tpat_var _) }, _) :: _ ->
-        assert false
-    | (p, ps) :: pss ->
-        if simple_match q p
-        then extend_row (simple_match_args q p) ps :: filter_rec pss
+    | ((head, args), ps) :: pss ->
+        if simple_match q head
+        then extend_row (simple_match_args q head args) ps :: filter_rec pss
         else filter_rec pss
     | _ -> [] in
   filter_rec pss
@@ -770,38 +781,40 @@ type 'matrix specialized_matrices = {
    the [extend_row] parameter.
 *)
 let build_specialized_submatrices ~extend_row (q : Pattern_head.t) rows =
-  let extend_group discr p r rs =
-    let r = extend_row (simple_match_args discr p) r in
+  let extend_group discr p args r rs =
+    let r = extend_row (simple_match_args discr p args) r in
     (discr, r :: rs)
   in
 
   (* insert a row of head [p] and rest [r] into the right group *)
-  let rec insert_constr p r = function
+  let rec insert_constr head args r = function
     | [] ->
       (* if no group matched this row, it has a head constructor that
          was never seen before; add a new sub-matrix for this head *)
-      [extend_group (Pattern_head.of_pattern p) p r []]
+      [extend_group head head args r []]
     | (q0,rs) as bd::env ->
-      if simple_match q0 p
-      then extend_group q0 p r rs :: env
-      else bd :: insert_constr p r env
+      if simple_match q0 head
+      then extend_group q0 head args r rs :: env
+      else bd :: insert_constr head args r env
   in
 
   (* insert a row of head omega into all groups *)
   let insert_omega r env =
-    List.map (fun (q0,rs) -> extend_group q0 omega r rs) env
+    List.map (fun (q0,rs) -> extend_group q0 Pattern_head.omega [] r rs) env
   in
 
   let rec form_groups constr_groups omega_tails = function
     | [] -> (constr_groups, omega_tails)
-    | ({pat_desc=(Tpat_var _|Tpat_alias _|Tpat_or _)},_)::_ -> assert false
-    | ({pat_desc=Tpat_any}, tail) :: rest ->
-       (* note that calling insert_omega here would be wrong
-          as some groups may not have been formed yet, if the
-          first row with this head pattern comes after in the list *)
-       form_groups constr_groups (tail :: omega_tails) rest
-    | (p,r) :: rest ->
-      form_groups (insert_constr p r constr_groups) omega_tails rest
+    | ((head, args), tail) :: rest ->
+        match Pattern_head.desc head with
+        | Any ->
+            (* note that calling insert_omega here would be wrong
+               as some groups may not have been formed yet, if the
+               first row with this head pattern comes after in the list *)
+            form_groups constr_groups (tail :: omega_tails) rest
+        | _ ->
+            form_groups
+              (insert_constr head args tail constr_groups) omega_tails rest
   in
 
   let constr_groups, omega_tails =
@@ -833,7 +846,7 @@ let set_last a =
     | x::l -> x :: loop l
   in
   function
-  | (_, []) -> (a, [])
+  | (_, []) -> (Pattern_head.deconstruct a, [])
   | (first, row) -> (first, loop row)
 
 (* mark constructor lines for failure when they are incomplete
@@ -841,10 +854,11 @@ let set_last a =
    Precondition: the input matrix has been simplified so that its
    first column only contains _ or head constructors. *)
 let mark_partial =
-  List.map (function
-    | ({pat_desc=(Tpat_var _|Tpat_alias _|Tpat_or _)},_) -> assert false
-    | ({pat_desc = Tpat_any }, _) as ps -> ps
-    | ps -> set_last zero ps
+  let zero = make_pat (Tpat_constant (Const_int 0)) Ctype.none Env.empty in
+  List.map (fun ((hp, _), _ as ps) ->
+    match Pattern_head.desc hp with
+    | Any -> ps
+    | _ -> set_last zero ps
   )
 
 let close_variant env row =
@@ -1042,7 +1056,10 @@ let build_other_constrs env p =
   | _ -> extra_pat
 
 let complete_constrs p all_tags =
-  complete_constrs (Pattern_head.of_pattern p) all_tags
+  (* This wrapper is here for [Matching], which (indirectly) calls this function
+     from [combine_constructor], and nowhere else.
+     So we know patterns have been fully simplified. *)
+  complete_constrs (fst @@ Pattern_head.deconstruct p) all_tags
 
 (* Auxiliary for build_other *)
 
@@ -1266,18 +1283,20 @@ let rec satisfiable pss qs = match pss with
             List.exists
               (fun (p,pss) ->
                  not (is_absent_pat p) &&
-                 satisfiable pss (simple_match_args p omega @ qs))
+                 satisfiable pss
+                   (simple_match_args p Pattern_head.omega [] @ qs))
               constrs
         end
     | {pat_desc=Tpat_variant (l,_,r)}::_ when is_absent l r -> false
     | q::qs ->
         let pss = simplify_first_col pss in
-        if not (all_coherent (q :: first_column pss)) then
+        let hq, qargs = Pattern_head.deconstruct q in
+        if not (all_coherent (hq :: first_column pss)) then
           false
         else begin
           let q0 = discr_pat q pss in
           satisfiable (build_specialized_submatrix ~extend_row:(@) q0 pss)
-            (simple_match_args q0 q @ qs)
+            (simple_match_args q0 hq qargs @ qs)
         end
 
 (* While [satisfiable] only checks whether the last row of [pss + qs] is
@@ -1324,7 +1343,7 @@ let rec list_satisfying_vectors pss qs =
                       else
                         let witnesses =
                           list_satisfying_vectors pss
-                            (simple_match_args p omega @ qs)
+                            (simple_match_args p Pattern_head.omega [] @ qs)
                         in
                         let p = Pattern_head.to_omega_pattern p in
                         List.map (set_args p) witnesses
@@ -1343,15 +1362,16 @@ let rec list_satisfying_vectors pss qs =
           end
       | {pat_desc=Tpat_variant (l,_,r)}::_ when is_absent l r -> []
       | q::qs ->
+          let hq, qargs = Pattern_head.deconstruct q in
           let pss = simplify_first_col pss in
-          if not (all_coherent (q :: first_column pss)) then
+          if not (all_coherent (hq :: first_column pss)) then
             []
           else begin
             let q0 = discr_pat q pss in
             List.map (set_args (Pattern_head.to_omega_pattern q0))
               (list_satisfying_vectors
                  (build_specialized_submatrix ~extend_row:(@) q0 pss)
-                 (simple_match_args q0 q @ qs))
+                 (simple_match_args q0 hq qargs @ qs))
           end
 
 (******************************************)
@@ -1380,13 +1400,16 @@ let rec do_match pss qs = match qs with
       in
       do_match (remove_first_column pss) qs
   | _ ->
-      let q0 = Pattern_head.of_pattern q in
+      (* [q] is generated by us, it doesn't come from the source. So we know
+         it's not of the form [P as name].
+         Therefore there is no risk of [deconstruct] raising. *)
+      let q0, qargs = Pattern_head.deconstruct q in
       let pss = simplify_first_col pss in
       (* [pss] will (or won't) match [q0 :: qs] regardless of the coherence of
          its first column. *)
       do_match
         (build_specialized_submatrix ~extend_row:(@) q0 pss)
-        (simple_match_args q0 q @ qs)
+        (qargs @ qs)
 
 
 type 'a exhaust_result =
@@ -1470,7 +1493,9 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
             else
               match
                 exhaust
-                  ext pss (List.length (simple_match_args p omega) + n - 1)
+                  ext pss
+                  (List.length (simple_match_args p Pattern_head.omega [])
+                   + n - 1)
               with
               | Witnesses r ->
                   let p = Pattern_head.to_omega_pattern p in
@@ -1768,16 +1793,17 @@ let rec every_satisfiables pss qs = match qs.active with
     | _ ->
 (* standard case, filter matrix *)
         let pss = simplify_first_usefulness_col pss in
+        let huq, args = Pattern_head.deconstruct uq in
         (* The handling of incoherent matrices is kept in line with
            [satisfiable] *)
-        if not (all_coherent (uq :: first_column pss)) then
+        if not (all_coherent (huq :: first_column pss)) then
           Unused
         else begin
           let q0 = discr_pat q pss in
           every_satisfiables
             (build_specialized_submatrix q0 pss
               ~extend_row:(fun ps r -> { r with active = ps @ r.active }))
-            {qs with active=simple_match_args q0 q @ rem}
+            {qs with active=simple_match_args q0 huq args @ rem}
         end
     end
 
@@ -2408,12 +2434,13 @@ let simplify_head_amb_pat head_bound_variables varsets ~add_column p ps k =
       let rest_of_the_row =
         { row = ps; varsets = Ident.Set.add x head_bound_variables :: varsets; }
       in
-      add_column omega rest_of_the_row k
+      add_column (Pattern_head.deconstruct omega) rest_of_the_row k
     | Tpat_or (p1,p2,_) ->
       simpl head_bound_variables varsets p1 ps
         (simpl head_bound_variables varsets p2 ps k)
     | _ ->
-      add_column p { row = ps; varsets = head_bound_variables :: varsets; } k
+      add_column (Pattern_head.deconstruct p)
+        { row = ps; varsets = head_bound_variables :: varsets; } k
   in simpl head_bound_variables varsets p ps k
 
 (*
