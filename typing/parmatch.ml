@@ -44,7 +44,7 @@ let omega_list l = List.map (fun _ -> omega) l
 
 let zero = make_pat (Tpat_constant (Const_int 0)) Ctype.none Env.empty
 
-module Simple_head_pat : sig
+module Pattern_head : sig
   type desc =
     | Any
     | Construct of constructor_description
@@ -126,7 +126,7 @@ end = struct
       | Tpat_lazy _ ->
           Lazy
       | Tpat_or _
-      | Tpat_exception _ -> invalid_arg "Parmatch.Simple_head_pat.of_pattern"
+      | Tpat_exception _ -> invalid_arg "Parmatch.Pattern_head.of_pattern"
     in
     { desc = get_desc q.pat_desc; typ = q.pat_type; loc = q.pat_loc;
       env = q.pat_env; attributes = q.pat_attributes }
@@ -168,7 +168,7 @@ end
    all arguments are omega (simple pattern) and no more variables
 *)
 
-let normalize_pat p = Simple_head_pat.(to_pattern @@ of_pattern p)
+let normalize_pat p = Pattern_head.(to_pattern @@ of_pattern p)
 
 (*******************)
 (* Coherence check *)
@@ -366,7 +366,7 @@ let first_column simplified_matrix =
 let is_absent tag row = Btype.row_field tag !row = Rabsent
 
 let is_absent_pat d =
-  match Simple_head_pat.desc d with
+  match Pattern_head.desc d with
   | Variant { tag; row; _ } -> is_absent tag row
   | _ -> false
 
@@ -486,7 +486,7 @@ let get_constructor_type_path ty tenv =
 
 (* Check top matching *)
 let simple_match d p2 =
-  match Simple_head_pat.desc d, p2.pat_desc with
+  match Pattern_head.desc d, p2.pat_desc with
   | Construct c1, Tpat_construct(_, c2, _) ->
       Types.equal_tag c1.cstr_tag c2.cstr_tag
   | Variant { tag = t1; _ }, Tpat_variant(t2, _, _) ->
@@ -502,7 +502,7 @@ let simple_match d p2 =
 
 
 (* extract record fields as a whole *)
-let record_arg p = match Simple_head_pat.desc p with
+let record_arg p = match Pattern_head.desc p with
 | Any -> []
 | Record args -> args
 | _ -> fatal_error "Parmatch.as_record"
@@ -529,7 +529,7 @@ let rec simple_match_args d p2 = match p2.pat_desc with
 | Tpat_array(args) -> args
 | Tpat_lazy arg -> [arg]
 | (Tpat_any | Tpat_var(_)) ->
-    begin match Simple_head_pat.desc d with
+    begin match Pattern_head.desc d with
     | Construct cstr -> omegas cstr.cstr_arity
     | Variant { has_arg = true }
     | Lazy -> [omega]
@@ -576,7 +576,7 @@ let discr_pat q pss =
       match head.pat_desc with
       | Tpat_or _ | Tpat_var _ | Tpat_alias _ -> assert false
       | Tpat_any -> refine_pat acc rows
-      | Tpat_tuple _ | Tpat_lazy _ -> Simple_head_pat.of_pattern head
+      | Tpat_tuple _ | Tpat_lazy _ -> Pattern_head.of_pattern head
       | Tpat_record (largs, _) ->
         (* N.B. we could make this case "simpler" by refining the record case
            using [all_record_args].
@@ -593,14 +593,14 @@ let discr_pat q pss =
           ) largs (record_arg acc)
         in
         let d =
-          Simple_head_pat.make_record
+          Pattern_head.make_record
             ~loc:head.pat_loc ~typ:head.pat_type ~env:head.pat_env fields
         in
         refine_pat d rows
       | _ -> acc
   in
-  let q = Simple_head_pat.of_pattern q in
-  match Simple_head_pat.desc q with
+  let q = Pattern_head.of_pattern q in
+  match Pattern_head.desc q with
   (* short-circuiting: clearly if we have anything other than [Tpat_record] or
      [Tpat_any] to start with, we're not going to be able refine at all. So
      there's no point going over the matrix. *)
@@ -740,7 +740,7 @@ let build_specialized_submatrix ~extend_row q pss =
 *)
 type 'matrix specialized_matrices = {
   default : 'matrix;
-  constrs : (Simple_head_pat.t * 'matrix) list;
+  constrs : (Pattern_head.t * 'matrix) list;
 }
 
 (* Consider a pattern matrix whose first column has been simplified
@@ -768,7 +768,7 @@ type 'matrix specialized_matrices = {
    See the documentation of [build_specialized_submatrix] for an explanation of
    the [extend_row] parameter.
 *)
-let build_specialized_submatrices ~extend_row (q : Simple_head_pat.t) rows =
+let build_specialized_submatrices ~extend_row (q : Pattern_head.t) rows =
   let extend_group discr p r rs =
     let r = extend_row (simple_match_args discr p) r in
     (discr, r :: rs)
@@ -779,7 +779,7 @@ let build_specialized_submatrices ~extend_row (q : Simple_head_pat.t) rows =
     | [] ->
       (* if no group matched this row, it has a head constructor that
          was never seen before; add a new sub-matrix for this head *)
-      [extend_group (Simple_head_pat.of_pattern p) p r []]
+      [extend_group (Pattern_head.of_pattern p) p r []]
     | (q0,rs) as bd::env ->
       if simple_match q0 p
       then extend_group q0 p r rs :: env
@@ -805,7 +805,7 @@ let build_specialized_submatrices ~extend_row (q : Simple_head_pat.t) rows =
 
   let constr_groups, omega_tails =
     let initial_constr_group =
-      match Simple_head_pat.desc q with
+      match Pattern_head.desc q with
       | Record _ | Tuple _ | Lazy ->
         (* [q] comes from [discr_pat], and in this case subsumes any of the
            patterns we could find on the first column of [rows]. So it is better
@@ -874,7 +874,7 @@ let close_variant env row =
 let full_match closing env =  match env with
 | [] -> false
 | (discr, _) :: _ ->
-  match Simple_head_pat.desc discr with
+  match Pattern_head.desc discr with
   | Any -> assert false
   | Construct { cstr_tag = Cstr_extension _ ; _ } -> false
   | Construct c -> List.length env = c.cstr_consts + c.cstr_nonconsts
@@ -882,12 +882,12 @@ let full_match closing env =  match env with
       let fields =
         List.map
           (fun (d, _) ->
-            match Simple_head_pat.desc d with
+            match Pattern_head.desc d with
             | Variant { tag } -> tag
             | _ -> assert false)
           env
       in
-      let row = Simple_head_pat.row_of_discr discr in
+      let row = Pattern_head.row_of_discr discr in
       if closing && not (Btype.row_fixed row) then
         (* closing=true, we are considering the variant as closed *)
         List.for_all
@@ -919,9 +919,9 @@ let should_extend ext env = match ext with
 | Some ext -> begin match env with
   | [] -> assert false
   | (p,_)::_ ->
-      begin match Simple_head_pat.desc p with
+      begin match Pattern_head.desc p with
       | Construct {cstr_tag=(Cstr_constant _|Cstr_block _|Cstr_unboxed)} ->
-          let path = get_constructor_type_path (Simple_head_pat.typ p) (Simple_head_pat.env p) in
+          let path = get_constructor_type_path (Pattern_head.typ p) (Pattern_head.env p) in
           Path.same path ext
       | Construct {cstr_tag=(Cstr_extension _)} -> false
       | Constant _ | Tuple _ | Variant _ | Record _ | Array _ | Lazy -> false
@@ -973,7 +973,7 @@ let rec orify_many = function
 
 (* build an or-pattern from a constructor list *)
 let pat_of_constrs ex_pat cstrs =
-  let ex_pat = Simple_head_pat.to_pattern ex_pat in
+  let ex_pat = Pattern_head.to_pattern ex_pat in
   if cstrs = [] then raise Empty else
   orify_many (List.map (pat_of_constr ex_pat) cstrs)
 
@@ -1018,9 +1018,9 @@ let rec get_variant_constructors env ty =
 
 (* Sends back a pattern that complements constructor tags all_tag *)
 let complete_constrs p all_tags =
-  let c = match Simple_head_pat.desc p with Construct c -> c | _ -> assert false in
+  let c = match Pattern_head.desc p with Construct c -> c | _ -> assert false in
   let not_tags = complete_tags c.cstr_consts c.cstr_nonconsts all_tags in
-  let constrs = get_variant_constructors (Simple_head_pat.env p) c.cstr_res in
+  let constrs = get_variant_constructors (Pattern_head.env p) c.cstr_res in
   let others =
     List.filter
       (fun cnstr -> ConstructorTagHashtbl.mem not_tags cnstr.cstr_tag)
@@ -1030,10 +1030,10 @@ let complete_constrs p all_tags =
   const @ nonconst
 
 let build_other_constrs env p =
-  match Simple_head_pat.desc p with
+  match Pattern_head.desc p with
   | Construct { cstr_tag = Cstr_constant _ | Cstr_block _ } ->
       let get_tag q =
-        match Simple_head_pat.desc q with
+        match Pattern_head.desc q with
         | Construct c -> c.cstr_tag
         | _ -> fatal_error "Parmatch.get_tag" in
       let all_tags =  List.map (fun (p,_) -> get_tag p) env in
@@ -1041,16 +1041,16 @@ let build_other_constrs env p =
   | _ -> extra_pat
 
 let complete_constrs p all_tags =
-  complete_constrs (Simple_head_pat.of_pattern p) all_tags
+  complete_constrs (Pattern_head.of_pattern p) all_tags
 
 (* Auxiliary for build_other *)
 
 let build_other_constant proj make first next p env =
-  let all = List.map (fun (p, _) -> proj (Simple_head_pat.desc p)) env in
+  let all = List.map (fun (p, _) -> proj (Pattern_head.desc p)) env in
   let rec try_const i =
     if List.mem i all
     then try_const (next i)
-    else make_pat (make i) (Simple_head_pat.typ p) (Simple_head_pat.env p)
+    else make_pat (make i) (Pattern_head.typ p) (Pattern_head.env p)
   in try_const first
 
 (*
@@ -1064,18 +1064,18 @@ let build_other ext env =
   match env with
   | [] -> omega
   | (d, _) :: _ ->
-      match Simple_head_pat.desc d with
+      match Pattern_head.desc d with
       | Construct { cstr_tag = Cstr_extension _ } ->
           (* let c = {c with cstr_name = "*extension*"} in *) (* PR#7330 *)
           make_pat
             (Tpat_var (Ident.create_local "*extension*",
-                       {txt="*extension*"; loc = Simple_head_pat.loc d}))
+                       {txt="*extension*"; loc = Pattern_head.loc d}))
             Ctype.none Env.empty
       | Construct _ ->
           begin match ext with
           | Some ext ->
               if Path.same ext
-                   (get_constructor_type_path (Simple_head_pat.typ d) (Simple_head_pat.env d))
+                   (get_constructor_type_path (Pattern_head.typ d) (Pattern_head.env d))
               then
                 extra_pat
               else
@@ -1087,16 +1087,16 @@ let build_other ext env =
           let tags =
             List.map
               (fun (d, _) ->
-                match Simple_head_pat.desc d with
+                match Pattern_head.desc d with
                 | Variant { tag } -> tag
                 | _ -> assert false)
               env
             in
-            let row = Simple_head_pat.row_of_discr d in
+            let row = Pattern_head.row_of_discr d in
             let make_other_pat tag const =
               let arg = if const then None else Some omega in
               make_pat (Tpat_variant(tag, arg, r))
-                (Simple_head_pat.typ d) (Simple_head_pat.env d)
+                (Pattern_head.typ d) (Pattern_head.env d)
             in
             begin match
               List.fold_left
@@ -1120,13 +1120,13 @@ let build_other ext env =
                 List.fold_left
                   (fun p_res pat ->
                     make_pat (Tpat_or (pat, p_res, None))
-                      (Simple_head_pat.typ d) (Simple_head_pat.env d))
+                      (Pattern_head.typ d) (Pattern_head.env d))
                   pat other_pats
             end
       | Constant Const_char _ ->
           let all_chars =
             List.map
-              (fun (p,_) -> match Simple_head_pat.desc p with
+              (fun (p,_) -> match Pattern_head.desc p with
               | Constant (Const_char c) -> c
               | _ -> assert false)
               env
@@ -1139,7 +1139,7 @@ let build_other ext env =
                 find_other (i+1) imax
               else
                 make_pat (Tpat_constant (Const_char ci))
-                  (Simple_head_pat.typ d) (Simple_head_pat.env d)
+                  (Pattern_head.typ d) (Pattern_head.env d)
           in
           let rec try_chars = function
             | [] -> omega
@@ -1189,7 +1189,7 @@ let build_other ext env =
       | Array _ ->
           let all_lengths =
             List.map
-              (fun (p,_) -> match Simple_head_pat.desc p with
+              (fun (p,_) -> match Pattern_head.desc p with
               | Array len -> len
               | _ -> assert false)
               env in
@@ -1198,7 +1198,7 @@ let build_other ext env =
             else
               make_pat
                 (Tpat_array (omegas l))
-                (Simple_head_pat.typ d) (Simple_head_pat.env d) in
+                (Pattern_head.typ d) (Pattern_head.env d) in
           try_arrays 0
       | _ -> omega
 
@@ -1325,12 +1325,12 @@ let rec list_satisfying_vectors pss qs =
                           list_satisfying_vectors pss
                             (simple_match_args p omega @ qs)
                         in
-                        List.map (set_args (Simple_head_pat.to_pattern p)) witnesses
+                        List.map (set_args (Pattern_head.to_pattern p)) witnesses
                     ) constrs
                   )
                 in
                 if full_match false constrs then for_constrs () else
-                begin match Simple_head_pat.desc p with
+                begin match Pattern_head.desc p with
                 | Construct _ ->
                     (* activate this code for checking non-gadt constructors *)
                     wild default (build_other_constrs constrs p)
@@ -1346,7 +1346,7 @@ let rec list_satisfying_vectors pss qs =
             []
           else begin
             let q0 = discr_pat q pss in
-            List.map (set_args (Simple_head_pat.to_pattern q0))
+            List.map (set_args (Pattern_head.to_pattern q0))
               (list_satisfying_vectors
                  (build_specialized_submatrix ~extend_row:(@) q0 pss)
                  (simple_match_args q0 q @ qs))
@@ -1378,7 +1378,7 @@ let rec do_match pss qs = match qs with
       in
       do_match (remove_first_column pss) qs
   | _ ->
-      let q0 = Simple_head_pat.of_pattern q in
+      let q0 = Pattern_head.of_pattern q in
       let pss = simplify_first_col pss in
       (* [pss] will (or won't) match [q0 :: qs] regardless of the coherence of
          its first column. *)
@@ -1457,7 +1457,7 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
           (* first column of pss is made of variables only *)
           begin match exhaust ext default (n-1) with
           | Witnesses r ->
-              Witnesses (List.map (fun row -> Simple_head_pat.to_pattern q0::row) r)
+              Witnesses (List.map (fun row -> Pattern_head.to_pattern q0::row) r)
           | r -> r
         end
       | { default; constrs } ->
@@ -1470,7 +1470,7 @@ let rec exhaust (ext:Path.t option) pss n = match pss with
                   ext pss (List.length (simple_match_args p omega) + n - 1)
               with
               | Witnesses r ->
-                  Witnesses (List.map (set_args (Simple_head_pat.to_pattern p)) r)
+                  Witnesses (List.map (set_args (Pattern_head.to_pattern p)) r)
               | r       -> r in
           let before = try_many try_non_omega constrs in
           if
@@ -1562,9 +1562,9 @@ let rec pressure_variants tdefs = function
               | [], _
               | _, None -> ()
               | (d, _) :: _, Some env ->
-                match Simple_head_pat.desc d with
+                match Pattern_head.desc d with
                 | Variant _ ->
-                  let row = Simple_head_pat.row_of_discr d in
+                  let row = Pattern_head.row_of_discr d in
                   if Btype.row_fixed row
                   || pressure_variants None default then ()
                   else close_variant env row
