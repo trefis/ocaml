@@ -876,9 +876,8 @@ let full_match closing env =  match env with
 | (discr, _) :: _ ->
   match Simple_head_pat.desc discr with
   | Any -> assert false
-  | Construct c ->
-      if c.cstr_consts < 0 then false (* extensions *)
-      else List.length env = c.cstr_consts + c.cstr_nonconsts
+  | Construct { cstr_tag = Cstr_extension _ ; _ } -> false
+  | Construct c -> List.length env = c.cstr_consts + c.cstr_nonconsts
   | Variant _ ->
       let fields =
         List.map
