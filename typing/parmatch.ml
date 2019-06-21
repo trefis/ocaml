@@ -69,11 +69,11 @@ module Pattern_head : sig
   (** reconstructs a pattern, putting wildcards as sub-patterns. *)
   val to_pattern : t -> pattern
 
-  val make_record
+  val make
     :  loc:Location.t
     -> typ:Types.type_expr
     -> env:Env.t
-    -> label_description list
+    -> desc
     -> t
 
   val row_of_discr : t -> Types.row_desc
@@ -159,8 +159,8 @@ end = struct
     { pat_desc; pat_type = t.typ; pat_loc = t.loc; pat_extra = [];
       pat_env = t.env; pat_attributes = t.attributes }
 
-  let make_record ~loc ~typ ~env lbls =
-    { desc = Record lbls; loc; typ; env; attributes = [] }
+  let make ~loc ~typ ~env desc =
+    { desc; loc; typ; env; attributes = [] }
 end
 
 (*
@@ -593,8 +593,9 @@ let discr_pat q pss =
           ) largs (record_arg acc)
         in
         let d =
-          Pattern_head.make_record
-            ~loc:head.pat_loc ~typ:head.pat_type ~env:head.pat_env fields
+          Pattern_head.make
+            ~loc:head.pat_loc ~typ:head.pat_type ~env:head.pat_env
+            (Record fields)
         in
         refine_pat d rows
       | _ -> acc
