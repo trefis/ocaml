@@ -49,7 +49,12 @@ module Pattern_head : sig
     | Constant of constant
     | Tuple of int
     | Record of label_description list
-    | Variant of { tag: label; has_arg: bool; row: row_desc ref }
+    | Variant of
+        { tag: label; has_arg: bool;
+          cstr_row: row_desc ref;
+          type_row : unit -> row_desc; }
+          (* the row of the type may evolve if [close_variant] is called,
+             hence the (unit -> ...) delay *)
     | Array of int
     | Lazy
 
@@ -77,8 +82,6 @@ module Pattern_head : sig
 
   val omega : t
 
-  val row_of_discr : t -> Types.row_desc
-
 end = struct
   type desc =
     | Any
@@ -86,7 +89,11 @@ end = struct
     | Constant of constant
     | Tuple of int
     | Record of label_description list
-    | Variant of { tag: label; has_arg: bool; row: row_desc ref }
+    | Variant of
+        { tag: label;
+          has_arg: bool;
+          cstr_row: row_desc ref;
+          type_row: unit -> row_desc; }
     | Array of int
     | Lazy
 
@@ -103,11 +110,6 @@ end = struct
   let loc { loc } = loc
   let typ { typ } = typ
 
-  let row_of_discr d =
-    match Ctype.expand_head d.env d.typ with
-    | {desc = Tvariant row} -> Btype.row_repr row
-    | _ -> assert false
-
   let deconstruct q =
     let rec deconstruct_desc = function
       | Tpat_any
@@ -118,13 +120,18 @@ end = struct
           Tuple (List.length args), args
       | Tpat_construct (_, c, args) ->
           Construct c, args
-      | Tpat_variant (tag, arg, row) ->
+      | Tpat_variant (tag, arg, cstr_row) ->
           let has_arg, pats =
             match arg with
             | None -> false, []
             | Some a -> true, [a]
           in
-          Variant {tag; has_arg; row}, pats
+          let type_row () =
+            match Ctype.expand_head q.pat_env q.pat_type with
+              | {desc = Tvariant type_row} -> Btype.row_repr type_row
+              | _ -> assert false
+          in
+          Variant {tag; has_arg; cstr_row; type_row}, pats
       | Tpat_array args ->
           Array (List.length args), args
       | Tpat_record (largs, _) ->
@@ -152,9 +159,9 @@ end = struct
       | Construct c ->
           let lid_loc = Location.mkloc (Longident.Lident c.cstr_name) t.loc in
           Tpat_construct (lid_loc, c, omegas c.cstr_arity)
-      | Variant { tag; has_arg; row } ->
+      | Variant { tag; has_arg; cstr_row } ->
           let arg_opt = if has_arg then Some omega else None in
-          Tpat_variant (tag, arg_opt, row)
+          Tpat_variant (tag, arg_opt, cstr_row)
       | Record lbls ->
           let lst =
             List.map (fun lbl ->
@@ -381,7 +388,7 @@ let is_absent tag row = Btype.row_field tag !row = Rabsent
 
 let is_absent_pat d =
   match Pattern_head.desc d with
-  | Variant { tag; row; _ } -> is_absent tag row
+  | Variant { tag; cstr_row; _ } -> is_absent tag cstr_row
   | _ -> false
 
 let const_compare x y =
@@ -893,7 +900,7 @@ let full_match closing env =  match env with
   | Any -> assert false
   | Construct { cstr_tag = Cstr_extension _ ; _ } -> false
   | Construct c -> List.length env = c.cstr_consts + c.cstr_nonconsts
-  | Variant _ ->
+  | Variant { type_row; _ } ->
       let fields =
         List.map
           (fun (d, _) ->
@@ -902,7 +909,7 @@ let full_match closing env =  match env with
             | _ -> assert false)
           env
       in
-      let row = Pattern_head.row_of_discr discr in
+      let row = type_row () in
       if closing && not (Btype.row_fixed row) then
         (* closing=true, we are considering the variant as closed *)
         List.for_all
@@ -1101,7 +1108,7 @@ let build_other ext env =
           | _ ->
               build_other_constrs env d
           end
-      | Variant { row = r } ->
+      | Variant { cstr_row; type_row } ->
           let tags =
             List.map
               (fun (d, _) ->
@@ -1110,12 +1117,12 @@ let build_other ext env =
                 | _ -> assert false)
               env
             in
-            let row = Pattern_head.row_of_discr d in
             let make_other_pat tag const =
               let arg = if const then None else Some omega in
-              make_pat (Tpat_variant(tag, arg, r))
+              make_pat (Tpat_variant(tag, arg, cstr_row))
                 (Pattern_head.typ d) (Pattern_head.env d)
             in
+            let row = type_row () in
             begin match
               List.fold_left
                 (fun others (tag,f) ->
@@ -1592,8 +1599,8 @@ let rec pressure_variants tdefs = function
               | _, None -> ()
               | (d, _) :: _, Some env ->
                 match Pattern_head.desc d with
-                | Variant _ ->
-                  let row = Pattern_head.row_of_discr d in
+                | Variant { type_row; _ } ->
+                  let row = type_row () in
                   if Btype.row_fixed row
                   || pressure_variants None default then ()
                   else close_variant env row
