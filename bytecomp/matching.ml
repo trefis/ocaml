@@ -591,6 +591,8 @@ module Simple : sig
 
   type clause = pattern Non_empty_clause.t
 
+  val try_no_or : Half_simple.pattern -> pattern option
+
   val to_pattern : pattern -> General.pattern
 
   val explode_or_pat :
@@ -600,8 +602,6 @@ module Simple : sig
     vars:Ident.t list ->
     clause list ->
     clause list
-
-  val assert_no_or : Half_simple.clause -> clause
 
   val omega : pattern
 end = struct
@@ -641,11 +641,11 @@ end = struct
     in
     explode (Half_simple.to_pattern p) [] rem
 
-  let assert_no_or ((p, ps), act) =
-    let p = Half_simple.to_pattern p in
+  let try_no_or hsp =
+    let p = Half_simple.to_pattern hsp in
     match p.pat_desc with
-    | Tpat_or _ -> assert false
-    | _ -> ((p, ps), act)
+      | Tpat_or _ -> None
+      | _ -> Some p
 end
 
 type initial_clause = pattern list clause
@@ -1128,24 +1128,21 @@ let as_matrix pat_of_head cases =
 *)
 
 let rec split_or argo (cls : Half_simple.clause list) args def =
-  let rec do_split rev_before rev_ors rev_no = function
+  let rec do_split (rev_before : Simple.clause list) rev_ors rev_no = function
     | [] ->
-        cons_next
-          (List.rev_map Simple.assert_no_or rev_before)
-          (List.rev rev_ors) (List.rev rev_no)
-    | (((p, ps), act) as cl) :: rem ->
-        if not (safe_before Half_simple.to_pattern cl rev_no) then
-          do_split rev_before rev_ors (cl :: rev_no) rem
-        else if
-          (not (is_or (Half_simple.to_pattern p)))
-          && safe_before Half_simple.to_pattern cl rev_ors
-        then
-          do_split (cl :: rev_before) rev_ors rev_no rem
-        else
-          let rev_ors, rev_no =
-            Or_matrix.insert_or_append (p, ps, act) rev_ors rev_no
-          in
-          do_split rev_before rev_ors rev_no rem
+        cons_next (List.rev rev_before) (List.rev rev_ors) (List.rev rev_no)
+    | cl :: rem when not (safe_before Half_simple.to_pattern cl rev_no) ->
+       do_split rev_before rev_ors (cl :: rev_no) rem
+    | (((p, ps), act) as cl) :: rem -> (
+       match Simple.try_no_or p with
+         | Some sp when safe_before Half_simple.to_pattern cl rev_ors ->
+            do_split (((sp, ps), act) :: rev_before) rev_ors rev_no rem
+         | _ ->
+            let rev_ors, rev_no =
+              Or_matrix.insert_or_append (p, ps, act) rev_ors rev_no
+            in
+            do_split rev_before rev_ors rev_no rem
+    )
   and cons_next yes yesor no =
     let def, nexts =
       match no with
@@ -1300,10 +1297,13 @@ and dont_precompile_var args cls def k =
 and precompile_or argo cls ors args def k =
   let rec do_cases = function
     | [] -> ([], [])
-    | (((p, patl), action) as cl) :: rem -> (
-        let orp = Half_simple.to_pattern p in
-        match orp.pat_desc with
-        | Tpat_or _ ->
+    | ((p, patl), action) :: rem -> (
+        match Simple.try_no_or p with
+        | Some sp ->
+            let new_ord, new_to_catch = do_cases rem in
+            (((sp, patl), action) :: new_ord, new_to_catch)
+        | None ->
+            let orp = Half_simple.to_pattern p in
             let others, rem =
               extract_equiv_head Half_simple.to_pattern orp rem
             in
@@ -1345,9 +1345,6 @@ and precompile_or argo cls ors args def k =
               }
             in
             (cases, handler :: rem_handlers)
-        | _ ->
-            let new_ord, new_to_catch = do_cases rem in
-            (Simple.assert_no_or cl :: new_ord, new_to_catch)
       )
   in
   let cases, handlers = do_cases ors in
