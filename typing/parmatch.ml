@@ -70,6 +70,8 @@ module Pattern_head : sig
       @raises [Invalid_arg _] if [p] is an or- or an exception-pattern.  *)
   val deconstruct : pattern -> t * pattern list
 
+  val construct : t -> pattern list -> pattern
+
   (** reconstructs a pattern, putting wildcards as sub-patterns. *)
   val to_omega_pattern : t -> pattern
 
@@ -147,6 +149,52 @@ end = struct
     let desc, pats = deconstruct_desc q.pat_desc in
     { desc; typ = q.pat_type; loc = q.pat_loc;
       env = q.pat_env; attributes = q.pat_attributes }, pats
+
+  let construct t args =
+    let pat_desc =
+      match t.desc with
+      | Any ->
+          assert (args = []);
+          Tpat_any
+      | Lazy ->
+          begin match args with
+          | [ sub ] -> Tpat_lazy sub
+          | _ -> assert false
+          end
+      | Constant c ->
+          assert (args = []);
+          Tpat_constant c
+      | Tuple n ->
+          assert (List.length args = n);
+          Tpat_tuple args
+      | Array n ->
+          assert (List.length args = n);
+          Tpat_array args
+      | Construct c ->
+          assert (List.length args = c.cstr_arity);
+          let lid_loc = Location.mkloc (Longident.Lident c.cstr_name) t.loc in
+          Tpat_construct (lid_loc, c, args)
+      | Variant { tag; has_arg; cstr_row } ->
+          let arg_opt =
+            match has_arg, args with
+            | true, [ sub ] -> Some sub
+            | false, [] -> None
+            | _, _ -> assert false
+          in
+          Tpat_variant (tag, arg_opt, cstr_row)
+      | Record lbls ->
+          let lst =
+            List.map2 (fun lbl pat ->
+              let lid_loc =
+                Location.mkloc (Longident.Lident lbl.lbl_name) t.loc
+              in
+              (lid_loc, lbl, pat)
+            ) lbls args
+          in
+          Tpat_record (lst, Closed)
+    in
+    { pat_desc; pat_type = t.typ; pat_loc = t.loc; pat_extra = [];
+      pat_env = t.env; pat_attributes = t.attributes }
 
   let to_omega_pattern t =
     let pat_desc =
