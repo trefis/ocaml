@@ -588,6 +588,8 @@ module Simplified_clause : sig
 
   val pat_of_head : head -> pattern
 
+  val pattern_head : head -> Pattern_head.t
+
   val explode_or_pat :
     Half_simplified_clause.head ->
     pattern list ->
@@ -601,13 +603,15 @@ module Simplified_clause : sig
 
   val omega_head : head
 end = struct
-  type head = pattern
+  type head = Pattern_head.t * pattern list
 
-  let omega_head = omega
+  let omega_head = Pattern_head.omega, []
 
   type t = head Non_empty_clause.t
 
-  let pat_of_head p = p
+  let pattern_head (p, _) = p
+
+  let pat_of_head (p, args) = Pattern_head.construct p args
 
   let mk_alpha_env arg aliases ids =
     List.map
@@ -630,10 +634,12 @@ end = struct
         explode_or_pat p arg patl mk_action vars (id :: aliases) rem
     | Tpat_var (x, _) ->
         let env = mk_alpha_env arg (x :: aliases) vars in
-        ((omega, patl), mk_action ~vars:(List.map snd env)) :: rem
+        (((Pattern_head.omega, []), patl), mk_action ~vars:(List.map snd env)) :: rem
     | _ ->
         let env = mk_alpha_env arg aliases vars in
-        ((alpha_pat env p, patl), mk_action ~vars:(List.map snd env)) :: rem
+        let ph, subs = Pattern_head.deconstruct p in
+        let subs = List.map (alpha_pat env) subs in
+        (((ph, subs), patl), mk_action ~vars:(List.map snd env)) :: rem
 
   let explode_or_pat p patl ~arg ~mk_action ~vars rem =
     explode_or_pat
@@ -644,7 +650,7 @@ end = struct
     let p = Half_simplified_clause.pat_of_head p in
     match p.pat_desc with
     | Tpat_or _ -> assert false
-    | _ -> ((p, ps), act)
+    | _ -> ((Pattern_head.deconstruct p, ps), act)
 end
 
 type initial_clause = pattern list clause
@@ -853,13 +859,8 @@ let rec what_is_cases cases =
   match cases with
   | [] -> Simplified_clause.omega_head
   | ((p, _), _) :: rem -> (
-      match (Simplified_clause.pat_of_head p).pat_desc with
-      | Tpat_any -> what_is_cases rem
-      | Tpat_var _
-      | Tpat_or (_, _, _)
-      | Tpat_alias (_, _, _) ->
-          (* applies to simplified matchings only *)
-          assert false
+      match Pattern_head.desc (Simplified_clause.pattern_head p) with
+      | Any -> what_is_cases rem
       | _ -> p
     )
 
@@ -874,33 +875,33 @@ let pat_as_constr = function
   | _ -> fatal_error "Matching.pat_as_constr"
 
 let group_const_int p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_constant (Const_int _) -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Constant (Const_int _) -> true
   | _ -> false
 
 let group_const_char p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_constant (Const_char _) -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Constant (Const_char _) -> true
   | _ -> false
 
 let group_const_string p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_constant (Const_string _) -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Constant (Const_string _) -> true
   | _ -> false
 
 let group_const_float p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_constant (Const_float _) -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Constant (Const_float _) -> true
   | _ -> false
 
 let group_const_int32 p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_constant (Const_int32 _) -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Constant (Const_int32 _) -> true
   | _ -> false
 
 let group_const_int64 p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_constant (Const_int64 _) -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Constant (Const_int64 _) -> true
   | _ -> false
 
 let group_var_p p =
@@ -909,75 +910,77 @@ let group_var_p p =
   | _ -> false
 
 let group_const_nativeint p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_constant (Const_nativeint _) -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Constant (Const_nativeint _) -> true
   | _ -> false
 
 and group_constructor p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_construct (_, _, _) -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Construct _ -> true
   | _ -> false
 
 and group_same_constructor tag p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_construct (_, cstr, _) -> Types.equal_tag tag cstr.cstr_tag
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Construct cstr -> Types.equal_tag tag cstr.cstr_tag
   | _ -> false
 
 and group_variant p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_variant (_, _, _) -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Variant _ -> true
   | _ -> false
 
-and group_var p = group_var_p (Simplified_clause.pat_of_head p)
+and group_var p =
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Any -> true
+  | _ -> false
 
 and group_tuple p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_tuple _
-  | Tpat_any ->
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Tuple _
+  | Any ->
       true
   | _ -> false
 
 and group_record p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_record _
-  | Tpat_any ->
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Record _
+  | Any ->
       true
   | _ -> false
 
 and group_array p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_array _ -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Array _ -> true
   | _ -> false
 
 and group_lazy p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_lazy _ -> true
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Lazy -> true
   | _ -> false
 
 let get_group p =
-  match (Simplified_clause.pat_of_head p).pat_desc with
-  | Tpat_any -> group_var
-  | Tpat_constant (Const_int _) -> group_const_int
-  | Tpat_constant (Const_char _) -> group_const_char
-  | Tpat_constant (Const_string _) -> group_const_string
-  | Tpat_constant (Const_float _) -> group_const_float
-  | Tpat_constant (Const_int32 _) -> group_const_int32
-  | Tpat_constant (Const_int64 _) -> group_const_int64
-  | Tpat_constant (Const_nativeint _) -> group_const_nativeint
-  | Tpat_construct (_, { cstr_tag = Cstr_extension _ as t }, _) ->
+  match Pattern_head.desc (Simplified_clause.pattern_head p) with
+  | Any -> group_var
+  | Constant (Const_int _) -> group_const_int
+  | Constant (Const_char _) -> group_const_char
+  | Constant (Const_string _) -> group_const_string
+  | Constant (Const_float _) -> group_const_float
+  | Constant (Const_int32 _) -> group_const_int32
+  | Constant (Const_int64 _) -> group_const_int64
+  | Constant (Const_nativeint _) -> group_const_nativeint
+  | Construct { cstr_tag = Cstr_extension _ as t } ->
       (* Extension constructors with distinct names may be equal thanks to
          constructor rebinding. So we need to produce a specialized
          submatrix for each syntactically-distinct constructor (with a threading
          of exits such that each submatrix falls back to the
          potentially-compatible submatrices below it).  *)
       group_same_constructor t
-  | Tpat_construct _ -> group_constructor
-  | Tpat_tuple _ -> group_tuple
-  | Tpat_record _ -> group_record
-  | Tpat_array _ -> group_array
-  | Tpat_variant (_, _, _) -> group_variant
-  | Tpat_lazy _ -> group_lazy
-  | _ -> fatal_error "Matching.get_group"
+  | Construct _ -> group_constructor
+  | Tuple _ -> group_tuple
+  | Record _ -> group_record
+  | Array _ -> group_array
+  | Variant _ -> group_variant
+  | Lazy -> group_lazy
 
 let is_or p =
   match p.pat_desc with
@@ -3188,48 +3191,49 @@ and do_compile_matching repr partial ctx pmh =
             assert false
       in
       let pat = what_is_cases pm.cases in
+      let ph = Simplified_clause.pattern_head pat in
       let pat = Simplified_clause.pat_of_head pat in
-      match pat.pat_desc with
-      | Tpat_any ->
+      match Pattern_head.desc ph with
+      | Any ->
           compile_no_test divide_var Context.rshift repr partial ctx pm
-      | Tpat_tuple patl ->
+      | Tuple l ->
           compile_no_test
-            (divide_tuple (List.length patl) (normalize_pat pat))
+            (divide_tuple l (normalize_pat pat))
             Context.combine repr partial ctx pm
-      | Tpat_record ((_, lbl, _) :: _, _) ->
+      | Record [] -> assert false
+      | Record (lbl :: _) ->
           compile_no_test
             (divide_record lbl.lbl_all (normalize_pat pat))
             Context.combine repr partial ctx pm
-      | Tpat_constant cst ->
+      | Constant cst ->
           compile_test
             (compile_match repr partial)
             partial divide_constant
             (combine_constant pat.pat_loc arg cst partial)
             ctx pm
-      | Tpat_construct (_, cstr, _) ->
+      | Construct cstr ->
           compile_test
             (compile_match repr partial)
             partial divide_constructor
             (combine_constructor pat.pat_loc arg pat cstr partial)
             ctx pm
-      | Tpat_array _ ->
+      | Array _ ->
           let kind = Typeopt.array_pattern_kind pat in
           compile_test
             (compile_match repr partial)
             partial (divide_array kind)
             (combine_array pat.pat_loc arg kind partial)
             ctx pm
-      | Tpat_lazy _ ->
+      | Lazy ->
           compile_no_test
             (divide_lazy (normalize_pat pat))
             Context.combine repr partial ctx pm
-      | Tpat_variant (_, _, row) ->
+      | Variant { cstr_row = row } ->
           compile_test
             (compile_match repr partial)
             partial (divide_variant !row)
             (combine_variant pat.pat_loc !row arg partial)
             ctx pm
-      | _ -> assert false
     )
   | PmVar { inside = pmh } ->
       let lam, total =

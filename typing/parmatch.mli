@@ -56,6 +56,8 @@ module Pattern_head : sig
       @raises [Invalid_arg _] if [p] is an or- or an exception-pattern.  *)
   val deconstruct : pattern -> t * pattern list
 
+  val construct : t -> pattern list -> pattern
+
   (** reconstructs a pattern, putting wildcards as sub-patterns. *)
   val to_omega_pattern : t -> pattern
 
