@@ -65,6 +65,8 @@ module Pattern_head : sig
   val loc : t -> Location.t
   val typ : t -> Types.type_expr
 
+  val arity : t -> int
+
   (** [deconstruct p] returns the head of [p] and the list of sub patterns.
 
       @raises [Invalid_arg _] if [p] is an or- or an exception-pattern.  *)
@@ -195,6 +197,16 @@ end = struct
     in
     { pat_desc; pat_type = t.typ; pat_loc = t.loc; pat_extra = [];
       pat_env = t.env; pat_attributes = t.attributes }
+
+  let arity t =
+    match t.desc with
+      | Any -> 0
+      | Constant _ -> 0
+      | Construct c -> c.cstr_arity
+      | Tuple n | Array n -> n
+      | Record l -> List.length l
+      | Variant { has_arg; _ } -> if has_arg then 1 else 0
+      | Lazy -> 1
 
   let to_omega_pattern t =
     let pat_desc =
