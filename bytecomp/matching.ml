@@ -621,24 +621,21 @@ end = struct
             Ident.create_local (Ident.name id) ))
       ids
 
-  let rec explode_or_pat p arg patl mk_action vars aliases rem =
-    match p.pat_desc with
-    | Tpat_or (p1, p2, _) ->
-        explode_or_pat p1 arg patl mk_action vars aliases
-          (explode_or_pat p2 arg patl mk_action vars aliases rem)
-    | Tpat_alias (p, id, _) ->
-        explode_or_pat p arg patl mk_action vars (id :: aliases) rem
-    | Tpat_var (x, _) ->
-        let env = mk_alpha_env arg (x :: aliases) vars in
-        ((omega, patl), mk_action ~vars:(List.map snd env)) :: rem
-    | _ ->
-        let env = mk_alpha_env arg aliases vars in
-        ((alpha_pat env p, patl), mk_action ~vars:(List.map snd env)) :: rem
-
   let explode_or_pat p patl ~arg ~mk_action ~vars rem =
-    explode_or_pat
-      (Half_simplified_clause.pat_of_head p)
-      arg patl mk_action vars [] rem
+    let rec explode p aliases rem =
+      match p.pat_desc with
+      | Tpat_or (p1, p2, _) ->
+         explode p1 aliases (explode p2 aliases rem)
+      | Tpat_alias (p, id, _) ->
+         explode p (id :: aliases) rem
+      | Tpat_var (x, _) ->
+         let env = mk_alpha_env arg (x :: aliases) vars in
+         ((omega, patl), mk_action ~vars:(List.map snd env)) :: rem
+      | _ ->
+         let env = mk_alpha_env arg aliases vars in
+         ((alpha_pat env p, patl), mk_action ~vars:(List.map snd env)) :: rem
+    in
+    explode (Half_simplified_clause.pat_of_head p) [] rem
 
   let assert_no_or ((p, ps), act) =
     let p = Half_simplified_clause.pat_of_head p in
