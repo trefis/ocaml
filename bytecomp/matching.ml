@@ -74,6 +74,186 @@ let all_record_args lbls =
       Array.to_list t
   | _ -> fatal_error "Parmatch.all_record_args"
 
+
+type 'a clause = 'a * lambda
+
+module Non_empty_clause = struct
+  type 'a t = ('a * pattern list) clause
+
+  let of_initial = function
+    | [], _ -> assert false
+    | pat :: patl, act -> ((pat, patl), act)
+end
+
+module General = struct
+  type nonrec pattern = pattern
+  type clause = pattern Non_empty_clause.t
+end
+
+module Half_simple : sig
+  (** Half-simplified patterns are patterns where:
+        - records are expanded so that they possess all fields
+        - aliases are removed and replaced by bindings in actions.
+
+      Or-patterns are not removed, they are only "half-simplified":
+        - aliases under or-patterns are kept
+        - or-patterns whose left-hand-side is simplifiable
+          are removed: (_|p) is changed into _
+        - or-patterns whose left-hand-side is not simplified
+          are preserved: (p|q) is changed into (simpl(p)|simpl(q))
+            {v
+                # match lazy (print_int 3; 3) with _ | lazy 2 -> ();;
+                - : unit = ()
+                # match lazy (print_int 3; 3) with lazy 2 | _ -> ();;
+                3- : unit = ()
+            v}
+
+      In particular, or-patterns may still occur in the leading column,
+      so this is only a "half-simplification". *)
+
+  type pattern
+
+  val to_pattern : pattern -> General.pattern
+
+  type clause = pattern Non_empty_clause.t
+
+  val of_clause : args:(lambda * 'a) list -> General.clause -> clause
+end = struct
+  type nonrec pattern = pattern
+  type clause = pattern Non_empty_clause.t
+
+  let to_pattern p = p
+
+  let rec simpl_orpat p =
+    match p.pat_desc with
+    | Tpat_any
+    | Tpat_var _ ->
+        p
+    | Tpat_alias (q, id, s) ->
+        { p with pat_desc = Tpat_alias (simpl_orpat q, id, s) }
+    | Tpat_or (p1, p2, o) ->
+        let p1, p2 = (simpl_orpat p1, simpl_orpat p2) in
+        if le_pat p1 p2 then
+          p1
+        else
+          { p with pat_desc = Tpat_or (p1, p2, o) }
+    | Tpat_record (lbls, closed) ->
+        let all_lbls = all_record_args lbls in
+        { p with pat_desc = Tpat_record (all_lbls, closed) }
+    | _ -> p
+
+  let of_clause ~args cl =
+    let rec aux ((pat, patl), action) =
+      match pat.pat_desc with
+      | Tpat_any -> ((pat, patl), action)
+      | Tpat_var (id, s) ->
+          let p = { pat with pat_desc = Tpat_alias (omega, id, s) } in
+          aux ((p, patl), action)
+      | Tpat_alias (p, id, _) ->
+          let arg =
+            match args with
+            | [] -> assert false
+            | (arg, _) :: _ -> arg
+          in
+          let k = Typeopt.value_kind pat.pat_env pat.pat_type in
+          aux ((p, patl), bind_with_value_kind Alias (id, k) arg action)
+      | Tpat_record ([], _) -> ((omega, patl), action)
+      | Tpat_record (lbls, closed) ->
+          let all_lbls = all_record_args lbls in
+          let full_pat =
+            { pat with pat_desc = Tpat_record (all_lbls, closed) }
+          in
+          ((full_pat, patl), action)
+      | Tpat_or _ -> (
+          let pat_simple = simpl_orpat pat in
+          match pat_simple.pat_desc with
+          | Tpat_or _ -> ((pat_simple, patl), action)
+          | _ -> aux ((pat_simple, patl), action)
+        )
+      | Tpat_constant _
+      | Tpat_tuple _
+      | Tpat_construct _
+      | Tpat_variant _
+      | Tpat_array _
+      | Tpat_lazy _
+      | Tpat_exception _ ->
+          ((pat, patl), action)
+    in
+    aux cl
+end
+
+exception Cannot_flatten
+
+module Simple : sig
+  type pattern
+  (** A fully simplified pattern: or-patterns have been exploded, and the
+      remaining aliases have been removed and replaced by bindings in actions *)
+
+  type clause = pattern Non_empty_clause.t
+
+  val try_no_or : Half_simple.pattern -> pattern option
+
+  val to_pattern : pattern -> General.pattern
+
+  val head : pattern -> Pattern_head.t
+
+  val explode_or_pat :
+    Half_simple.pattern * General.pattern list ->
+    arg:Ident.t option ->
+    mk_action:(vars:Ident.t list -> lambda) ->
+    vars:Ident.t list ->
+    clause list ->
+    clause list
+
+  val omega : pattern
+end = struct
+  type nonrec pattern = pattern
+
+  let omega = omega
+
+  type clause = pattern Non_empty_clause.t
+
+  let to_pattern p = p
+
+  let head p = fst (Pattern_head.deconstruct p)
+
+  let mk_alpha_env arg aliases ids =
+    List.map
+      (fun id ->
+        ( id,
+          if List.mem id aliases then
+            match arg with
+            | Some v -> v
+            | _ -> raise Cannot_flatten
+          else
+            Ident.create_local (Ident.name id) ))
+      ids
+
+  let explode_or_pat (p, patl) ~arg ~mk_action ~vars rem =
+    let rec explode p aliases rem =
+      match p.pat_desc with
+      | Tpat_or (p1, p2, _) ->
+         explode p1 aliases (explode p2 aliases rem)
+      | Tpat_alias (p, id, _) ->
+         explode p (id :: aliases) rem
+      | Tpat_var (x, _) ->
+         let env = mk_alpha_env arg (x :: aliases) vars in
+         ((omega, patl), mk_action ~vars:(List.map snd env)) :: rem
+      | _ ->
+         let env = mk_alpha_env arg aliases vars in
+         ((alpha_pat env p, patl), mk_action ~vars:(List.map snd env)) :: rem
+    in
+    explode (Half_simple.to_pattern p) [] rem
+
+  let try_no_or hsp =
+    let p = Half_simple.to_pattern hsp in
+    match p.pat_desc with
+      | Tpat_or _ -> None
+      | _ -> Some p
+end
+
+type initial_clause = pattern list clause
+
 type matrix = pattern list list
 
 let add_omega_column pss = List.map (fun ps -> omega :: ps) pss
@@ -450,185 +630,6 @@ end = struct
 end
 
 (* Pattern matching before any compilation *)
-
-type 'a clause = 'a * lambda
-
-module Non_empty_clause = struct
-  type 'a t = ('a * pattern list) clause
-
-  let of_initial = function
-    | [], _ -> assert false
-    | pat :: patl, act -> ((pat, patl), act)
-end
-
-module General = struct
-  type nonrec pattern = pattern
-  type clause = pattern Non_empty_clause.t
-end
-
-module Half_simple : sig
-  (** Half-simplified patterns are patterns where:
-        - records are expanded so that they possess all fields
-        - aliases are removed and replaced by bindings in actions.
-
-      Or-patterns are not removed, they are only "half-simplified":
-        - aliases under or-patterns are kept
-        - or-patterns whose left-hand-side is simplifiable
-          are removed: (_|p) is changed into _
-        - or-patterns whose left-hand-side is not simplified
-          are preserved: (p|q) is changed into (simpl(p)|simpl(q))
-            {v
-                # match lazy (print_int 3; 3) with _ | lazy 2 -> ();;
-                - : unit = ()
-                # match lazy (print_int 3; 3) with lazy 2 | _ -> ();;
-                3- : unit = ()
-            v}
-
-      In particular, or-patterns may still occur in the leading column,
-      so this is only a "half-simplification". *)
-
-  type pattern
-
-  val to_pattern : pattern -> General.pattern
-
-  type clause = pattern Non_empty_clause.t
-
-  val of_clause : args:(lambda * 'a) list -> General.clause -> clause
-end = struct
-  type nonrec pattern = pattern
-  type clause = pattern Non_empty_clause.t
-
-  let to_pattern p = p
-
-  let rec simpl_orpat p =
-    match p.pat_desc with
-    | Tpat_any
-    | Tpat_var _ ->
-        p
-    | Tpat_alias (q, id, s) ->
-        { p with pat_desc = Tpat_alias (simpl_orpat q, id, s) }
-    | Tpat_or (p1, p2, o) ->
-        let p1, p2 = (simpl_orpat p1, simpl_orpat p2) in
-        if le_pat p1 p2 then
-          p1
-        else
-          { p with pat_desc = Tpat_or (p1, p2, o) }
-    | Tpat_record (lbls, closed) ->
-        let all_lbls = all_record_args lbls in
-        { p with pat_desc = Tpat_record (all_lbls, closed) }
-    | _ -> p
-
-  let of_clause ~args cl =
-    let rec aux ((pat, patl), action) =
-      match pat.pat_desc with
-      | Tpat_any -> ((pat, patl), action)
-      | Tpat_var (id, s) ->
-          let p = { pat with pat_desc = Tpat_alias (omega, id, s) } in
-          aux ((p, patl), action)
-      | Tpat_alias (p, id, _) ->
-          let arg =
-            match args with
-            | [] -> assert false
-            | (arg, _) :: _ -> arg
-          in
-          let k = Typeopt.value_kind pat.pat_env pat.pat_type in
-          aux ((p, patl), bind_with_value_kind Alias (id, k) arg action)
-      | Tpat_record ([], _) -> ((omega, patl), action)
-      | Tpat_record (lbls, closed) ->
-          let all_lbls = all_record_args lbls in
-          let full_pat =
-            { pat with pat_desc = Tpat_record (all_lbls, closed) }
-          in
-          ((full_pat, patl), action)
-      | Tpat_or _ -> (
-          let pat_simple = simpl_orpat pat in
-          match pat_simple.pat_desc with
-          | Tpat_or _ -> ((pat_simple, patl), action)
-          | _ -> aux ((pat_simple, patl), action)
-        )
-      | Tpat_constant _
-      | Tpat_tuple _
-      | Tpat_construct _
-      | Tpat_variant _
-      | Tpat_array _
-      | Tpat_lazy _
-      | Tpat_exception _ ->
-          ((pat, patl), action)
-    in
-    aux cl
-end
-
-exception Cannot_flatten
-
-module Simple : sig
-  type pattern
-  (** A fully simplified pattern: or-patterns have been exploded, and the
-      remaining aliases have been removed and replaced by bindings in actions *)
-
-  type clause = pattern Non_empty_clause.t
-
-  val try_no_or : Half_simple.pattern -> pattern option
-
-  val to_pattern : pattern -> General.pattern
-
-  val head : pattern -> Pattern_head.t
-
-  val explode_or_pat :
-    Half_simple.pattern * General.pattern list ->
-    arg:Ident.t option ->
-    mk_action:(vars:Ident.t list -> lambda) ->
-    vars:Ident.t list ->
-    clause list ->
-    clause list
-
-  val omega : pattern
-end = struct
-  type nonrec pattern = pattern
-
-  let omega = omega
-
-  type clause = pattern Non_empty_clause.t
-
-  let to_pattern p = p
-
-  let head p = fst (Pattern_head.deconstruct p)
-
-  let mk_alpha_env arg aliases ids =
-    List.map
-      (fun id ->
-        ( id,
-          if List.mem id aliases then
-            match arg with
-            | Some v -> v
-            | _ -> raise Cannot_flatten
-          else
-            Ident.create_local (Ident.name id) ))
-      ids
-
-  let explode_or_pat (p, patl) ~arg ~mk_action ~vars rem =
-    let rec explode p aliases rem =
-      match p.pat_desc with
-      | Tpat_or (p1, p2, _) ->
-         explode p1 aliases (explode p2 aliases rem)
-      | Tpat_alias (p, id, _) ->
-         explode p (id :: aliases) rem
-      | Tpat_var (x, _) ->
-         let env = mk_alpha_env arg (x :: aliases) vars in
-         ((omega, patl), mk_action ~vars:(List.map snd env)) :: rem
-      | _ ->
-         let env = mk_alpha_env arg aliases vars in
-         ((alpha_pat env p, patl), mk_action ~vars:(List.map snd env)) :: rem
-    in
-    explode (Half_simple.to_pattern p) [] rem
-
-  let try_no_or hsp =
-    let p = Half_simple.to_pattern hsp in
-    match p.pat_desc with
-      | Tpat_or _ -> None
-      | _ -> Some p
-end
-
-type initial_clause = pattern list clause
 
 type 'row pattern_matching = {
   mutable cases : 'row list;
