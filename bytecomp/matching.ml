@@ -193,6 +193,8 @@ module Simple : sig
 
   val try_no_or : Half_simple.pattern -> pattern option
 
+  val try_simple : General.pattern -> pattern option
+
   val to_pattern : pattern -> General.pattern
 
   val head : pattern -> Pattern_head.t
@@ -257,6 +259,11 @@ end = struct
     let p = Half_simple.to_pattern hsp in
     match p.pat_desc with
       | Tpat_or _ -> None
+      | _ -> Some p
+
+  let try_simple p =
+    match (to_pattern p).pat_desc with
+      | Tpat_or _ | Tpat_var _ | Tpat_alias _ -> None
       | _ -> Some p
 end
 
@@ -372,24 +379,16 @@ end = struct
 
   let combine ctx = List.map Row.combine ctx
 
-  let ctx_matcher p q rem =
-    ignore Simple.expand_record;
-    let rec expand_record p =
-      match p.pat_desc with
-        | Tpat_record (l, _) ->
-           {p with pat_desc = Tpat_record (all_record_args l, Closed)}
-        | Tpat_alias (p, _, _) -> expand_record p
-        | _ -> p in
-    let ph, omegas =
-      let ph, p_args = Pattern_head.deconstruct (expand_record p) in
-      ph, List.map (fun _ -> omega) p_args in
-    let qh, args = Pattern_head.deconstruct (expand_record q) in
-    let yes () = (p, args @ rem) in
+  let ctx_matcher (ph : Pattern_head.t) (sq : Simple.pattern) rem =
+    let ph, sq = Pattern_head.expand_record ph, Simple.expand_record sq in
+    let arg_omegas = omegas (Pattern_head.arity ph) in
+    let qh, args = Pattern_head.deconstruct (Simple.to_pattern sq) in
+    let yes () = (ph, args @ rem) in
     let no () = raise NoMatch in
-    let yesif b = if not b then raise NoMatch else (p, args @ rem) in
+    let yesif b = if not b then raise NoMatch else (ph, args @ rem) in
     match Pattern_head.desc ph, Pattern_head.desc qh with
       | Any, _ -> fatal_error "Matching.Context.matcher"
-      | _, Any -> (p, omegas @ rem)
+      | _, Any -> (ph, arg_omegas @ rem)
 
       | Construct cstr, Construct cstr' ->
          (* NB: may_equal_constr considers (potential) constructor rebinding *)
@@ -421,7 +420,7 @@ end = struct
       | Lazy, _ -> no ()
 
   let specialize q ctx =
-    let matcher = ctx_matcher q in
+    let matcher = ctx_matcher (fst (Pattern_head.deconstruct q)) in
     let rec filter_rec : t -> t = function
       | ({ right = p :: ps } as l) :: rem -> (
           match p.pat_desc with
@@ -437,9 +436,14 @@ end = struct
               filter_rec ({ l with right = p :: ps } :: rem)
           | Tpat_var _ -> filter_rec ({ l with right = omega :: ps } :: rem)
           | _ -> (
+              let p =
+                match Simple.try_simple p with
+                  | None -> assert false
+                  | Some p -> p in
               let rem = filter_rec rem in
               try
-                let to_left, right = matcher p ps in
+                let left_head, right = matcher p ps in
+                let to_left = Pattern_head.to_omega_pattern left_head in
                 { left = to_left :: l.left; right } :: rem
               with NoMatch -> rem
             )
