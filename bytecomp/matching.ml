@@ -13,7 +13,56 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(* Compilation of pattern matching *)
+(* Compilation of pattern matching
+
+   Based upon Lefessant-Maranget ``Optimizing Pattern-Matching'' ICFP'2001.
+
+   A previous version was based on Peyton-Jones, ``The Implementation of
+   functional programming languages'', chapter 5.
+
+   # Overview of the implementation
+
+     (split_and_precompile)
+   We first split the matching along its first column -- simplifying pattern
+   heads in the process --, so that we obtain a sorted list of pattern matchings
+   (or "pms").
+   An invariant that is enforced in this step is that for each of the resulting
+   pms, its rows match disjoint sets of values.
+   The idea being that if a pm in the list fails to match the scrutiny, one can
+   jump to one of the nexts pms in the list and try again.
+
+     (comp_match_handlers)
+   After that, we compile the first pm of list we just obtained, resulting in
+   a [body : Lambda.t], and then for each of the following pms: if we know
+   that one of the previous pms resulted in a jump to this one, we compile
+   it and update body to look like:
+   {v
+       try
+         <previous body>
+       catch exit_num ->
+         <this pm's body>
+   v}
+   and keep going, otherwise we drop it and proceed to the next one.
+
+   Compilation of one of these pms is done as follows:
+
+       (divide)
+   - We split the match along the first column again, this time grouping rows
+   which start with the same head, and removing the first column.
+   As a result we get a "division", which is a list a "cells" of the form:
+         discriminating pattern head * pm without the first column
+
+       (compile_list + compile_match)
+   - We then map over the division to compile each cell: we simply restart the
+   whole process on the snd element of each cell.
+   Each cell is now of the form:
+         discriminating pattern head * lambda
+
+       (combine_constant, combine_construct, combine_array, ...)
+   - We recombine the cells using a switch or some ifs, and if the matching can
+   fail, introduce a jump to the next pm that could potentially match the
+   scrutiny.
+*)
 
 open Misc
 open Asttypes
@@ -26,20 +75,6 @@ open Printpat
 
 let dbg = false
 
-(*  See Peyton-Jones, ``The Implementation of functional programming
-    languages'', chapter 5. *)
-(*
-  Well, it was true at the beginning of the world.
-  Now, see Lefessant-Maranget ``Optimizing Pattern-Matching'' ICFP'2001
-*)
-
-(*
-   Compatibility predicate that considers potential rebindings of constructors
-   of an extension type.
-
-   "may_compat p q" returns false when p and q never admit a common instance;
-   returns true when they may have a common instance.
-*)
 
 module MayCompat = Parmatch.Compat (struct
   let equal = Types.may_equal_constr
