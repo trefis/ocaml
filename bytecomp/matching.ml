@@ -206,6 +206,8 @@ module Simple : sig
     clause list
 
   val omega : pattern
+
+  val expand_record : pattern -> pattern
 end = struct
   type nonrec pattern = pattern
 
@@ -244,6 +246,12 @@ end = struct
          ((alpha_pat env p, patl), mk_action ~vars:(List.map snd env)) :: rem
     in
     explode (Half_simple.to_pattern p) [] rem
+
+  let expand_record sp =
+    match sp.pat_desc with
+      | Tpat_record (l, _) ->
+         {sp with pat_desc = Tpat_record (all_record_args l, Closed)}
+      | _ -> sp
 
   let try_no_or hsp =
     let p = Half_simple.to_pattern hsp in
@@ -365,6 +373,7 @@ end = struct
   let combine ctx = List.map Row.combine ctx
 
   let ctx_matcher p q rem =
+    ignore Simple.expand_record;
     let rec expand_record p =
       match p.pat_desc with
         | Tpat_record (l, _) ->

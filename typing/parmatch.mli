@@ -72,6 +72,7 @@ module Pattern_head : sig
 
   val omega : t
 
+  val expand_record : t -> t
 end
 
 val normalize_pat : pattern -> pattern

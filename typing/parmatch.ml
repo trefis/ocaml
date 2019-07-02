@@ -86,6 +86,7 @@ module Pattern_head : sig
 
   val omega : t
 
+  val expand_record : t -> t
 end = struct
   type desc =
     | Any
@@ -246,6 +247,12 @@ end = struct
     ; env = Env.empty
     ; attributes = []
     }
+
+  let expand_record t =
+    match t.desc with
+      | Record ({ lbl_all; _ } :: _ ) ->
+         { t with desc = Record (Array.to_list lbl_all) }
+      | _ -> t
 end
 
 (*
