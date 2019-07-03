@@ -26,10 +26,9 @@
    We first split initial pattern matching (or "pm") along its first column
    -- simplifying pattern heads in the process --, so that we obtain a ordered
    list of pms.
-   An invariant that is enforced in this step is that for each of the resulting
-   pms, its rows match disjoint sets of values.
-   The idea being that if a pm in the list fails to match the scrutiny, one can
-   jump to one of the nexts pms in the list and try again.
+   For every pm in this list, it is possible to decide for any two patterns
+   on the first column whether their heads are equal or not. That is: either
+   they are syntactically equal, or we know they are disjoint.
 
      (comp_match_handlers)
    After that, we compile the first pm of list we just obtained, resulting in
