@@ -23,9 +23,9 @@
    # Overview of the implementation
 
      (split_and_precompile)
-   We first split the matching along its first column -- simplifying pattern
-   heads in the process --, so that we obtain a sorted list of pattern matchings
-   (or "pms").
+   We first split initial pattern matching (or "pm") along its first column
+   -- simplifying pattern heads in the process --, so that we obtain a ordered
+   list of pms.
    An invariant that is enforced in this step is that for each of the resulting
    pms, its rows match disjoint sets of values.
    The idea being that if a pm in the list fails to match the scrutiny, one can
