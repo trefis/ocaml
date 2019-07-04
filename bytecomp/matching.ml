@@ -20,7 +20,9 @@
    A previous version was based on Peyton-Jones, ``The Implementation of
    functional programming languages'', chapter 5.
 
-   # Overview of the implementation
+
+   Overview of the implementation
+   ------------------------------
 
      (split_and_precompile)
    We first split initial pattern matching (or "pm") along its first column
