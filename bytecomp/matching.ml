@@ -1197,7 +1197,20 @@ let rec split_or argo (cls : Half_simple.clause list) args def =
   in
   do_split [] [] [] cls
 
-and split_no_or cls args def k =
+and split_no_or (cls : Simple.clause list) args def k =
+  (* We split the remaining clauses in as few pms as possible while maintaining
+     the property stated earlier (cf. comment at the top of the file), i.e. for
+     any pm in the result, it is possible to decide for any two patterns
+     on the first column whether their heads are equal or not.
+
+     This generally means that we'll have two kinds of pms: ones where the first
+     column is made of variables only, and ones where the head is actually a
+     discriminating pattern.
+     There is some subtlety regarding the handling of extension constructors
+     (where it is not possible to syntactically decide whether two different
+     heads match different values), but this is handled by the [get_group]
+     function.
+  *)
   let rec collect_group can_group rev_yes rev_no = function
     | (((p, _), _) as cl) :: rem ->
         if can_group p && safe_before Simple.to_pattern cl rev_no
@@ -1255,7 +1268,7 @@ and split_no_or cls args def k =
               (cons_default matrix idef def)
               ((idef, next) :: nexts)
       )
-  and split (cls : Simple.clause list) =
+  and split cls =
     let discr = what_is_cases cls in
     if group_var discr then
       collect_vars [] [] cls
