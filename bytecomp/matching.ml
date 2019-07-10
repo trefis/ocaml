@@ -1345,6 +1345,47 @@ and dont_precompile_var args cls def k =
     k )
 
 and precompile_or argo cls ors args def k =
+  (* Let's say the following pm was given to [split_and_precompile]
+     {[
+       match e1           ,  e2 ,  e3 with
+       | C1(arg11, arg21) ,  p1 ,  q1 -> lam1
+       | C2(arg12)        ,  p2 ,  q2 -> lam2
+       | ( C1(_, argO)
+         | C2(argO)   )   ,  p3 ,  q3 -> lam3
+       | C3               ,  p4 ,  q4 -> lam4
+       | C1(_, _)         ,  _  ,  _  -> lam5
+     ]}
+
+     Assuming the constructors are not for an extensible type, then
+     after [split_or], we end up here with:
+     {[
+       cls = [ ((C1, [ arg11; arg21 ; p1 ; q1]), lam1)
+             ; ((C2, [ arg12; p2; q2 ]), lam2)
+             ; ((C3, [ p4; q4 ]), lam4)
+             ]
+     ]}
+     {[
+       ors = [ (((C1(_, argO) | C2(argO)), [ p3; q3 ]), lam3)
+             ; ((C1(_, _), [ _; _ ]), lam5)
+             ]
+     ]}
+
+     And produce (the moral equivalent of) the following as a result:
+     {[
+       try
+         match e1           ,  e2 ,  e3 with
+         | C1(arg11, arg21) ,  p1 ,  q1 -> lam1
+         | C2(arg12)        ,  p2 ,  q2 -> lam2
+         | C3               ,  p4 ,  q4 -> lam4
+         | C1(_, arg0)      ,  _  ,  _  -> exit E arg0
+         | C2(arg0)         ,  _  ,  _  -> exit E arg0
+         | C1(_, _)         ,  _  ,  _  -> lam5
+       with E arg0 ->
+         match e2, e3 with
+         | p3, q3 -> lam3
+         | _ , _  -> lam5
+     ]}
+  *)
   let rec do_cases = function
     | [] -> ([], [])
     | ((p, patl), action) :: rem -> (
