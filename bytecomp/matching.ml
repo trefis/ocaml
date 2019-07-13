@@ -127,9 +127,6 @@ module General : sig
 
   val view : Typedtree.pattern -> pattern
   val erase : [< general_view ] pattern_ -> Typedtree.pattern
-
-  val alpha : (Ident.t * Ident.t) list ->
-              ([< general_view ] as 'view) pattern_ -> 'view pattern_
 end = struct
   type pattern = general_view pattern_
   type clause = pattern Non_empty_clause.t
@@ -194,38 +191,6 @@ end = struct
       pat_env = data.env;
       pat_attributes = data.attributes;
     }
-
-  let alpha
-    : 'view . _ -> ([< general_view ] as 'view) pattern_ -> 'view pattern_
-    = fun env (data, view) ->
-    let alpha_var env id = List.assoc id env in
-    let alpha_pat = Typedtree.alpha_pat in
-    let view = match view with
-    | `Any -> `Any
-    | `Var (id, s) ->
-       begin match alpha_var env id with
-         | exception Not_found -> assert false
-         | id -> `Var (id, s)
-       end
-    | `Alias (p, id, s) ->
-       begin match alpha_var env id with
-         | exception Not_found -> assert false
-         | id -> `Alias (alpha_pat env p, id, s)
-       end
-    | `Constant cst -> `Constant cst
-    | `Tuple ps -> `Tuple (List.map (alpha_pat env) ps)
-    | `Construct (cstr, cst_descr, args) ->
-      `Construct (cstr, cst_descr, List.map (alpha_pat env) args)
-    | `Variant (cstr, argo, row_desc) ->
-      `Variant (cstr, Option.map (alpha_pat env) argo, row_desc)
-    | `Record (fields, closed) ->
-       let alpha_field env (lid, l, p) = (lid, l, alpha_pat env p) in
-      `Record (List.map (alpha_field env) fields, closed)
-    | `Array ps -> `Array (List.map (alpha_pat env) ps)
-    | `Or (p, q, row_desc) -> `Or (alpha_pat env p, alpha_pat env q, row_desc)
-    | `Lazy p -> `Lazy (alpha_pat env p)
-    | `Exception p -> `Exception (alpha_pat env p)
-    in (data, Obj.magic (* FIXME *) view)
 end
 
 let omega_ : [> `Any ] pattern_ =
@@ -322,6 +287,8 @@ module Simple : sig
 
   val head : pattern -> Pattern_head.t
 
+  val alpha : (Ident.t * Ident.t) list -> pattern -> pattern
+
   val explode_or_pat :
     Half_simple.pattern * Typedtree.pattern list ->
     arg:Ident.t option ->
@@ -335,6 +302,24 @@ end = struct
 
   let head p =
     fst (Pattern_head.deconstruct (General.erase (p :> General.pattern)))
+
+  let alpha env ((data, view) : pattern) : pattern =
+    let alpha_pat env p = Typedtree.alpha_pat env p in
+    let view = match view with
+    | `Any -> `Any
+    | `Constant cst -> `Constant cst
+    | `Tuple ps -> `Tuple (List.map (alpha_pat env) ps)
+    | `Construct (cstr, cst_descr, args) ->
+      `Construct (cstr, cst_descr, List.map (alpha_pat env) args)
+    | `Variant (cstr, argo, row_desc) ->
+      `Variant (cstr, Option.map (alpha_pat env) argo, row_desc)
+    | `Record (fields, closed) ->
+       let alpha_field env (lid, l, p) = (lid, l, alpha_pat env p) in
+      `Record (List.map (alpha_field env) fields, closed)
+    | `Array ps -> `Array (List.map (alpha_pat env) ps)
+    | `Lazy p -> `Lazy (alpha_pat env p)
+    | `Exception p -> `Exception (alpha_pat env p)
+    in (data, view)
 
   let mk_alpha_env arg aliases ids =
     List.map
@@ -362,7 +347,7 @@ end = struct
          explode (data, `Alias (Parmatch.omega, id, str)) aliases rem
       | #simple_view as view ->
          let env = mk_alpha_env arg aliases vars in
-         ((General.alpha env (data, view), patl),
+         ((alpha env (data, view), patl),
           mk_action ~vars:(List.map snd env)) :: rem
     in
     explode (p : Half_simple.pattern :> General.pattern) [] rem
