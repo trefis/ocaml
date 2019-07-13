@@ -26,8 +26,9 @@ type partial = Partial | Total
 type attribute = Parsetree.attribute
 type attributes = attribute list
 
-type pattern =
-  { pat_desc: pattern_desc;
+type pattern = pattern_desc pattern_
+and 'a pattern_ =
+  { pat_desc: 'a;
     pat_loc: Location.t;
     pat_extra : (pat_extra * Location.t * attribute list) list;
     pat_type: type_expr;
