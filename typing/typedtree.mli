@@ -35,8 +35,9 @@ type attributes = attribute list
 
 (** {1 Core language} *)
 
-type pattern =
-  { pat_desc: pattern_desc;
+type pattern = pattern_desc pattern_
+and 'a pattern_ =
+  { pat_desc: 'a;
     pat_loc: Location.t;
     pat_extra : (pat_extra * Location.t * attributes) list;
     pat_type: type_expr;

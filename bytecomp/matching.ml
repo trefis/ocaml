@@ -112,15 +112,6 @@ type general_view = [
   | alias_view
 ]
 
-type 'view pattern_ = pattern_data * 'view
-and pattern_data = {
-  loc: Location.t;
-  extra : (pat_extra * Location.t * attributes) list;
-  type_: type_expr;
-  env: Env.t;
-  attributes: attributes;
-}
-
 module General : sig
   type pattern = general_view pattern_
   type clause = pattern Non_empty_clause.t
@@ -131,71 +122,54 @@ end = struct
   type pattern = general_view pattern_
   type clause = pattern Non_empty_clause.t
 
+  let view_desc = function
+    | Tpat_any ->
+       `Any
+    | Tpat_var (id, str) ->
+       `Var (id, str)
+    | Tpat_alias (p, id, str) ->
+       `Alias (p, id, str)
+    | Tpat_constant cst ->
+       `Constant cst
+    | Tpat_tuple ps ->
+       `Tuple ps
+    | Tpat_construct (cstr, cstr_descr, args) ->
+       `Construct (cstr, cstr_descr, args)
+    | Tpat_variant (cstr, arg, row_desc) ->
+       `Variant (cstr, arg, row_desc)
+    | Tpat_record (fields, closed) ->
+       `Record (fields, closed)
+    | Tpat_array ps -> `Array ps
+    | Tpat_or (p, q, row_desc) -> `Or (p, q, row_desc)
+    | Tpat_lazy p -> `Lazy p
+    | Tpat_exception p -> `Exception p
+
   let view p : pattern =
-    let data = {
-        loc = p.pat_loc;
-        extra = p.pat_extra;
-        type_ = p.pat_type;
-        env = p.pat_env;
-        attributes = p.pat_attributes;
-      } in
-    let view = match p.pat_desc with
-        | Tpat_any ->
-           `Any
-        | Tpat_var (id, str) ->
-           `Var (id, str)
-        | Tpat_alias (p, id, str) ->
-           `Alias (p, id, str)
-        | Tpat_constant cst ->
-           `Constant cst
-        | Tpat_tuple ps ->
-           `Tuple ps
-        | Tpat_construct (cstr, cstr_descr, args) ->
+    { p with pat_desc = view_desc p.pat_desc }
 
-           `Construct (cstr, cstr_descr, args)
-        | Tpat_variant (cstr, arg, row_desc) ->
+  let erase_desc = function
+    | `Any -> Tpat_any
+    | `Var (id, str) -> Tpat_var (id, str)
+    | `Alias (p, id, str) -> Tpat_alias (p, id, str)
+    | `Constant cst -> Tpat_constant cst
+    | `Tuple ps -> Tpat_tuple ps
+    | `Construct (cstr, cst_descr, args) ->
+       Tpat_construct (cstr, cst_descr, args)
+    | `Variant (cstr, arg, row_desc) ->
+       Tpat_variant (cstr, arg, row_desc)
+    | `Record (fields, closed) ->
+       Tpat_record (fields, closed)
+    | `Array ps -> Tpat_array ps
+    | `Or (p, q, row_desc) -> Tpat_or (p, q, row_desc)
+    | `Lazy p -> Tpat_lazy p
+    | `Exception p -> Tpat_exception p
 
-           `Variant (cstr, arg, row_desc)
-        | Tpat_record (fields, closed) ->
-           `Record (fields, closed)
-        | Tpat_array ps -> `Array ps
-        | Tpat_or (p, q, row_desc) -> `Or (p, q, row_desc)
-        | Tpat_lazy p -> `Lazy p
-        | Tpat_exception p -> `Exception p
-    in
-    (data, view)
-
-  let erase (data, view) =
-    let desc = match view with
-        | `Any -> Tpat_any
-        | `Var (id, str) -> Tpat_var (id, str)
-        | `Alias (p, id, str) -> Tpat_alias (p, id, str)
-        | `Constant cst -> Tpat_constant cst
-        | `Tuple ps -> Tpat_tuple ps
-        | `Construct (cstr, cst_descr, args) ->
-           Tpat_construct (cstr, cst_descr, args)
-        | `Variant (cstr, arg, row_desc) ->
-           Tpat_variant (cstr, arg, row_desc)
-        | `Record (fields, closed) ->
-           Tpat_record (fields, closed)
-        | `Array ps -> Tpat_array ps
-        | `Or (p, q, row_desc) -> Tpat_or (p, q, row_desc)
-        | `Lazy p -> Tpat_lazy p
-        | `Exception p -> Tpat_exception p
-    in
-    {
-      pat_desc = desc;
-      pat_loc = data.loc;
-      pat_extra = data.extra;
-      pat_type = data.type_;
-      pat_env = data.env;
-      pat_attributes = data.attributes;
-    }
+  let erase p =
+    { p with pat_desc = erase_desc p.pat_desc }
 end
 
 let omega_ : [> `Any ] pattern_ =
-  let data = fst (General.view Parmatch.omega) in
-  (data, `Any)
+  { Parmatch.omega with pat_desc = `Any }
 
 module Half_simple : sig
   (** Half-simplified patterns are patterns where:
@@ -227,15 +201,15 @@ end = struct
   type pattern = half_simple_view pattern_
   type clause = pattern Non_empty_clause.t
 
-  let rec simpl_orpat p =
+  let rec simpl_under_orpat p =
     match p.pat_desc with
     | Tpat_any
     | Tpat_var _ ->
         p
     | Tpat_alias (q, id, s) ->
-        { p with pat_desc = Tpat_alias (simpl_orpat q, id, s) }
+        { p with pat_desc = Tpat_alias (simpl_under_orpat q, id, s) }
     | Tpat_or (p1, p2, o) ->
-        let p1, p2 = (simpl_orpat p1, simpl_orpat p2) in
+        let p1, p2 = (simpl_under_orpat p1, simpl_under_orpat p2) in
         if le_pat p1 p2 then
           p1
         else
@@ -246,35 +220,37 @@ end = struct
     | _ -> p
 
   let of_clause ~args cl =
-    let rec aux ((((data, view), patl), action) : General.clause) : clause =
-      match view with
-      | `Any -> (((data, `Any), patl), action)
-      | `Var (id, s) ->
-          aux (((data, `Alias (omega, id, s)), patl), action)
+    let rec aux (((p, patl), action) : General.clause) : clause =
+      let continue p (view : general_view) : clause =
+        aux (({ p with pat_desc = view }, patl), action) in
+      let stop p (view : half_simple_view) : clause =
+        (({ p with pat_desc = view }, patl), action) in
+      match p.pat_desc with
+      | `Any -> stop p `Any
+      | `Var (id, s) -> continue p (`Alias (omega, id, s))
       | `Alias (p, id, _) ->
           let arg =
             match args with
             | [] -> assert false
             | (arg, _) :: _ -> arg
           in
-          let k = Typeopt.value_kind data.env data.type_ in
+          let k = Typeopt.value_kind p.pat_env p.pat_type in
           aux ((General.view p, patl),
                bind_with_value_kind Alias (id, k) arg action)
-      | `Record ([], _) as view -> (((data, view), patl), action)
+      | `Record ([], _) as view -> stop p view
       | `Record (lbls, closed) ->
-          let full_pat = `Record (all_record_args lbls, closed) in
-          (((data, full_pat), patl), action)
-      | `Or _ as orpat -> (
-        let (data, view) =
-          General.view (simpl_orpat (General.erase (data, orpat))) in
-        match view with
-          | `Or _ as view -> (((data, view), patl), action)
-          | _ -> aux (((data, view), patl), action)
+          let full_view = `Record (all_record_args lbls, closed) in
+          stop p full_view
+      | `Or _ -> (
+        let orpat =
+          General.view (simpl_under_orpat (General.erase p)) in
+        match orpat.pat_desc with
+          | `Or _ as or_view -> stop orpat or_view
+          | other_view -> continue orpat other_view
         )
       | (`Constant _ | `Tuple _ | `Construct _ | `Variant _
       |  `Array _ | `Lazy _ | `Exception _) as view ->
-         (((data, view), patl), action)
-
+         stop p view
     in
     aux cl
 end
@@ -286,8 +262,6 @@ module Simple : sig
   type clause = pattern Non_empty_clause.t
 
   val head : pattern -> Pattern_head.t
-
-  val alpha : (Ident.t * Ident.t) list -> pattern -> pattern
 
   val explode_or_pat :
     Half_simple.pattern * Typedtree.pattern list ->
@@ -303,9 +277,9 @@ end = struct
   let head p =
     fst (Pattern_head.deconstruct (General.erase (p :> General.pattern)))
 
-  let alpha env ((data, view) : pattern) : pattern =
+  let alpha env (p : pattern) : pattern =
     let alpha_pat env p = Typedtree.alpha_pat env p in
-    let view = match view with
+    let pat_desc = match p.pat_desc with
     | `Any -> `Any
     | `Constant cst -> `Constant cst
     | `Tuple ps -> `Tuple (List.map (alpha_pat env) ps)
@@ -319,7 +293,7 @@ end = struct
     | `Array ps -> `Array (List.map (alpha_pat env) ps)
     | `Lazy p -> `Lazy (alpha_pat env p)
     | `Exception p -> `Exception (alpha_pat env p)
-    in (data, view)
+    in { p with pat_desc }
 
   let mk_alpha_env arg aliases ids =
     List.map
@@ -335,19 +309,20 @@ end = struct
 
   let explode_or_pat ((p : Half_simple.pattern), patl) ~arg ~mk_action ~vars
         (rem : clause list) : clause list =
-    let rec explode (data, (view : general_view)) aliases rem =
+    let rec explode p aliases rem =
       let split_explode p aliases rem =
         explode (General.view p) aliases rem in
-      match view with
+      match p.pat_desc with
       | `Or (p1, p2, _) ->
          split_explode p1 aliases (split_explode p2 aliases rem)
       | `Alias (p, id, _) ->
          split_explode p (id :: aliases) rem
       | `Var (id, str) ->
-         explode (data, `Alias (Parmatch.omega, id, str)) aliases rem
+         explode
+           { p with pat_desc = `Alias (Parmatch.omega, id, str) } aliases rem
       | #simple_view as view ->
          let env = mk_alpha_env arg aliases vars in
-         ((alpha env (data, view), patl),
+         ((alpha env { p with pat_desc = view }, patl),
           mk_action ~vars:(List.map snd env)) :: rem
     in
     explode (p : Half_simple.pattern :> General.pattern) [] rem
@@ -1219,9 +1194,11 @@ let rec split_or argo (cls : Half_simple.clause list) args def =
     | cl :: rem when not (safe_before cl rev_no) ->
        do_split rev_before rev_ors (cl :: rev_no) rem
     | (((p, ps), act) as cl) :: rem -> (
-       match p with
-         | (data, (#simple_view as view)) when safe_before cl rev_ors ->
-            do_split ((((data, view), ps), act) :: rev_before) rev_ors rev_no rem
+       match p.pat_desc with
+         | #simple_view as view when safe_before cl rev_ors ->
+            do_split
+              ((({ p with pat_desc = view }, ps), act) :: rev_before)
+              rev_ors rev_no rem
          | _ ->
             let rev_ors, rev_no =
               Or_matrix.insert_or_append (p, ps, act) rev_ors rev_no
@@ -1383,11 +1360,11 @@ and precompile_or argo (cls : Simple.clause list) ors args def k =
   let rec do_cases = function
     | [] -> ([], [])
     | ((p, patl), action) :: rem -> (
-        match p with
-        | (data, (#simple_view as view)) ->
+        match p.pat_desc with
+        | #simple_view as view ->
             let new_ord, new_to_catch = do_cases rem in
-            ((((data, view), patl), action) :: new_ord, new_to_catch)
-        | (_data, `Or _) ->
+            ((({ p with pat_desc = view }, patl), action) :: new_ord, new_to_catch)
+        | `Or _ ->
             let orp = General.erase p in
             let others, rem =
               extract_equiv_head orp rem
