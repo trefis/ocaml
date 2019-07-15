@@ -28,9 +28,10 @@
    We first split the initial pattern matching (or "pm") along its first column
    -- simplifying pattern heads in the process --, so that we obtain an ordered
    list of pms.
-   For every pm in this list, it is possible to decide for any two patterns
-   on the first column whether their heads are equal or not. That is: either
-   they are syntactically equal, or we know they are disjoint.
+   For every pm in this list, and any two patterns in its first column, either
+   the patterns have the same head, or they match disjoint sets of values. (In
+   particular, two extension constructors that may or may not be equal due to
+   hidden rebinding cannot occur in the same simple pm.)
 
      (comp_match_handlers)
    After that, we compile the first pm of the list we just obtained, resulting
