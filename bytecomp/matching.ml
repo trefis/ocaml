@@ -25,16 +25,16 @@
    ------------------------------
 
      (split_and_precompile)
-   We first split initial pattern matching (or "pm") along its first column
-   -- simplifying pattern heads in the process --, so that we obtain a ordered
+   We first split the initial pattern matching (or "pm") along its first column
+   -- simplifying pattern heads in the process --, so that we obtain an ordered
    list of pms.
    For every pm in this list, it is possible to decide for any two patterns
    on the first column whether their heads are equal or not. That is: either
    they are syntactically equal, or we know they are disjoint.
 
      (comp_match_handlers)
-   After that, we compile the first pm of list we just obtained, resulting in
-   a [body : Lambda.t], and then for each of the following pms: if we know
+   After that, we compile the first pm of the list we just obtained, resulting
+   in a [body : Lambda.t], and then for each of the following pms: if we know
    that one of the previous pms resulted in a jump to this one, we compile
    it and update body to look like:
    {v
