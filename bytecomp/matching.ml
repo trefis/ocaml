@@ -52,7 +52,7 @@
    - We split the match along the first column again, this time grouping rows
    which start with the same head, and removing the first column.
    As a result we get a "division", which is a list a "cells" of the form:
-         discriminating pattern head * pm without the first column
+         discriminating pattern head * specialized pm
 
        (compile_list + compile_match)
    - We then map over the division to compile each cell: we simply restart the
