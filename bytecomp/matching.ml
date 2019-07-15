@@ -84,7 +84,7 @@ module Non_empty_clause = struct
     | [], _ -> assert false
     | pat :: patl, act -> ((pat, patl), act)
 
-  let map f ((p, patl), act) = ((f p, patl), act)
+  let map_head f ((p, patl), act) = ((f p, patl), act)
 end
 
 type simple_view = [
@@ -98,18 +98,15 @@ type simple_view = [
   | `Lazy of pattern
   | `Exception of pattern
 ]
-type var_view = [ `Var of Ident.t * string loc ]
-type alias_view = [ `Alias of pattern * Ident.t * string loc ]
-type or_view = [ `Or of pattern * pattern * row_desc option ]
 
 type half_simple_view = [
   | simple_view
-  | or_view
+  | `Or of pattern * pattern * row_desc option
 ]
 type general_view = [
   | half_simple_view
-  | var_view
-  | alias_view
+  | `Var of Ident.t * string loc
+  | `Alias of pattern * Ident.t * string loc
 ]
 
 module General : sig
@@ -901,7 +898,7 @@ let safe_before ((p, ps), act_p) l =
 let half_simplify_nonempty
       args (cls : Typedtree.pattern Non_empty_clause.t) : Half_simple.clause =
   cls
-  |> Non_empty_clause.map General.view
+  |> Non_empty_clause.map_head General.view
   |> Half_simple.of_clause ~args
 
 let half_simplify_clause args (cls : Typedtree.pattern list clause) =
