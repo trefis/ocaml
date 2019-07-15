@@ -450,7 +450,7 @@ end = struct
     let qh, args = Pattern_head.deconstruct (expand_record q) in
     let yes () = (p, args @ rem) in
     let no () = raise NoMatch in
-    let yesif b = if not b then raise NoMatch else (p, args @ rem) in
+    let yesif b = if b then yes () else no () in
     match Pattern_head.desc ph, Pattern_head.desc qh with
       | Any, _ -> fatal_error "Matching.Context.matcher"
       | _, Any -> (p, omegas @ rem)
