@@ -1221,7 +1221,7 @@ let rec split_or argo (cls : Half_simple.clause list) args def =
 
 and split_no_or (cls : Simple.clause list) args def k =
   (* We split the remaining clauses in as few pms as possible while maintaining
-     the property stated earlier (cf. comment at the top of the file), i.e. for
+     the property stated earlier (cf. {1. Precompilation}), i.e. for
      any pm in the result, it is possible to decide for any two patterns
      on the first column whether their heads are equal or not.
 
