@@ -1412,14 +1412,8 @@ and precompile_or argo (cls : Simple.clause list) ors args def k =
   let cases, handlers = do_cases ors in
   let matrix =
     as_matrix
-      (List.map
-         (fun ((p, ps), act) -> (((p :> General.pattern), ps), act))
-         cls
-      @ List.map
-          (fun ((p, ps), act) ->
-            (((p :> General.pattern), ps), act))
-          ors
-      )
+      ((cls : Simple.clause list :> General.clause list)
+       @ (ors : Half_simple.clause list :> General.clause list))
   and body = { cases = cls @ cases; args; default = def } in
   ( { me = PmOr { body; handlers; or_matrix = matrix };
       matrix;
