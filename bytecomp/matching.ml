@@ -34,17 +34,27 @@
    hidden rebinding cannot occur in the same simple pm.)
 
      (comp_match_handlers)
-   After that, we compile the first pm of the list we just obtained, resulting
-   in a [body : Lambda.t], and then for each of the following pms: if we know
-   that one of the previous pms resulted in a jump to this one, we compile
-   it and update body to look like:
+   After that, we compile the pms of the list we just obtained, turning every
+   one of them to a [body : Lambda.t], and stitching them back together
+   resulting in the following structure:
    {v
-       try
-         <previous body>
-       catch exit_num ->
-         <this pm's body>
+       catch
+         catch
+           <first body>
+         with <exit i> ->
+           <second body>
+       with <exit j> ->
+         <third body>
    v}
-   and keep going, otherwise we drop it and proceed to the next one.
+   Additionally, bodies whose corresponding exit-number is never used are
+   discarded. So for instance, if in the pseudo-example above we now that exit
+   [i] is never taken, we would actually generate:
+   {v
+       catch
+         <first body>
+       with <exit j> ->
+         <third body>
+   v}
 
    Compilation of one of these pms is done as follows:
 
