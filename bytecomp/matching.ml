@@ -1733,36 +1733,31 @@ let make_variant_matching_nonconst p lab def ctx = function
 let divide_variant row ctx { cases = cl; args; default = def } =
   let row = Btype.row_repr row in
   let rec divide = function
-    | [] -> { args; cells = [] }
-    | ((p, patl), action) :: rem -> (
+    | (({ pat_desc = `Variant (lab, pato, _) } as p, patl), action) :: rem -> (
         let p = General.erase p in
-        match p.pat_desc with
-        | Tpat_variant (lab, pato, _) -> (
-            let variants = divide rem in
-            if
-              try
-                Btype.row_field_repr (List.assoc lab row.row_fields) = Rabsent
-              with Not_found -> true
-            then
-              variants
-            else
-              let tag = Btype.hash_variant lab in
-              match pato with
-              | None ->
-                  add_in_div
-                    (make_variant_matching_constant p lab def ctx)
-                    ( = ) (Cstr_constant tag) (patl, action) variants
-              | Some pat ->
-                  add_in_div
-                    (make_variant_matching_nonconst p lab def ctx)
-                    ( = ) (Cstr_block tag)
-                    (pat :: patl, action)
-                    variants
-          )
-        | _ ->
-            (* I really want to assert false here. *)
-            { args; cells = [] }
+        let variants = divide rem in
+        if
+          try
+            Btype.row_field_repr (List.assoc lab row.row_fields) = Rabsent
+          with Not_found -> true
+        then
+          variants
+        else
+          let tag = Btype.hash_variant lab in
+          match pato with
+          | None ->
+              add_in_div
+                (make_variant_matching_constant p lab def ctx)
+                ( = ) (Cstr_constant tag) (patl, action) variants
+          | Some pat ->
+              add_in_div
+                (make_variant_matching_nonconst p lab def ctx)
+                ( = ) (Cstr_block tag)
+                (pat :: patl, action)
+                variants
       )
+    | _ ->
+        { args; cells = [] }
   in
   divide cl
 
