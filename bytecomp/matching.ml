@@ -163,7 +163,7 @@ end = struct
 
   let empty = []
 
-  let start n : t = [ { left = []; right = omegas n } ]
+ let start n : t = [ { left = []; right = omegas n } ]
 
   let is_empty = function
     | [] -> true
@@ -851,30 +851,41 @@ and group_lazy = function
   | { pat_desc = Tpat_lazy _ } -> true
   | _ -> false
 
-let get_group p =
-  match p.pat_desc with
-  | Tpat_any -> group_var
-  | Tpat_constant (Const_int _) -> group_const_int
-  | Tpat_constant (Const_char _) -> group_const_char
-  | Tpat_constant (Const_string _) -> group_const_string
-  | Tpat_constant (Const_float _) -> group_const_float
-  | Tpat_constant (Const_int32 _) -> group_const_int32
-  | Tpat_constant (Const_int64 _) -> group_const_int64
-  | Tpat_constant (Const_nativeint _) -> group_const_nativeint
-  | Tpat_construct (_, { cstr_tag = Cstr_extension _ as t }, _) ->
-      (* Extension constructors with distinct names may be equal thanks to
-         constructor rebinding. So we need to produce a specialized
-         submatrix for each syntactically-distinct constructor (with a threading
-         of exits such that each submatrix falls back to the
-         potentially-compatible submatrices below it).  *)
-      group_same_constructor t
-  | Tpat_construct _ -> group_constructor
-  | Tpat_tuple _ -> group_tuple
-  | Tpat_record _ -> group_record
-  | Tpat_array _ -> group_array
-  | Tpat_variant (_, _, _) -> group_variant
-  | Tpat_lazy _ -> group_lazy
-  | _ -> fatal_error "Matching.get_group"
+module Grouping_constraints = struct
+  type t = {
+    can_group : pattern -> bool;
+    must_split_if_can't_group : bool;
+  }
+
+  let get p =
+    let don't_split can_group =
+      { can_group; must_split_if_can't_group = false }
+    in
+    match p.pat_desc with
+    | Tpat_any -> don't_split group_var
+    | Tpat_constant (Const_int _) -> don't_split group_const_int
+    | Tpat_constant (Const_char _) -> don't_split group_const_char
+    | Tpat_constant (Const_string _) -> don't_split group_const_string
+    | Tpat_constant (Const_float _) -> don't_split group_const_float
+    | Tpat_constant (Const_int32 _) -> don't_split group_const_int32
+    | Tpat_constant (Const_int64 _) -> don't_split group_const_int64
+    | Tpat_constant (Const_nativeint _) -> don't_split group_const_nativeint
+    | Tpat_construct (_, { cstr_tag = Cstr_extension _ as t }, _) ->
+        (* Extension constructors with distinct names may be equal thanks to
+           constructor rebinding. So we need to produce a specialized
+           submatrix for each syntactically-distinct constructor (with a threading
+           of exits such that each submatrix falls back to the
+           potentially-compatible submatrices below it).  *)
+      { can_group = group_same_constructor t
+      ; must_split_if_can't_group = true }
+    | Tpat_construct _ -> don't_split group_constructor
+    | Tpat_tuple _ -> don't_split group_tuple
+    | Tpat_record _ -> don't_split group_record
+    | Tpat_array _ -> don't_split group_array
+    | Tpat_variant (_, _, _) -> don't_split group_variant
+    | Tpat_lazy _ -> don't_split group_lazy
+    | _ -> fatal_error "Matching.Grouping_constraints.get"
+end
 
 let is_or p =
   match p.pat_desc with
@@ -1053,13 +1064,32 @@ let rec split_or argo cls args def =
   do_split [] [] [] cls
 
 and split_no_or cls args def k =
-  let rec collect_group can_group rev_yes rev_no = function
+  let rec collect_group (gc : Grouping_constraints.t) rev_yes rev_no = function
     | ([], _) :: _ -> assert false
     | ((p :: _, _) as cl) :: rem ->
-        if can_group p && safe_before cl rev_no then
-          collect_group can_group (cl :: rev_yes) rev_no rem
+        if gc.can_group p && safe_before cl rev_no then
+          collect_group gc (cl :: rev_yes) rev_no rem
+        else if not gc.must_split_if_can't_group then
+          collect_group gc rev_yes (cl :: rev_no) rem
         else
-          collect_group can_group rev_yes (cl :: rev_no) rem
+          let yes = List.rev rev_yes in
+          assert (rev_no = []);
+          begin match yes with
+          | [] ->
+              (* Could not succeeed in raising up a constr matching up *)
+              collect_vars [ cl ] [] rem
+          | _ ->
+              let { me = next; matrix; top_default = def }, nexts =
+                split (cl :: rem)
+              in
+              let idef = next_raise_count () in
+              let def = cons_default matrix idef def in
+              ( { me = Pm { cases = yes; args; default = def };
+                  matrix = as_matrix yes;
+                  top_default = def
+                },
+                (idef, next) :: nexts )
+          end
     | [] -> (
         let yes = List.rev rev_yes and no = List.rev rev_no in
         match no with
@@ -1114,7 +1144,7 @@ and split_no_or cls args def k =
     if group_var discr then
       collect_vars [] [] cls
     else
-      collect_group (get_group discr) [] [] cls
+      collect_group (Grouping_constraints.get discr) [] [] cls
   in
   split cls
 
