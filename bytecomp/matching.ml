@@ -1074,22 +1074,7 @@ and split_no_or cls args def k =
         else
           let yes = List.rev rev_yes in
           assert (rev_no = []);
-          begin match yes with
-          | [] ->
-              (* Could not succeeed in raising up a constr matching up *)
-              collect_vars [ cl ] [] rem
-          | _ ->
-              let { me = next; matrix; top_default = def }, nexts =
-                split (cl :: rem)
-              in
-              let idef = next_raise_count () in
-              let def = cons_default matrix idef def in
-              ( { me = Pm { cases = yes; args; default = def };
-                  matrix = as_matrix yes;
-                  top_default = def
-                },
-                (idef, next) :: nexts )
-          end
+          insert_split yes cl rem
     | [] -> (
         let yes = List.rev rev_yes and no = List.rev rev_no in
         match no with
@@ -1099,23 +1084,7 @@ and split_no_or cls args def k =
                 top_default = def
               },
               k )
-        | cl :: rem -> (
-            match yes with
-            | [] ->
-                (* Could not succeeed in raising up a constr matching up *)
-                collect_vars [ cl ] [] rem
-            | _ ->
-                let { me = next; matrix; top_default = def }, nexts =
-                  split no
-                in
-                let idef = next_raise_count () in
-                let def = cons_default matrix idef def in
-                ( { me = Pm { cases = yes; args; default = def };
-                    matrix = as_matrix yes;
-                    top_default = def
-                  },
-                  (idef, next) :: nexts )
-          )
+        | cl :: rem -> insert_split yes cl rem
       )
   and collect_vars rev_yes rev_no = function
     | ([], _) :: _ -> assert false
@@ -1139,6 +1108,22 @@ and split_no_or cls args def k =
               (cons_default matrix idef def)
               ((idef, next) :: nexts)
       )
+  and insert_split yes cl rem =
+    match yes with
+    | [] ->
+        (* Could not succeeed in raising up a constr matching up *)
+        collect_vars [ cl ] [] rem
+    | _ ->
+        let { me = next; matrix; top_default = def }, nexts =
+          split (cl :: rem)
+        in
+        let idef = next_raise_count () in
+        let def = cons_default matrix idef def in
+        ( { me = Pm { cases = yes; args; default = def };
+            matrix = as_matrix yes;
+            top_default = def
+          },
+          (idef, next) :: nexts )
   and split cls =
     let discr = what_is_cases cls in
     if group_var discr then
