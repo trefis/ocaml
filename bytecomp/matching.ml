@@ -50,7 +50,7 @@
 
      (compile_list + compile_match)
    We then map over the division to compile each cell: we simply restart the
-   whole process on the snd element of each cell.
+   whole process on the second element of each cell.
    Each cell is now of the form:
          discriminating pattern head * lambda
 
@@ -63,7 +63,7 @@
        ------------------
 
      (comp_match_handlers)
-   Once the pms have been compiled, we stich them back together in the order
+   Once the pms have been compiled, we stitch them back together in the order
    produced by precompilation, resulting in the following structure:
    {v
        catch
@@ -76,7 +76,7 @@
    v}
 
    Additionally, bodies whose corresponding exit-number is never used are
-   discarded. So for instance, if in the pseudo-example above we now that exit
+   discarded. So for instance, if in the pseudo-example above we know that exit
    [i] is never taken, we would actually generate:
    {v
        catch
