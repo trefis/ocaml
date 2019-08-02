@@ -1213,20 +1213,12 @@ and split_no_or cls args def k =
         let yes = List.rev rev_yes and no = List.rev rev_no in
         match no with
         | [] -> precompile_normal args yes def k
-        | cl :: rem -> (
-            match yes with
-            | [] ->
-                (* Could not succeeed in raising up a constr matching up *)
-                collect_vars [ cl ] [] rem
-            | _ ->
-                let { me = next; matrix; top_default = def }, nexts =
-                  split no
-                in
-                let idef = next_raise_count () in
-                precompile_normal args yes
-                  (Default_environment.cons matrix idef def)
-                  ((idef, next) :: nexts)
-          )
+        | _ ->
+            let { me = next; matrix; top_default = def }, nexts = split no in
+            let idef = next_raise_count () in
+            precompile_normal args yes
+              (Default_environment.cons matrix idef def)
+              ((idef, next) :: nexts)
       )
   and collect_vars rev_yes rev_no = function
     | ([], _) :: _ -> assert false
