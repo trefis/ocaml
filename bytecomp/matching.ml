@@ -1207,6 +1207,19 @@ let rec split_or argo cls args def =
   do_split [] [] [] cls
 
 and split_no_or cls args def k =
+  (* We split the remaining clauses in as few pms as possible while maintaining
+     the property stated earlier (cf. {1. Precompilation}), i.e. for
+     any pm in the result, it is possible to decide for any two patterns
+     on the first column whether their heads are equal or not.
+
+     This generally means that we'll have two kinds of pms: ones where the first
+     column is made of variables only, and ones where the head is actually a
+     discriminating pattern.
+     There is some subtlety regarding the handling of extension constructors
+     (where it is not possible to syntactically decide whether two different
+     heads match different values), but this is handled by the [get_group]
+     function.
+  *)
   let rec collect_group (gc : Grouping_constraints.t) rev_yes rev_no = function
     | ([], _) :: _ -> assert false
     | ((p :: _, _) as cl) :: rem ->
@@ -1359,6 +1372,47 @@ and dont_precompile_var args cls def k =
     k )
 
 and precompile_or argo cls ors args def k =
+  (* Let's say the following pm was given to [split_and_precompile]
+     {[
+       match e1           ,  e2 ,  e3 with
+       | C1(arg11, arg21) ,  p1 ,  q1 -> lam1
+       | C2(arg12)        ,  p2 ,  q2 -> lam2
+       | ( C1(_, argO)
+         | C2(argO)   )   ,  p3 ,  q3 -> lam3
+       | C3               ,  p4 ,  q4 -> lam4
+       | C1(_, _)         ,  _  ,  _  -> lam5
+     ]}
+
+     Assuming the constructors are not for an extensible type, then
+     after [split_or], we end up here with:
+     {[
+       cls = [ ((C1, [ arg11; arg21 ; p1 ; q1]), lam1)
+             ; ((C2, [ arg12; p2; q2 ]), lam2)
+             ; ((C3, [ p4; q4 ]), lam4)
+             ]
+     ]}
+     {[
+       ors = [ (((C1(_, argO) | C2(argO)), [ p3; q3 ]), lam3)
+             ; ((C1(_, _), [ _; _ ]), lam5)
+             ]
+     ]}
+
+     And produce (the moral equivalent of) the following as a result:
+     {[
+       try
+         match e1           ,  e2 ,  e3 with
+         | C1(arg11, arg21) ,  p1 ,  q1 -> lam1
+         | C2(arg12)        ,  p2 ,  q2 -> lam2
+         | C3               ,  p4 ,  q4 -> lam4
+         | C1(_, arg0)      ,  _  ,  _  -> exit E arg0
+         | C2(arg0)         ,  _  ,  _  -> exit E arg0
+         | C1(_, _)         ,  _  ,  _  -> lam5
+       with E arg0 ->
+         match e2, e3 with
+         | p3, q3 -> lam3
+         | _ , _  -> lam5
+     ]}
+  *)
   let rec do_cases = function
     | (({ pat_desc = Tpat_or _ } as orp) :: patl, action) :: rem ->
         let others, rem = extract_equiv_head orp rem in
