@@ -878,13 +878,13 @@ let half_simplify_cases args cls =
 (* Once matchings are *fully* simplified, one can easily find
    their nature. *)
 
-let rec what_is_cases cases =
+let rec what_is_cases ~skip_any cases =
   match cases with
   | [] -> omega
   | ([], _) :: _ -> assert false
   | (p :: _, _) :: rem -> (
       match p.pat_desc with
-      | Tpat_any -> what_is_cases rem
+      | Tpat_any when skip_any -> what_is_cases ~skip_any rem
       | Tpat_var _
       | Tpat_or (_, _, _)
       | Tpat_alias (_, _, _) ->
@@ -892,6 +892,9 @@ let rec what_is_cases cases =
           assert false
       | _ -> p
     )
+
+let what_is_first_case = what_is_cases ~skip_any:false
+let what_is_cases = what_is_cases ~skip_any:true
 
 (* Or-pattern expansion, variables are a complication w.r.t. the article *)
 
@@ -1197,42 +1200,38 @@ let rec split_or argo cls args def =
 
 and split_no_or cls args def k =
   let rec split cls =
-    let discr = what_is_cases cls in
-    if group_var discr then
-      collect_vars [] [] cls
-    else
-      collect_group discr [] [] cls
-  and collect_group group_discr rev_yes rev_no = function
+    let discr = what_is_first_case cls in
+    collect discr [] [] cls
+  and collect group_discr rev_yes rev_no = function
     | ([], _) :: _ -> assert false
-    | ((p :: _, _) as cl) :: rem ->
-        if can_group group_discr p && safe_before cl rev_no then
-          collect_group group_discr (cl :: rev_yes) rev_no rem
-        else
-          collect_group group_discr rev_yes (cl :: rev_no) rem
-    | [] ->
-        let yes = List.rev rev_yes and no = List.rev rev_no in
-        insert_split precompile_normal yes no def k
-  and collect_vars rev_yes rev_no = function
-    | ([], _) :: _ -> assert false
+    (*
+         (* TODO: check if this would works in this setup *)
     | [ ((ps, _) as cl) ] when List.for_all group_var ps && rev_yes <> [] ->
         (* This enables an extra division in some frequent cases:
                last row is made of variables only *)
-        collect_vars rev_yes (cl :: rev_no) []
+        collect rev_yes (cl :: rev_no) []
+      *)
     | ((p :: _, _) as cl) :: rem ->
-        if group_var p && safe_before cl rev_no then
-          collect_vars (cl :: rev_yes) rev_no rem
+        if can_group group_discr p && safe_before cl rev_no then
+          collect group_discr (cl :: rev_yes) rev_no rem
         else
-          collect_vars rev_yes (cl :: rev_no) rem
+          collect group_discr rev_yes (cl :: rev_no) rem
     | [] ->
         let yes = List.rev rev_yes and no = List.rev rev_no in
-        insert_split precompile_var yes no def k
-  and insert_split precompile yes no def k =
+        insert_split group_discr yes no def k
+  and insert_split group_discr yes no def k =
+    let precompile_group =
+      if group_var group_discr then
+        precompile_var
+      else
+        precompile_normal
+    in
     match no with
-    | [] -> precompile args yes def k
+    | [] -> precompile_group args yes def k
     | _ ->
         let { me = next; matrix; top_default = def }, nexts = split no in
         let idef = next_raise_count () in
-        precompile args yes
+        precompile_group args yes
           (Default_environment.cons matrix idef def)
           ((idef, next) :: nexts)
   in
