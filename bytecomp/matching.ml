@@ -1196,7 +1196,13 @@ let rec split_or argo cls args def =
   do_split [] [] [] cls
 
 and split_no_or cls args def k =
-  let rec collect_group can_group rev_yes rev_no = function
+  let rec split cls =
+    let discr = what_is_cases cls in
+    if group_var discr then
+      collect_vars [] [] cls
+    else
+      collect_group (get_group discr) [] [] cls
+  and collect_group can_group rev_yes rev_no = function
     | ([], _) :: _ -> assert false
     | ((p :: _, _) as cl) :: rem ->
         if can_group p && safe_before cl rev_no then
@@ -1252,12 +1258,6 @@ and split_no_or cls args def k =
               (Default_environment.cons matrix idef def)
               ((idef, next) :: nexts)
       )
-  and split cls =
-    let discr = what_is_cases cls in
-    if group_var discr then
-      collect_vars [] [] cls
-    else
-      collect_group (get_group discr) [] [] cls
   in
   split cls
 
