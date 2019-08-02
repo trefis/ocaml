@@ -1204,13 +1204,10 @@ and split_no_or cls args def k =
     collect discr [] [] cls
   and collect group_discr rev_yes rev_no = function
     | ([], _) :: _ -> assert false
-    (*
-         (* TODO: check if this would works in this setup *)
     | [ ((ps, _) as cl) ] when List.for_all group_var ps && rev_yes <> [] ->
         (* This enables an extra division in some frequent cases:
                last row is made of variables only *)
-        collect rev_yes (cl :: rev_no) []
-      *)
+        collect group_discr rev_yes (cl :: rev_no) []
     | ((p :: _, _) as cl) :: rem ->
         if can_group group_discr p && safe_before cl rev_no then
           collect group_discr (cl :: rev_yes) rev_no rem
