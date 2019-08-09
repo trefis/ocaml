@@ -1028,6 +1028,14 @@ let is_or p =
   | Tpat_or _ -> true
   | _ -> false
 
+let rec heads_are_var p =
+  match p.pat_desc with
+  | Tpat_any | Tpat_var _ -> true
+  | Tpat_alias (p, _, _) -> heads_are_var p
+  | Tpat_or (p1, p2, _) ->
+      heads_are_var p1 && heads_are_var p2
+  | _ -> false
+
 let equiv_pat p q = le_pat p q && le_pat q p
 
 let rec extract_equiv_head p l =
@@ -1218,7 +1226,9 @@ and split_no_or cls args def k =
     collect discr [] [] cls
   and collect group_discr rev_yes rev_no = function
     | ([], _) :: _ -> assert false
-    | [ ((ps, _) as cl) ] when List.for_all group_var ps && rev_yes <> [] ->
+    | [ ((ps, _) as cl) ] when
+           rev_yes <> [] && List.for_all heads_are_var ps
+      ->
         (* This enables an extra division in some frequent cases:
                last row is made of variables only
            Cf the first part of testsuite/tests/basic/patmatch_split_no_or.ml *)
