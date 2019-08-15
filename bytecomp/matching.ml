@@ -1105,9 +1105,9 @@ let can_group group_discr row_pat =
          of exits such that each submatrix falls back to the
          potentially-compatible submatrices below it).  *)
       Types.equal_tag discr_tag row_cstr.cstr_tag
-  | Construct _, Construct _ -> true
+  | Construct _, Construct _
   | Tuple _, (Tuple _ | Any)
-  | Record _, (Record _ | Any) -> true
+  | Record _, (Record _ | Any)
   | Array _, Array _
   | Variant _, Variant _
   | Lazy, Lazy -> true
