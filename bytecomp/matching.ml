@@ -1078,108 +1078,40 @@ let pat_as_constr = function
   | { pat_desc = Tpat_construct (_, cstr, _) } -> cstr
   | _ -> fatal_error "Matching.pat_as_constr"
 
-let group_const_int p =
-  match Pattern_head.desc (Simple.head p) with
-  | Constant (Const_int _) -> true
-  | _ -> false
-
-let group_const_char p =
-  match Pattern_head.desc (Simple.head p) with
-  | Constant (Const_char _) -> true
-  | _ -> false
-
-let group_const_string p =
-  match Pattern_head.desc (Simple.head p) with
-  | Constant (Const_string _) -> true
-  | _ -> false
-
-let group_const_float p =
-  match Pattern_head.desc (Simple.head p) with
-  | Constant (Const_float _) -> true
-  | _ -> false
-
-let group_const_int32 p =
-  match Pattern_head.desc (Simple.head p) with
-  | Constant (Const_int32 _) -> true
-  | _ -> false
-
-let group_const_int64 p =
-  match Pattern_head.desc (Simple.head p) with
-  | Constant (Const_int64 _) -> true
-  | _ -> false
-
-let group_const_nativeint p =
-  match Pattern_head.desc (Simple.head p) with
-  | Constant (Const_nativeint _) -> true
-  | _ -> false
-
-and group_constructor p =
-  match Pattern_head.desc (Simple.head p) with
-  | Construct _ -> true
-  | _ -> false
-
-and group_same_constructor tag p =
-  match Pattern_head.desc (Simple.head p) with
-  | Construct cstr -> Types.equal_tag tag cstr.cstr_tag
-  | _ -> false
-
-and group_variant p =
-  match Pattern_head.desc (Simple.head p) with
-  | Variant _ -> true
-  | _ -> false
 
 and group_var p =
   match Pattern_head.desc (Simple.head p) with
   | Any -> true
   | _ -> false
 
-and group_tuple p =
-  match Pattern_head.desc (Simple.head p) with
-  | Tuple _
-  | Any ->
+let can_group group_discr row_pat =
+  let discr_head = Simple.head group_discr in
+  let row_head = Simple.head row_pat in
+  match Pattern_head.desc discr_head, Pattern_head.desc row_head with
+  | Any, Any
+  | Constant (Const_int _), Constant (Const_int _)
+  | Constant (Const_char _), Constant (Const_char _)
+  | Constant (Const_string _), Constant (Const_string _)
+  | Constant (Const_float _), Constant (Const_float _)
+  | Constant (Const_int32 _), Constant (Const_int32 _)
+  | Constant (Const_int64 _), Constant (Const_int64 _)
+  | Constant (Const_nativeint _), Constant (Const_nativeint _) ->
       true
-  | _ -> false
-
-and group_record p =
-  match Pattern_head.desc (Simple.head p) with
-  | Record _
-  | Any ->
-      true
-  | _ -> false
-
-and group_array p =
-  match Pattern_head.desc (Simple.head p) with
-  | Array _ -> true
-  | _ -> false
-
-and group_lazy p =
-  match Pattern_head.desc (Simple.head p) with
-  | Lazy -> true
-  | _ -> false
-
-let can_group p =
-  match Pattern_head.desc (Simple.head p) with
-  | Any -> group_var
-  | Constant (Const_int _) -> group_const_int
-  | Constant (Const_char _) -> group_const_char
-  | Constant (Const_string _) -> group_const_string
-  | Constant (Const_float _) -> group_const_float
-  | Constant (Const_int32 _) -> group_const_int32
-  | Constant (Const_int64 _) -> group_const_int64
-  | Constant (Const_nativeint _) -> group_const_nativeint
-  | Construct { cstr_tag = Cstr_extension _ as t } ->
+  | Construct { cstr_tag = Cstr_extension _ as discr_tag },
+    Construct row_cstr ->
       (* Extension constructors with distinct names may be equal thanks to
          constructor rebinding. So we need to produce a specialized
          submatrix for each syntactically-distinct constructor (with a threading
          of exits such that each submatrix falls back to the
          potentially-compatible submatrices below it).  *)
-    group_same_constructor t
-  | Construct _ -> group_constructor
-  | Tuple _ -> group_tuple
-  | Record _ -> group_record
-  | Array _ -> group_array
-  | Variant _ -> group_variant
-  | Lazy -> group_lazy
+      Types.equal_tag discr_tag row_cstr.cstr_tag
+  | Construct _, Construct _ -> true
+  | Tuple _, (Tuple _ | Any)
+  | Record _, (Record _ | Any) -> true
+  | Array _, Array _
+  | Variant _, Variant _
+  | Lazy, Lazy -> true
+  | _, _ -> false
 
 let is_or p =
   match p.pat_desc with
