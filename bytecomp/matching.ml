@@ -656,7 +656,7 @@ module Default_environment : sig
 
   val cons : matrix -> int -> t -> t
 
-  val specialize : (pattern -> pattern list -> pattern list) -> t -> t
+  val specialize : int -> (pattern -> pattern list -> pattern list) -> t -> t
 
   val pop_column : t -> t
 
@@ -682,7 +682,7 @@ end = struct
     | [] -> default
     | _ -> (matrix, raise_num) :: default
 
-  let specialize_matrix matcher pss =
+  let specialize_matrix arity matcher pss =
     let rec filter_rec = function
       | (p :: ps) :: rem -> (
           match p.pat_desc with
@@ -690,14 +690,17 @@ end = struct
           | Tpat_var _ -> filter_rec ((omega :: ps) :: rem)
           | _ -> (
               let rem = filter_rec rem in
-              try matcher p ps :: rem with
-              | NoMatch -> rem
-              | OrPat -> (
+              match matcher p ps with
+                | exception NoMatch -> rem
+                | exception OrPat -> (
                   match p.pat_desc with
-                  | Tpat_or (p1, p2, _) ->
-                      filter_rec [ p1 :: ps; p2 :: ps ] @ rem
-                  | _ -> assert false
-                )
+                    | Tpat_or (p1, p2, _) ->
+                       filter_rec [ p1 :: ps; p2 :: ps ] @ rem
+                    | _ -> assert false
+                  )
+                | specialized ->
+                   assert (List.length specialized = List.length ps + arity);
+                   specialized :: rem
             )
         )
       | [] -> []
@@ -707,13 +710,13 @@ end = struct
     in
     filter_rec pss
 
-  let specialize matcher env =
+  let specialize arity matcher env =
     let rec make_rec = function
       | [] -> []
       | ([ [] ], i) :: _ -> [ ([ [] ], i) ]
       | (pss, i) :: rem -> (
           let rem = make_rec rem in
-          match specialize_matrix matcher pss with
+          match specialize_matrix arity matcher pss with
           | [] -> rem
           | [] :: _ -> [ ([ [] ], i) ]
           | pss -> (pss, i) :: rem
@@ -721,7 +724,7 @@ end = struct
     in
     make_rec env
 
-  let pop_column def = specialize (fun _p rem -> rem) def
+  let pop_column def = specialize 0 (fun _p rem -> rem) def
 
   let pop_compat p def =
     let compat_matcher q rem =
@@ -730,7 +733,7 @@ end = struct
       else
         raise NoMatch
     in
-    specialize compat_matcher def
+    specialize 0 compat_matcher def
 
   let pop = function
     | [] -> None
@@ -1629,7 +1632,7 @@ let make_constant_matching p def ctx = function
   | [] -> fatal_error "Matching.make_constant_matching"
   | _ :: argl ->
       let def =
-        Default_environment.specialize
+        Default_environment.specialize 0
           (matcher_const (get_key_constant "make" p))
           def
       and ctx = Context.specialize p ctx in
@@ -1749,7 +1752,8 @@ let make_constr_matching p def ctx = function
       { pm =
           { cases = [];
             args = newargs;
-            default = Default_environment.specialize (matcher_constr cstr) def
+            default = Default_environment.specialize
+                        cstr.cstr_arity (matcher_constr cstr) def
           };
         ctx = Context.specialize p ctx;
         discr = normalize_pat p
@@ -1773,7 +1777,7 @@ let rec matcher_variant_const lab p rem =
 let make_variant_matching_constant p lab def ctx = function
   | [] -> fatal_error "Matching.make_variant_matching_constant"
   | _ :: argl ->
-      let def = Default_environment.specialize (matcher_variant_const lab) def
+      let def = Default_environment.specialize 0 (matcher_variant_const lab) def
       and ctx = Context.specialize p ctx in
       { pm = { cases = []; args = argl; default = def };
         ctx;
@@ -1791,7 +1795,7 @@ let make_variant_matching_nonconst p lab def ctx = function
   | [] -> fatal_error "Matching.make_variant_matching_nonconst"
   | (arg, _mut) :: argl ->
       let def =
-        Default_environment.specialize (matcher_variant_nonconst lab) def
+        Default_environment.specialize 1 (matcher_variant_nonconst lab) def
       and ctx = Context.specialize p ctx in
       { pm =
           { cases = [];
@@ -1845,7 +1849,7 @@ let make_var_matching def = function
   | _ :: argl ->
       { cases = [];
         args = argl;
-        default = Default_environment.specialize get_args_var def
+        default = Default_environment.specialize 0 get_args_var def
       }
 
 let divide_var ctx pm =
@@ -2006,7 +2010,7 @@ let make_lazy_matching def = function
   | (arg, _mut) :: argl ->
       { cases = [];
         args = (inline_lazy_force arg Location.none, Strict) :: argl;
-        default = Default_environment.specialize matcher_lazy def
+        default = Default_environment.specialize 1 matcher_lazy def
       }
 
 let divide_lazy p ctx pm =
@@ -2040,7 +2044,7 @@ let make_tuple_matching loc arity def = function
       in
       { cases = [];
         args = make_args 0;
-        default = Default_environment.specialize (matcher_tuple arity) def
+        default = Default_environment.specialize arity (matcher_tuple arity) def
       }
 
 let divide_tuple arity p ctx pm =
@@ -2100,7 +2104,8 @@ let make_record_matching loc all_labels def = function
           (access, str) :: make_args (pos + 1)
       in
       let nfields = Array.length all_labels in
-      let def = Default_environment.specialize (matcher_record nfields) def in
+      let def = Default_environment.specialize
+                  nfields (matcher_record nfields) def in
       { cases = []; args = make_args 0; default = def }
 
 let divide_record all_labels p ctx pm =
@@ -2142,7 +2147,7 @@ let make_array_matching kind p def ctx = function
             StrictOpt )
           :: make_args (pos + 1)
       in
-      let def = Default_environment.specialize (matcher_array len) def
+      let def = Default_environment.specialize len (matcher_array len) def
       and ctx = Context.specialize p ctx in
       { pm = { cases = []; args = make_args 0; default = def };
         ctx;
