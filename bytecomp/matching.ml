@@ -1111,7 +1111,11 @@ let can_group group_discr row_pat =
   | Array _, Array _
   | Variant _, Variant _
   | Lazy, Lazy -> true
-  | _, _ -> false
+  | _, (Any
+        | Constant (Const_int _ | Const_char _ | Const_string _ | Const_float _
+                    | Const_int32 _ | Const_int64 _ | Const_nativeint _)
+        | Construct _ | Tuple _ | Record _ | Array _ | Variant _ | Lazy) ->
+     false
 
 let is_or p =
   match p.pat_desc with
