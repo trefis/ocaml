@@ -1084,10 +1084,8 @@ and group_var p =
   | Any -> true
   | _ -> false
 
-let can_group group_discr row_pat =
-  let discr_head = Simple.head group_discr in
-  let row_head = Simple.head row_pat in
-  match Pattern_head.desc discr_head, Pattern_head.desc row_head with
+let can_group discr pat =
+  match Pattern_head.desc discr, Pattern_head.desc (Simple.head pat) with
   | Any, Any
   | Constant (Const_int _), Constant (Const_int _)
   | Constant (Const_char _), Constant (Const_char _)
@@ -1098,13 +1096,13 @@ let can_group group_discr row_pat =
   | Constant (Const_nativeint _), Constant (Const_nativeint _) ->
       true
   | Construct { cstr_tag = Cstr_extension _ as discr_tag },
-    Construct row_cstr ->
+    Construct pat_cstr ->
       (* Extension constructors with distinct names may be equal thanks to
          constructor rebinding. So we need to produce a specialized
          submatrix for each syntactically-distinct constructor (with a threading
          of exits such that each submatrix falls back to the
          potentially-compatible submatrices below it).  *)
-      Types.equal_tag discr_tag row_cstr.cstr_tag
+      Types.equal_tag discr_tag pat_cstr.cstr_tag
   | Construct _, Construct _
   | Tuple _, (Tuple _ | Any)
   | Record _, (Record _ | Any)
@@ -1322,7 +1320,7 @@ and split_no_or cls args def k =
      different heads match different values), but this is handled by the
      [can_group] function. *)
   let rec split (cls : Simple.clause list) =
-    let discr = what_is_first_case cls in
+    let discr = Simple.head (what_is_first_case cls) in
     collect discr [] [] cls
   and collect group_discr rev_yes rev_no = function
     | [ (((p, ps), _) as cl) ]
@@ -1351,11 +1349,9 @@ and split_no_or cls args def k =
         let yes = List.rev rev_yes and no = List.rev rev_no in
         insert_split group_discr yes no def k
   and insert_split group_discr yes no def k =
-    let precompile_group =
-      if group_var group_discr then
-        precompile_var
-      else
-        do_not_precompile
+    let precompile_group = match Pattern_head.desc group_discr with
+        | Any -> precompile_var
+        | _ -> do_not_precompile
     in
     match no with
     | [] -> precompile_group args yes def k
@@ -1366,7 +1362,7 @@ and split_no_or cls args def k =
           (Default_environment.cons matrix idef def)
           ((idef, next) :: nexts)
   and should_split group_discr =
-    match Pattern_head.desc (Simple.head group_discr) with
+    match Pattern_head.desc group_discr with
     | Construct { cstr_tag = Cstr_extension _ } ->
         (* it is unlikely that we will raise anything, so we split now *)
         true
