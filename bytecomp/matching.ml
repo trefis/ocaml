@@ -530,8 +530,8 @@ end = struct
          yesif (const_compare cst cst' = 0)
       | Constant _, _ -> no ()
 
-      | Variant { tag; _ }, Variant { tag = tag'; _ } ->
-         yesif (tag = tag')
+      | Variant { tag; has_arg }, Variant { tag = tag'; has_arg = has_arg' } ->
+         yesif (tag = tag' && has_arg = has_arg')
       | Variant _, _ -> no ()
 
       | Array n1, Array n2 ->
