@@ -1659,7 +1659,7 @@ let matcher discr p rem =
   let no () = raise NoMatch in
   let yesif b = if b then yes () else no () in
   match Pattern_head.desc discr, Pattern_head.desc ph with
-    | Any, _ -> fatal_error "Matching.matcher"
+    | Any, _ -> rem
     | (Constant _ | Construct _ | Variant _ | Lazy | Array _ | Record _ | Tuple _),
       Any -> omegas @ rem
 
@@ -1857,7 +1857,7 @@ let make_var_matching def = function
   | _ :: argl ->
       { cases = [];
         args = argl;
-        default = Default_environment.specialize 0 get_args_var def
+        default = Default_environment.specialize 0 (matcher Pattern_head.omega) def
       }
 
 let divide_var ctx pm =
