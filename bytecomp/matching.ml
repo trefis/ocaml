@@ -732,7 +732,7 @@ end = struct
                      because we cannot express
                         (K (p1, .., pn) | K (q1, .. qn))
                      as (p1 .. pn | q1 .. qn) *)
-                  filter_rec [ p1 :: ps; p2 :: ps ] @ rem
+                  filter_rec ((p1 :: ps) :: (p2 :: ps) :: rem)
              end
           | #simple_view as view ->
               let p = { p with pat_desc = view } in
