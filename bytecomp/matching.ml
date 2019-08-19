@@ -1389,8 +1389,7 @@ and precompile_var args cls def k =
                 (* we learned by pattern-matching on [args]
                    that [p::ps] has at least two arguments,
                    so [ps] must be non-empty *)
-                let rest = Non_empty_clause.of_initial (ps, act) in
-                half_simplify_nonempty var_args rest)
+                half_simplify_clause var_args (ps, act))
               cls
           and var_def = Default_environment.pop_column def in
           let { me = first; matrix }, nexts =
