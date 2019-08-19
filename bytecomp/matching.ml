@@ -139,6 +139,257 @@ let all_record_args lbls =
       Array.to_list t
   | _ -> fatal_error "Matching.all_record_args"
 
+
+type 'a clause = 'a * lambda
+
+module Non_empty_clause = struct
+  type 'a t = ('a * Typedtree.pattern list) clause
+
+  let of_initial = function
+    | [], _ -> assert false
+    | pat :: patl, act -> ((pat, patl), act)
+
+  let map_head f ((p, patl), act) = ((f p, patl), act)
+end
+
+type simple_view = [
+  | `Any
+  | `Constant of constant
+  | `Tuple of pattern list
+  | `Construct of Longident.t loc * constructor_description * pattern list
+  | `Variant of label * pattern option * row_desc ref
+  | `Record of (Longident.t loc * label_description * pattern) list * closed_flag
+  | `Array of pattern list
+  | `Lazy of pattern
+  | `Exception of pattern
+]
+
+type half_simple_view = [
+  | simple_view
+  | `Or of pattern * pattern * row_desc option
+]
+type general_view = [
+  | half_simple_view
+  | `Var of Ident.t * string loc
+  | `Alias of pattern * Ident.t * string loc
+]
+
+module General : sig
+  type pattern = general_view pattern_
+  type clause = pattern Non_empty_clause.t
+
+  val view : Typedtree.pattern -> pattern
+  val erase : [< general_view ] pattern_ -> Typedtree.pattern
+end = struct
+  type pattern = general_view pattern_
+  type clause = pattern Non_empty_clause.t
+
+  let view_desc = function
+    | Tpat_any ->
+       `Any
+    | Tpat_var (id, str) ->
+       `Var (id, str)
+    | Tpat_alias (p, id, str) ->
+       `Alias (p, id, str)
+    | Tpat_constant cst ->
+       `Constant cst
+    | Tpat_tuple ps ->
+       `Tuple ps
+    | Tpat_construct (cstr, cstr_descr, args) ->
+       `Construct (cstr, cstr_descr, args)
+    | Tpat_variant (cstr, arg, row_desc) ->
+       `Variant (cstr, arg, row_desc)
+    | Tpat_record (fields, closed) ->
+       `Record (fields, closed)
+    | Tpat_array ps -> `Array ps
+    | Tpat_or (p, q, row_desc) -> `Or (p, q, row_desc)
+    | Tpat_lazy p -> `Lazy p
+    | Tpat_exception p -> `Exception p
+
+  let view p : pattern =
+    { p with pat_desc = view_desc p.pat_desc }
+
+  let erase_desc = function
+    | `Any -> Tpat_any
+    | `Var (id, str) -> Tpat_var (id, str)
+    | `Alias (p, id, str) -> Tpat_alias (p, id, str)
+    | `Constant cst -> Tpat_constant cst
+    | `Tuple ps -> Tpat_tuple ps
+    | `Construct (cstr, cst_descr, args) ->
+       Tpat_construct (cstr, cst_descr, args)
+    | `Variant (cstr, arg, row_desc) ->
+       Tpat_variant (cstr, arg, row_desc)
+    | `Record (fields, closed) ->
+       Tpat_record (fields, closed)
+    | `Array ps -> Tpat_array ps
+    | `Or (p, q, row_desc) -> Tpat_or (p, q, row_desc)
+    | `Lazy p -> Tpat_lazy p
+    | `Exception p -> Tpat_exception p
+
+  let erase p =
+    { p with pat_desc = erase_desc p.pat_desc }
+end
+
+module Half_simple : sig
+  (** Half-simplified patterns are patterns where:
+        - records are expanded so that they possess all fields
+        - aliases are removed and replaced by bindings in actions.
+
+      Or-patterns are not removed, they are only "half-simplified":
+        - aliases under or-patterns are kept
+        - or-patterns whose right-hand-side is subsumed by their lhs
+          are simplified to their lhs.
+          For instance: [(_ :: _ | 1 :: _)] is changed into [_ :: _]
+        - or-patterns whose left-hand-side is not simplified
+          are preserved: (p|q) is changed into (simpl(p)|simpl(q))
+            {v
+                # match lazy (print_int 3; 3) with _ | lazy 2 -> ();;
+                - : unit = ()
+                # match lazy (print_int 3; 3) with lazy 2 | _ -> ();;
+                3- : unit = ()
+            v}
+
+      In particular, or-patterns may still occur in the leading column,
+      so this is only a "half-simplification". *)
+
+  type pattern = half_simple_view pattern_
+
+  type clause = pattern Non_empty_clause.t
+
+  val of_clause : args:(lambda * 'a) list -> General.clause -> clause
+end = struct
+  type pattern = half_simple_view pattern_
+  type clause = pattern Non_empty_clause.t
+
+  let rec simpl_under_orpat p =
+    match p.pat_desc with
+    | Tpat_any
+    | Tpat_var _ ->
+        p
+    | Tpat_alias (q, id, s) ->
+        { p with pat_desc = Tpat_alias (simpl_under_orpat q, id, s) }
+    | Tpat_or (p1, p2, o) ->
+        let p1, p2 = (simpl_under_orpat p1, simpl_under_orpat p2) in
+        if le_pat p1 p2 then
+          p1
+        else
+          { p with pat_desc = Tpat_or (p1, p2, o) }
+    | Tpat_record (lbls, closed) ->
+        let all_lbls = all_record_args lbls in
+        { p with pat_desc = Tpat_record (all_lbls, closed) }
+    | _ -> p
+
+  let of_clause ~args cl =
+    let rec aux (((p, patl), action) : General.clause) : clause =
+      let continue p (view : general_view) : clause =
+        aux (({ p with pat_desc = view }, patl), action) in
+      let stop p (view : half_simple_view) : clause =
+        (({ p with pat_desc = view }, patl), action) in
+      match p.pat_desc with
+      | `Any -> stop p `Any
+      | `Var (id, s) -> continue p (`Alias (omega, id, s))
+      | `Alias (p, id, _) ->
+          let arg =
+            match args with
+            | [] -> assert false
+            | (arg, _) :: _ -> arg
+          in
+          let k = Typeopt.value_kind p.pat_env p.pat_type in
+          aux ((General.view p, patl),
+               bind_with_value_kind Alias (id, k) arg action)
+      | `Record ([], _) as view -> stop p view
+      | `Record (lbls, closed) ->
+          let full_view = `Record (all_record_args lbls, closed) in
+          stop p full_view
+      | `Or _ -> (
+        let orpat =
+          General.view (simpl_under_orpat (General.erase p)) in
+        match orpat.pat_desc with
+          | `Or _ as or_view -> stop orpat or_view
+          | other_view -> continue orpat other_view
+        )
+      | (`Constant _ | `Tuple _ | `Construct _ | `Variant _
+      |  `Array _ | `Lazy _ | `Exception _) as view ->
+         stop p view
+    in
+    aux cl
+end
+
+exception Cannot_flatten
+
+module Simple : sig
+  type pattern = simple_view pattern_
+  type clause = pattern Non_empty_clause.t
+
+  val head : pattern -> Pattern_head.t
+
+  val explode_or_pat :
+    Half_simple.pattern * Typedtree.pattern list ->
+    arg:Ident.t option ->
+    mk_action:(vars:Ident.t list -> lambda) ->
+    vars:Ident.t list ->
+    clause list ->
+    clause list
+end = struct
+  type pattern = simple_view pattern_
+  type clause = pattern Non_empty_clause.t
+
+  let head p =
+    fst (Pattern_head.deconstruct (General.erase (p :> General.pattern)))
+
+  let alpha env (p : pattern) : pattern =
+    let alpha_pat env p = Typedtree.alpha_pat env p in
+    let pat_desc = match p.pat_desc with
+    | `Any -> `Any
+    | `Constant cst -> `Constant cst
+    | `Tuple ps -> `Tuple (List.map (alpha_pat env) ps)
+    | `Construct (cstr, cst_descr, args) ->
+      `Construct (cstr, cst_descr, List.map (alpha_pat env) args)
+    | `Variant (cstr, argo, row_desc) ->
+      `Variant (cstr, Option.map (alpha_pat env) argo, row_desc)
+    | `Record (fields, closed) ->
+       let alpha_field env (lid, l, p) = (lid, l, alpha_pat env p) in
+      `Record (List.map (alpha_field env) fields, closed)
+    | `Array ps -> `Array (List.map (alpha_pat env) ps)
+    | `Lazy p -> `Lazy (alpha_pat env p)
+    | `Exception p -> `Exception (alpha_pat env p)
+    in { p with pat_desc }
+
+  let mk_alpha_env arg aliases ids =
+    List.map
+      (fun id ->
+        ( id,
+          if List.mem id aliases then
+            match arg with
+            | Some v -> v
+            | _ -> raise Cannot_flatten
+          else
+            Ident.create_local (Ident.name id) ))
+      ids
+
+  let explode_or_pat ((p : Half_simple.pattern), patl) ~arg ~mk_action ~vars
+        (rem : clause list) : clause list =
+    let rec explode p aliases rem =
+      let split_explode p aliases rem =
+        explode (General.view p) aliases rem in
+      match p.pat_desc with
+      | `Or (p1, p2, _) ->
+         split_explode p1 aliases (split_explode p2 aliases rem)
+      | `Alias (p, id, _) ->
+         split_explode p (id :: aliases) rem
+      | `Var (id, str) ->
+         explode
+           { p with pat_desc = `Alias (Parmatch.omega, id, str) } aliases rem
+      | #simple_view as view ->
+         let env = mk_alpha_env arg aliases vars in
+         ((alpha env { p with pat_desc = view }, patl),
+          mk_action ~vars:(List.map snd env)) :: rem
+    in
+    explode (p : Half_simple.pattern :> General.pattern) [] rem
+end
+
+type initial_clause = pattern list clause
+
 type matrix = pattern list list
 
 let add_omega_column pss = List.map (fun ps -> omega :: ps) pss
@@ -249,76 +500,52 @@ end = struct
 
   let combine ctx = List.map Row.combine ctx
 
-  let ctx_matcher p =
-    let p = normalize_pat p in
-    match p.pat_desc with
-    | Tpat_construct (_, cstr, omegas) -> (
-        fun q rem ->
-          match q.pat_desc with
-          | Tpat_construct (_, cstr', args)
-          (* NB: may_constr_equal considers (potential) constructor rebinding *)
-            when Types.may_equal_constr cstr cstr' ->
-              (p, args @ rem)
-          | Tpat_any -> (p, omegas @ rem)
-          | _ -> raise NoMatch
-      )
-    | Tpat_constant cst -> (
-        fun q rem ->
-          match q.pat_desc with
-          | Tpat_constant cst' when const_compare cst cst' = 0 -> (p, rem)
-          | Tpat_any -> (p, rem)
-          | _ -> raise NoMatch
-      )
-    | Tpat_variant (lab, Some omega, _) -> (
-        fun q rem ->
-          match q.pat_desc with
-          | Tpat_variant (lab', Some arg, _) when lab = lab' -> (p, arg :: rem)
-          | Tpat_any -> (p, omega :: rem)
-          | _ -> raise NoMatch
-      )
-    | Tpat_variant (lab, None, _) -> (
-        fun q rem ->
-          match q.pat_desc with
-          | Tpat_variant (lab', None, _) when lab = lab' -> (p, rem)
-          | Tpat_any -> (p, rem)
-          | _ -> raise NoMatch
-      )
-    | Tpat_array omegas -> (
-        let len = List.length omegas in
-        fun q rem ->
-          match q.pat_desc with
-          | Tpat_array args when List.length args = len -> (p, args @ rem)
-          | Tpat_any -> (p, omegas @ rem)
-          | _ -> raise NoMatch
-      )
-    | Tpat_tuple omegas -> (
-        let len = List.length omegas in
-        fun q rem ->
-          match q.pat_desc with
-          | Tpat_tuple args when List.length args = len -> (p, args @ rem)
-          | Tpat_any -> (p, omegas @ rem)
-          | _ -> raise NoMatch
-      )
-    | Tpat_record (((_, lbl, _) :: _ as l), _) -> (
-        (* Records are normalized *)
-        let len = Array.length lbl.lbl_all in
-        fun q rem ->
-          match q.pat_desc with
-          | Tpat_record (((_, lbl', _) :: _ as l'), _)
-            when Array.length lbl'.lbl_all = len ->
-              let l' = all_record_args l' in
-              (p, List.fold_right (fun (_, _, p) r -> p :: r) l' rem)
-          | Tpat_any -> (p, List.fold_right (fun (_, _, p) r -> p :: r) l rem)
-          | _ -> raise NoMatch
-      )
-    | Tpat_lazy omega -> (
-        fun q rem ->
-          match q.pat_desc with
-          | Tpat_lazy arg -> (p, arg :: rem)
-          | Tpat_any -> (p, omega :: rem)
-          | _ -> raise NoMatch
-      )
-    | _ -> fatal_error "Matching.Context.matcher"
+  let ctx_matcher p q rem =
+    let rec expand_record p =
+      match p.pat_desc with
+        | Tpat_record (l, _) ->
+           {p with pat_desc = Tpat_record (all_record_args l, Closed)}
+        | Tpat_alias (p, _, _) -> expand_record p
+        | _ -> p in
+    let ph, omegas =
+      let ph, p_args = Pattern_head.deconstruct (expand_record p) in
+      ph, List.map (fun _ -> omega) p_args in
+    let qh, args = Pattern_head.deconstruct (expand_record q) in
+    let yes () = (p, args @ rem) in
+    let no () = raise NoMatch in
+    let yesif b = if b then yes () else no () in
+    match Pattern_head.desc ph, Pattern_head.desc qh with
+      | Any, _ -> fatal_error "Matching.Context.matcher"
+      | _, Any -> (p, omegas @ rem)
+
+      | Construct cstr, Construct cstr' ->
+         (* NB: may_equal_constr considers (potential) constructor rebinding *)
+         yesif (Types.may_equal_constr cstr cstr')
+      | Construct _, _ -> no ()
+
+      | Constant cst, Constant cst' ->
+         yesif (const_compare cst cst' = 0)
+      | Constant _, _ -> no ()
+
+      | Variant { tag; has_arg }, Variant { tag = tag'; has_arg = has_arg' } ->
+         yesif (tag = tag' && has_arg = has_arg')
+      | Variant _, _ -> no ()
+
+      | Array n1, Array n2 ->
+         yesif (n1 = n2)
+      | Array _, _ -> no ()
+
+      | Tuple n1, Tuple n2 ->
+         yesif (n1 = n2)
+      | Tuple _, _ -> no ()
+
+      | Record l, Record l' ->
+         (* we called extend_records on both arguments so l, l' are full *)
+         yesif (List.length l = List.length l')
+      | Record _, _ -> no ()
+
+      | Lazy, Lazy -> yes ()
+      | Lazy, _ -> no ()
 
   let specialize q ctx =
     let matcher = ctx_matcher q in
@@ -623,8 +850,8 @@ end
 
 (* Pattern matching before any compilation *)
 
-type pattern_matching = {
-  mutable cases : (pattern list * lambda) list;
+type 'row pattern_matching = {
+  mutable cases : 'row list;
   args : (lambda * let_kind) list;
       (** args are not just Ident.t in at least the following cases:
         - when matching the arguments of a constructor,
@@ -638,11 +865,11 @@ type handler = {
   provenance : matrix;
   exit : int;
   vars : (Ident.t * Lambda.value_kind) list;
-  pm : pattern_matching
+  pm : initial_clause pattern_matching
 }
 
-type pm_or_compiled = {
-  body : pattern_matching;
+type 'head_pat pm_or_compiled = {
+  body : 'head_pat Non_empty_clause.t pattern_matching;
   handlers : handler list;
   or_matrix : matrix
 }
@@ -651,9 +878,9 @@ type pm_or_compiled = {
    mixture rule *)
 
 type pm_half_compiled =
-  | PmOr of pm_or_compiled
+  | PmOr of Simple.pattern pm_or_compiled
   | PmVar of { inside : pm_half_compiled }
-  | Pm of pattern_matching
+  | Pm of Simple.clause pattern_matching
 
 (* Only used inside the various split functions, we only keep [me] when we're
    done splitting / precompiling. *)
@@ -678,16 +905,33 @@ let pretty_pm pm =
   if not (Default_environment.is_empty pm.default) then
     Default_environment.pp pm.default
 
+let pretty_hc_pm pm =
+  pretty_cases
+    (List.map
+       (fun ((p, ps), act) ->
+         (General.erase p :: ps, act))
+       pm.cases);
+  if not (Default_environment.is_empty pm.default) then
+    Default_environment.pp pm.default
+
+let pretty_sc_pm pm =
+  pretty_cases
+    (List.map
+       (fun ((p, ps), act) -> (General.erase p :: ps, act))
+       pm.cases);
+  if not (Default_environment.is_empty pm.default) then
+    Default_environment.pp pm.default
+
 let rec pretty_precompiled = function
   | Pm pm ->
       Format.eprintf "++++ PM ++++\n";
-      pretty_pm pm
+      pretty_sc_pm pm
   | PmVar x ->
       Format.eprintf "++++ VAR ++++\n";
       pretty_precompiled x.inside
   | PmOr x ->
       Format.eprintf "++++ OR ++++\n";
-      pretty_pm x.body;
+      pretty_sc_pm x.body;
       pretty_matrix Format.err_formatter x.or_matrix;
       List.iter
         (fun { exit = i; pm; _ } ->
@@ -778,7 +1022,7 @@ let same_actions = function
             None
     )
 
-let safe_before (ps, act_p) l =
+let safe_before ((p, ps), act_p) l =
   (* Test for swapping two clauses *)
   let same_actions act1 act2 =
     match (make_key act1, make_key act2) with
@@ -788,145 +1032,38 @@ let safe_before (ps, act_p) l =
         false
   in
   List.for_all
-    (fun (qs, act_q) -> same_actions act_p act_q || not (may_compats ps qs))
+    (fun ((q, qs), act_q) ->
+      same_actions act_p act_q
+      || not (may_compats (General.erase p :: ps) (General.erase q :: qs)))
     l
 
-(*
-   The half-simplify functions transforms the first column of the match
-     - records are expanded so that they possess all fields
-     - aliases are removed and replaced by bindings in actions.
+let half_simplify_nonempty
+      args (cls : Typedtree.pattern Non_empty_clause.t) : Half_simple.clause =
+  cls
+  |> Non_empty_clause.map_head General.view
+  |> Half_simple.of_clause ~args
 
-   However or-patterns are only half-simplified,
-     - aliases under or-patterns are kept
-     - or-patterns whose right-hand-side is subsumed by their lhs
-       are simplified to their lhs.
-       For instance: [(_ :: _ | 1 :: _)] is changed into [_ :: _]
-     - or-patterns whose left-hand-side is not simplified
-       are preserved: (p|q) is changed into (simpl(p)|simpl(q))
-         {v
-             # match lazy (print_int 3; 3) with _ | lazy 2 -> ();;
-             - : unit = ()
-             # match lazy (print_int 3; 3) with lazy 2 | _ -> ();;
-             3- : unit = ()
-         v}
-
-   In particular, or-patterns may still occur in the head of the output row,
-   so this is only a "half-simplification".
-*)
-let half_simplify_cases args cls =
-  let rec simpl_pat p =
-    match p.pat_desc with
-    | Tpat_any
-    | Tpat_var _ ->
-        p
-    | Tpat_alias (q, id, s) ->
-        { p with pat_desc = Tpat_alias (simpl_pat q, id, s) }
-    | Tpat_or (p1, p2, o) ->
-        let p1, p2 = (simpl_pat p1, simpl_pat p2) in
-        if le_pat p1 p2 then
-          p1
-        else
-          { p with pat_desc = Tpat_or (p1, p2, o) }
-    | Tpat_record (lbls, closed) ->
-        let all_lbls = all_record_args lbls in
-        { p with pat_desc = Tpat_record (all_lbls, closed) }
-    | _ -> p
-  in
-  let rec simpl_clause cl =
-    match cl with
-    | [], _ -> assert false
-    | pat :: patl, action -> (
-        match pat.pat_desc with
-        | Tpat_any -> cl
-        | Tpat_var (id, s) ->
-            let p = { pat with pat_desc = Tpat_alias (omega, id, s) } in
-            simpl_clause (p :: patl, action)
-        | Tpat_alias (p, id, _) ->
-            let arg =
-              match args with
-              | [] -> assert false
-              | (arg, _) :: _ -> arg
-            in
-            let k = Typeopt.value_kind pat.pat_env pat.pat_type in
-            simpl_clause
-              (p :: patl, bind_with_value_kind Alias (id, k) arg action)
-        | Tpat_record ([], _) -> (omega :: patl, action)
-        | Tpat_record (lbls, closed) ->
-            let all_lbls = all_record_args lbls in
-            let full_pat =
-              { pat with pat_desc = Tpat_record (all_lbls, closed) }
-            in
-            (full_pat :: patl, action)
-        | Tpat_or _ -> (
-            let pat_simple = simpl_pat pat in
-            match pat_simple.pat_desc with
-            | Tpat_or _ -> (pat_simple :: patl, action)
-            | _ -> simpl_clause (pat_simple :: patl, action)
-          )
-        | Tpat_constant _
-        | Tpat_tuple _
-        | Tpat_construct _
-        | Tpat_variant _
-        | Tpat_array _
-        | Tpat_lazy _
-        | Tpat_exception _ ->
-            cl
-      )
-  in
-  List.map simpl_clause cls
+let half_simplify_clause args (cls : Typedtree.pattern list clause) =
+  cls
+  |> Non_empty_clause.of_initial
+  |> half_simplify_nonempty args
 
 (* Once matchings are *fully* simplified, one can easily find
    their nature. *)
 
 let rec what_is_cases ~skip_any cases =
   match cases with
-  | [] -> omega
-  | ([], _) :: _ -> assert false
-  | (p :: _, _) :: rem -> (
-      match p.pat_desc with
-      | Tpat_any when skip_any -> what_is_cases ~skip_any rem
-      | Tpat_var _
-      | Tpat_or (_, _, _)
-      | Tpat_alias (_, _, _) ->
-          (* applies to simplified matchings only *)
-          assert false
-      | _ -> p
+  | [] -> Pattern_head.omega
+  | ((p, _), _) :: rem -> (
+      let head = Simple.head p in
+      match Pattern_head.desc head with
+      | Any when skip_any -> what_is_cases ~skip_any rem
+      | _ -> head
     )
 
 let what_is_first_case = what_is_cases ~skip_any:false
 
 let what_is_cases = what_is_cases ~skip_any:true
-
-(* Or-pattern expansion, variables are a complication w.r.t. the article *)
-
-exception Cannot_flatten
-
-let mk_alpha_env arg aliases ids =
-  List.map
-    (fun id ->
-      ( id,
-        if List.mem id aliases then
-          match arg with
-          | Some v -> v
-          | _ -> raise Cannot_flatten
-        else
-          Ident.create_local (Ident.name id) ))
-    ids
-
-let rec explode_or_pat p arg patl mk_action vars aliases rem =
-  match p.pat_desc with
-  | Tpat_or (p1, p2, _) ->
-      explode_or_pat p1 arg patl mk_action vars aliases
-        (explode_or_pat p2 arg patl mk_action vars aliases rem)
-  | Tpat_alias (p, id, _) ->
-      explode_or_pat p arg patl mk_action vars (id :: aliases) rem
-  | Tpat_var (x, _) ->
-      let env = mk_alpha_env arg (x :: aliases) vars in
-      (omega :: patl, mk_action (List.map snd env)) :: rem
-  | _ ->
-      let env = mk_alpha_env arg aliases vars in
-      (alpha_pat env p :: patl, mk_action (List.map snd env)) :: rem
-
 let pm_free_variables { cases } =
   List.fold_right
     (fun (_, act) r -> Ident.Set.union (free_variables act) r)
@@ -937,91 +1074,41 @@ let pat_as_constr = function
   | { pat_desc = Tpat_construct (_, cstr, _) } -> cstr
   | _ -> fatal_error "Matching.pat_as_constr"
 
-let group_const_int = function
-  | { pat_desc = Tpat_constant (Const_int _) } -> true
+and group_var p =
+  match Pattern_head.desc (Simple.head p) with
+  | Any -> true
   | _ -> false
 
-let group_const_char = function
-  | { pat_desc = Tpat_constant (Const_char _) } -> true
-  | _ -> false
-
-let group_const_string = function
-  | { pat_desc = Tpat_constant (Const_string _) } -> true
-  | _ -> false
-
-let group_const_float = function
-  | { pat_desc = Tpat_constant (Const_float _) } -> true
-  | _ -> false
-
-let group_const_int32 = function
-  | { pat_desc = Tpat_constant (Const_int32 _) } -> true
-  | _ -> false
-
-let group_const_int64 = function
-  | { pat_desc = Tpat_constant (Const_int64 _) } -> true
-  | _ -> false
-
-let group_const_nativeint = function
-  | { pat_desc = Tpat_constant (Const_nativeint _) } -> true
-  | _ -> false
-
-and group_constructor = function
-  | { pat_desc = Tpat_construct (_, _, _) } -> true
-  | _ -> false
-
-and group_same_constructor tag = function
-  | { pat_desc = Tpat_construct (_, cstr, _) } ->
-      Types.equal_tag tag cstr.cstr_tag
-  | _ -> false
-
-and group_variant = function
-  | { pat_desc = Tpat_variant (_, _, _) } -> true
-  | _ -> false
-
-and group_var = function
-  | { pat_desc = Tpat_any } -> true
-  | _ -> false
-
-and group_tuple = function
-  | { pat_desc = Tpat_tuple _ | Tpat_any } -> true
-  | _ -> false
-
-and group_record = function
-  | { pat_desc = Tpat_record _ | Tpat_any } -> true
-  | _ -> false
-
-and group_array = function
-  | { pat_desc = Tpat_array _ } -> true
-  | _ -> false
-
-and group_lazy = function
-  | { pat_desc = Tpat_lazy _ } -> true
-  | _ -> false
-
-let can_group p =
-  match p.pat_desc with
-  | Tpat_any -> group_var
-  | Tpat_constant (Const_int _) -> group_const_int
-  | Tpat_constant (Const_char _) -> group_const_char
-  | Tpat_constant (Const_string _) -> group_const_string
-  | Tpat_constant (Const_float _) -> group_const_float
-  | Tpat_constant (Const_int32 _) -> group_const_int32
-  | Tpat_constant (Const_int64 _) -> group_const_int64
-  | Tpat_constant (Const_nativeint _) -> group_const_nativeint
-  | Tpat_construct (_, { cstr_tag = Cstr_extension _ as t }, _) ->
+let can_group discr pat =
+  match Pattern_head.desc discr, Pattern_head.desc (Simple.head pat) with
+  | Any, Any
+  | Constant (Const_int _), Constant (Const_int _)
+  | Constant (Const_char _), Constant (Const_char _)
+  | Constant (Const_string _), Constant (Const_string _)
+  | Constant (Const_float _), Constant (Const_float _)
+  | Constant (Const_int32 _), Constant (Const_int32 _)
+  | Constant (Const_int64 _), Constant (Const_int64 _)
+  | Constant (Const_nativeint _), Constant (Const_nativeint _) ->
+      true
+  | Construct { cstr_tag = Cstr_extension _ as discr_tag },
+    Construct pat_cstr ->
       (* Extension constructors with distinct names may be equal thanks to
          constructor rebinding. So we need to produce a specialized
          submatrix for each syntactically-distinct constructor (with a threading
          of exits such that each submatrix falls back to the
          potentially-compatible submatrices below it).  *)
-      group_same_constructor t
-  | Tpat_construct _ -> group_constructor
-  | Tpat_tuple _ -> group_tuple
-  | Tpat_record _ -> group_record
-  | Tpat_array _ -> group_array
-  | Tpat_variant (_, _, _) -> group_variant
-  | Tpat_lazy _ -> group_lazy
-  | _ -> fatal_error "Matching.can_group"
+      Types.equal_tag discr_tag pat_cstr.cstr_tag
+  | Construct _, Construct _
+  | Tuple _, (Tuple _ | Any)
+  | Record _, (Record _ | Any)
+  | Array _, Array _
+  | Variant _, Variant _
+  | Lazy, Lazy -> true
+  | _, (Any
+        | Constant (Const_int _ | Const_char _ | Const_string _ | Const_float _
+                    | Const_int32 _ | Const_int64 _ | Const_nativeint _)
+        | Construct _ | Tuple _ | Record _ | Array _ | Variant _ | Lazy) ->
+     false
 
 let is_or p =
   match p.pat_desc with
@@ -1041,8 +1128,8 @@ let equiv_pat p q = le_pat p q && le_pat q p
 
 let rec extract_equiv_head p l =
   match l with
-  | ((q :: _, _) as cl) :: rem ->
-      if equiv_pat p q then
+  | (((q, _), _) as cl) :: rem ->
+      if equiv_pat p (General.erase q) then
         let others, rem = extract_equiv_head p rem in
         (cl :: others, rem)
       else
@@ -1074,9 +1161,10 @@ module Or_matrix = struct
 
   let safe_below_or_matrix l (q, qs) =
     List.for_all
-      (function
-        | ({ pat_desc = Tpat_or _ } as p) :: ps, act_p ->
-            disjoint p q || safe_below (ps, act_p) qs
+      (fun ((p, ps), act_p) ->
+        let p = General.erase p in
+        match p.pat_desc with
+        | Tpat_or _ -> disjoint p q || safe_below (ps, act_p) qs
         | _ -> true)
       l
 
@@ -1086,25 +1174,26 @@ module Or_matrix = struct
 
      If neither are possible we add to the bottom of the No matrix.
    *)
-  let insert_or_append (p, ps, act) rev_ors rev_no =
+  let insert_or_append (head, ps, act) rev_ors rev_no =
     let safe_to_insert rem (p, ps) seen =
-      let _, not_e = extract_equiv_head p rem in
+      let _, not_e =
+        extract_equiv_head p rem
+      in
       (* check append condition for head of O *)
       safe_below_or_matrix not_e (p, ps)
       && (* check insert condition for tail of O *)
          List.for_all
-           (fun cl ->
-             match cl with
-             | q :: _, _ -> disjoint p q
-             | _ -> assert false)
+           (fun ((q, _), _) ->
+             disjoint p (General.erase q))
            seen
     in
     let rec attempt seen = function
       (* invariant: the new clause is safe to append at the end of
          [seen] (but maybe not [rem] yet) *)
-      | [] -> ((p :: ps, act) :: rev_ors, rev_no)
-      | ([], _act) :: _ -> assert false
-      | ((q :: qs, act_q) as cl) :: rem ->
+      | [] -> (((head, ps), act) :: rev_ors, rev_no)
+      | (((q, qs), act_q) as cl) :: rem ->
+          let p = General.erase head in
+          let q = General.erase q in
           if (not (is_or q)) || disjoint p q then
             attempt (cl :: seen) rem
           else if
@@ -1114,21 +1203,22 @@ module Or_matrix = struct
           then
             (* attempt insertion, for equivalent orpats with no variables *)
             if safe_to_insert rem (p, ps) seen then
-              (List.rev_append seen ((p :: ps, act) :: cl :: rem), rev_no)
+              (List.rev_append seen (((head, ps), act) :: cl :: rem), rev_no)
             else
               (* fail to insert or append *)
-              (rev_ors, (p :: ps, act) :: rev_no)
+              (rev_ors, ((head, ps), act) :: rev_no)
           else if safe_below (qs, act_q) ps then
             attempt (cl :: seen) rem
           else
-            (rev_ors, (p :: ps, act) :: rev_no)
+            (rev_ors, ((head, ps), act) :: rev_no)
     in
     attempt [] rev_ors
 end
 
 (* Reconstruct default information from half_compiled  pm list *)
 
-let as_matrix cases = get_mins le_pats (List.map (fun (ps, _) -> ps) cases)
+let as_matrix cases =
+  get_mins le_pats (List.map (fun ((p, ps), _) -> General.erase p :: ps) cases)
 
 (*
   Split a matching along the first column.
@@ -1143,7 +1233,7 @@ let as_matrix cases = get_mins le_pats (List.map (fun (ps, _) -> ps) cases)
     Some precompilation of or-patterns and
     variable pattern occurs. Mostly this means that bindings
     are performed now,  being replaced by let-bindings
-    in actions (cf. half_simplify_cases).
+    in actions (cf. Half_simple.of_clause).
 
     Additionally, if the match argument is a variable, matchings whose
     first column is made of variables only are split further
@@ -1175,22 +1265,24 @@ let as_matrix cases = get_mins le_pats (List.map (fun (ps, _) -> ps) cases)
 
 *)
 
-let rec split_or argo cls args def =
-  let cls = half_simplify_cases args cls in
-  let rec do_split rev_before rev_ors rev_no = function
+let rec split_or argo (cls : Half_simple.clause list) args def =
+  let rec do_split (rev_before : Simple.clause list) rev_ors rev_no = function
     | [] ->
         cons_next (List.rev rev_before) (List.rev rev_ors) (List.rev rev_no)
-    | ((p :: ps, act) as cl) :: rem ->
-        if not (safe_before cl rev_no) then
-          do_split rev_before rev_ors (cl :: rev_no) rem
-        else if (not (is_or p)) && safe_before cl rev_ors then
-          do_split (cl :: rev_before) rev_ors rev_no rem
-        else
-          let rev_ors, rev_no =
-            Or_matrix.insert_or_append (p, ps, act) rev_ors rev_no
-          in
-          do_split rev_before rev_ors rev_no rem
-    | _ -> assert false
+    | cl :: rem when not (safe_before cl rev_no) ->
+       do_split rev_before rev_ors (cl :: rev_no) rem
+    | (((p, ps), act) as cl) :: rem -> (
+       match p.pat_desc with
+         | #simple_view as view when safe_before cl rev_ors ->
+            do_split
+              ((({ p with pat_desc = view }, ps), act) :: rev_before)
+              rev_ors rev_no rem
+         | _ ->
+            let rev_ors, rev_no =
+              Or_matrix.insert_or_append (p, ps, act) rev_ors rev_no
+            in
+            do_split rev_before rev_ors rev_no rem
+    )
   and cons_next yes yesor no =
     let def, nexts =
       match no with
@@ -1222,13 +1314,12 @@ and split_no_or cls args def k =
      (where it is not always possible to syntactically decide whether two
      different heads match different values), but this is handled by the
      [can_group] function. *)
-  let rec split cls =
+  let rec split (cls : Simple.clause list) =
     let discr = what_is_first_case cls in
     collect discr [] [] cls
   and collect group_discr rev_yes rev_no = function
-    | ([], _) :: _ -> assert false
-    | [ ((ps, _) as cl) ] when rev_yes <> [] && List.for_all heads_are_var ps
-      ->
+    | [ (((p, ps), _) as cl) ]
+      when rev_yes <> [] && group_var p && List.for_all heads_are_var ps ->
         (* This enables an extra division in some frequent cases:
                last row is made of variables only
 
@@ -1240,7 +1331,7 @@ and split_no_or cls args def k =
            This optimisation is tested in the first part of
            testsuite/tests/basic/patmatch_split_no_or.ml *)
         collect group_discr rev_yes (cl :: rev_no) []
-    | ((p :: _, _) as cl) :: rem ->
+    | (((p, _), _) as cl) :: rem ->
         if can_group group_discr p && safe_before cl rev_no then
           collect group_discr (cl :: rev_yes) rev_no rem
         else if should_split group_discr then (
@@ -1253,11 +1344,9 @@ and split_no_or cls args def k =
         let yes = List.rev rev_yes and no = List.rev rev_no in
         insert_split group_discr yes no def k
   and insert_split group_discr yes no def k =
-    let precompile_group =
-      if group_var group_discr then
-        precompile_var
-      else
-        do_not_precompile
+    let precompile_group = match Pattern_head.desc group_discr with
+        | Any -> precompile_var
+        | _ -> do_not_precompile
     in
     match no with
     | [] -> precompile_group args yes def k
@@ -1268,8 +1357,8 @@ and split_no_or cls args def k =
           (Default_environment.cons matrix idef def)
           ((idef, next) :: nexts)
   and should_split group_discr =
-    match group_discr.pat_desc with
-    | Tpat_construct (_, { cstr_tag = Cstr_extension _ }, _) ->
+    match Pattern_head.desc group_discr with
+    | Construct { cstr_tag = Cstr_extension _ } ->
         (* it is unlikely that we will raise anything, so we split now *)
         true
     | _ -> false
@@ -1292,18 +1381,19 @@ and precompile_var args cls def k =
           do_not_precompile args cls def k
       | _ -> (
           (* Precompile *)
+          let var_args = arg :: rargs in
           let var_cls =
             List.map
-              (fun (ps, act) ->
-                match ps with
-                | p :: ps ->
-                    assert (group_var p);
-                    (ps, act)
-                | _ -> assert false)
+              (fun ((p, ps), act) ->
+                assert (group_var p);
+                (* we learned by pattern-matching on [args]
+                   that [p::ps] has at least two arguments,
+                   so [ps] must be non-empty *)
+                half_simplify_clause var_args (ps, act))
               cls
           and var_def = Default_environment.pop_column def in
           let { me = first; matrix }, nexts =
-            split_or (Some v) var_cls (arg :: rargs) var_def
+            split_or (Some v) var_cls var_args var_def
           in
           (* Compute top information *)
           match nexts with
@@ -1354,55 +1444,64 @@ and do_not_precompile args cls def k =
     },
     k )
 
-and precompile_or argo cls ors args def k =
+and precompile_or argo (cls : Simple.clause list) ors args def k =
   let rec do_cases = function
-    | (({ pat_desc = Tpat_or _ } as orp) :: patl, action) :: rem ->
-        let others, rem = extract_equiv_head orp rem in
-        let orpm =
-          { cases =
-              (patl, action)
-              :: List.map
-                   (function
-                     | _ :: ps, action -> (ps, action)
-                     | _ -> assert false)
-                   others;
-            args =
-              ( match args with
-              | _ :: r -> r
-              | _ -> assert false
-              );
-            default = Default_environment.pop_compat orp def
-          }
-        in
-        let pm_fv = pm_free_variables orpm in
-        let vars =
-          (* bound variables of the or-pattern and used in the orpm actions *)
-          Typedtree.pat_bound_idents_full orp
-          |> List.filter (fun (id, _, _) -> Ident.Set.mem id pm_fv)
-          |> List.map (fun (id, _, ty) ->
-                 (id, Typeopt.value_kind orp.pat_env ty))
-        in
-        let or_num = next_raise_count () in
-        let new_patl = Parmatch.omega_list patl in
-        let mk_new_action vs =
-          Lstaticraise (or_num, List.map (fun v -> Lvar v) vs)
-        in
-        let rem_cases, rem_handlers = do_cases rem in
-        let cases =
-          explode_or_pat orp argo new_patl mk_new_action (List.map fst vars) []
-            rem_cases
-        in
-        let handler =
-          { provenance = [ [ orp ] ]; exit = or_num; vars; pm = orpm }
-        in
-        (cases, handler :: rem_handlers)
-    | cl :: rem ->
-        let new_ord, new_to_catch = do_cases rem in
-        (cl :: new_ord, new_to_catch)
     | [] -> ([], [])
+    | ((p, patl), action) :: rem -> (
+        match p.pat_desc with
+        | #simple_view as view ->
+            let new_ord, new_to_catch = do_cases rem in
+            ((({ p with pat_desc = view }, patl), action) :: new_ord, new_to_catch)
+        | `Or _ ->
+            let orp = General.erase p in
+            let others, rem =
+              extract_equiv_head orp rem
+            in
+            let orpm =
+              { cases =
+                  (patl, action)
+                  :: List.map (fun ((_, ps), action) -> (ps, action)) others;
+                args =
+                  ( match args with
+                  | _ :: r -> r
+                  | _ -> assert false
+                  );
+                default = Default_environment.pop_compat orp def
+              }
+            in
+            let pm_fv = pm_free_variables orpm in
+            let vars =
+              (* bound variables of the or-pattern and used in the orpm actions *)
+              Typedtree.pat_bound_idents_full orp
+              |> List.filter (fun (id, _, _) -> Ident.Set.mem id pm_fv)
+              |> List.map (fun (id, _, ty) ->
+                     (id, Typeopt.value_kind orp.pat_env ty))
+            in
+            let or_num = next_raise_count () in
+            let new_patl = Parmatch.omega_list patl in
+            let mk_new_action ~vars =
+              Lstaticraise (or_num, List.map (fun v -> Lvar v) vars)
+            in
+            let rem_cases, rem_handlers = do_cases rem in
+            let cases =
+              Simple.explode_or_pat (p, new_patl) ~arg:argo
+                ~mk_action:mk_new_action ~vars:(List.map fst vars) rem_cases
+            in
+            let handler =
+              { provenance = [ [ orp (* FIXME? *) ] ];
+                exit = or_num;
+                vars;
+                pm = orpm
+              }
+            in
+            (cases, handler :: rem_handlers)
+      )
   in
   let cases, handlers = do_cases ors in
-  let matrix = as_matrix (cls @ ors)
+  let matrix =
+    as_matrix
+      ((cls : Simple.clause list :> General.clause list)
+       @ (ors : Half_simple.clause list :> General.clause list))
   and body = { cases = cls @ cases; args; default = def } in
   ( { me = PmOr { body; handlers; or_matrix = matrix };
       matrix;
@@ -1410,8 +1509,7 @@ and precompile_or argo cls ors args def k =
     },
     k )
 
-let split_and_precompile argo pm =
-  let { me = next }, nexts = split_or argo pm.cases pm.args pm.default in
+let dbg_split_and_precompile pm next nexts =
   if
     dbg
     && (nexts <> []
@@ -1422,14 +1520,32 @@ let split_and_precompile argo pm =
        )
   then (
     Format.eprintf "** SPLIT **\n";
-    pretty_pm pm;
+    pretty_hc_pm pm;
     pretty_precompiled_res next nexts
-  );
+  )
+
+let split_and_precompile_simplified pm =
+  let { me = next }, nexts = split_no_or pm.cases pm.args pm.default [] in
+  dbg_split_and_precompile pm next nexts;
   (next, nexts)
+
+let split_and_precompile_half_simplified argo pm =
+  let { me = next }, nexts = split_or argo pm.cases pm.args pm.default in
+  dbg_split_and_precompile pm next nexts;
+  (next, nexts)
+
+let split_and_precompile argo pm =
+  let pm =
+    { pm with cases = List.map (half_simplify_clause pm.args) pm.cases } in
+  split_and_precompile_half_simplified argo pm
 
 (* General divide functions *)
 
-type cell = { pm : pattern_matching; ctx : Context.t; discr : pattern }
+type cell = {
+  pm : initial_clause pattern_matching;
+  ctx : Context.t;
+  discr : pattern
+}
 (** a submatrix after specializing by discriminant pattern;
     [ctx] is the context shared by all rows. *)
 
@@ -1451,14 +1567,13 @@ let add_in_div make_matching_fun eq_key key patl_action division =
   in
   { division with cells }
 
-let divide make eq_key get_key get_args ctx (pm : pattern_matching) =
-  let add clause division =
-    match clause with
-    | [], _ -> assert false
-    | p :: patl, action ->
-        add_in_div (make p pm.default ctx) eq_key (get_key p)
-          (get_args p patl, action)
-          division
+let divide make eq_key get_key get_args ctx
+    (pm : Simple.clause pattern_matching) =
+  let add ((p, patl), action) division =
+    let p = General.erase p in
+    add_in_div (make p pm.default ctx) eq_key (get_key p)
+      (get_args p patl, action)
+      division
   in
   List.fold_right add pm.cases { args = pm.args; cells = [] }
 
@@ -1466,11 +1581,11 @@ let add_line patl_action pm =
   pm.cases <- patl_action :: pm.cases;
   pm
 
-let divide_line make_ctx make get_args discr ctx (pm : pattern_matching) =
-  let add clause submatrix =
-    match clause with
-    | [], _ -> assert false
-    | p :: patl, action -> add_line (get_args p patl, action) submatrix
+let divide_line make_ctx make get_args discr ctx
+    (pm : Simple.clause pattern_matching) =
+  let add ((p, patl), action) submatrix =
+    let p = General.erase p in
+    add_line (get_args p patl, action) submatrix
   in
   let pm = List.fold_right add pm.cases (make pm.default pm.args) in
   { pm; ctx = make_ctx ctx; discr }
@@ -1689,11 +1804,12 @@ let make_variant_matching_nonconst p lab def ctx = function
 let divide_variant row ctx { cases = cl; args; default = def } =
   let row = Btype.row_repr row in
   let rec divide = function
-    | (({ pat_desc = Tpat_variant (lab, pato, _) } as p) :: patl, action)
-      :: rem -> (
+    | (({ pat_desc = `Variant (lab, pato, _) } as p, patl), action) :: rem -> (
+        let p = General.erase p in
         let variants = divide rem in
         if
-          try Btype.row_field_repr (List.assoc lab row.row_fields) = Rabsent
+          try
+            Btype.row_field_repr (List.assoc lab row.row_fields) = Rabsent
           with Not_found -> true
         then
           variants
@@ -1711,7 +1827,8 @@ let divide_variant row ctx { cases = cl; args; default = def } =
                 (pat :: patl, action)
                 variants
       )
-    | _ -> { args; cells = [] }
+    | _ ->
+        { args; cells = [] }
   in
   divide cl
 
@@ -2669,7 +2786,7 @@ let split_extension_cases tag_lambda_list =
   in
   split_rec tag_lambda_list
 
-let combine_constructor loc arg ex_pat cstr partial ctx def
+let combine_constructor loc arg pat_env cstr partial ctx def
     (tag_lambda_list, total1, pats) =
   match cstr.cstr_tag with
   | Cstr_extension _ ->
@@ -2695,7 +2812,7 @@ let combine_constructor loc arg ex_pat cstr partial ctx def
               let tests =
                 List.fold_right
                   (fun (path, act) rem ->
-                    let ext = transl_extension_path loc ex_pat.pat_env path in
+                    let ext = transl_extension_path loc pat_env path in
                     Lifthenelse
                       (Lprim (Pintcomp Ceq, [ Lvar tag; ext ], loc), act, rem))
                   nonconsts default
@@ -2704,7 +2821,7 @@ let combine_constructor loc arg ex_pat cstr partial ctx def
         in
         List.fold_right
           (fun (path, act) rem ->
-            let ext = transl_extension_path loc ex_pat.pat_env path in
+            let ext = transl_extension_path loc pat_env path in
             Lifthenelse (Lprim (Pintcomp Ceq, [ arg; ext ], loc), act, rem))
           consts nonconst_lambda
       in
@@ -3046,7 +3163,7 @@ let rec comp_match_handlers comp_fun partial ctx first_match next_matchs =
 (* To find reasonable names for variables *)
 
 let rec name_pattern default = function
-  | (pat :: _, _) :: rem -> (
+  | ((pat, _), _) :: rem -> (
       match pat.pat_desc with
       | Tpat_var (id, _) -> id
       | Tpat_alias (_, id, _) -> id
@@ -3072,10 +3189,9 @@ let arg_to_var arg cls =
    Output: a lambda term, a jump summary {..., exit number -> context, .. }
 *)
 
-let rec compile_match repr partial ctx (m : pattern_matching) =
-  match m with
-  | { cases = []; args = [] } -> comp_exit ctx m
-  | { cases = ([], action) :: rem } ->
+let rec compile_match repr partial ctx (m : initial_clause pattern_matching) =
+  match m.cases with
+  | ([], action) :: rem ->
       if is_guarded action then
         let lambda, total =
           compile_match None partial ctx { m with cases = rem }
@@ -3083,23 +3199,49 @@ let rec compile_match repr partial ctx (m : pattern_matching) =
         (event_branch repr (patch_guarded lambda action), total)
       else
         (event_branch repr action, Jumps.empty)
+  | nonempty_cases ->
+     compile_match_nonempty repr partial ctx
+       { m with cases = List.map Non_empty_clause.of_initial nonempty_cases }
+
+and compile_match_nonempty repr partial ctx
+    (m : Typedtree.pattern Non_empty_clause.t pattern_matching) =
+  match m with
+  | { cases = []; args = [] } -> comp_exit ctx m
   | { args = (arg, str) :: argl } ->
       let v, newarg = arg_to_var arg m.cases in
-      let first_match, rem =
-        split_and_precompile (Some v) { m with args = (newarg, Alias) :: argl }
-      in
-      let lam, total =
-        comp_match_handlers
-          (( if dbg then
-             do_compile_matching_pr
-           else
-             do_compile_matching
-           )
-             repr)
-          partial ctx first_match rem
-      in
-      (bind_check str v arg lam, total)
+      let args = (newarg, Alias) :: argl in
+      let cases = List.map (half_simplify_nonempty args) m.cases in
+      let m = { m with args; cases } in
+      let first_match, rem = split_and_precompile_half_simplified (Some v) m in
+      combine_handlers
+        repr partial ctx (v, str, arg) first_match rem
   | _ -> assert false
+
+and compile_match_simplified repr partial ctx
+    (m : Simple.clause pattern_matching) =
+  match m with
+  | { cases = []; args = [] } -> comp_exit ctx m
+  | { args = ((Lvar v as arg), str) :: argl } ->
+      let args = (arg, Alias) :: argl in
+      let m = { m with args } in
+      let first_match, rem = split_and_precompile_simplified m in
+      combine_handlers
+        repr partial ctx (v, str, arg) first_match rem
+  | _ -> assert false
+
+and combine_handlers repr partial ctx (v, str, arg) first_match rem =
+  let lam, total =
+    comp_match_handlers
+      (( if dbg then
+           do_compile_matching_pr
+         else
+           do_compile_matching
+       )
+         repr)
+      partial ctx first_match rem
+  in
+  (bind_check str v arg lam, total)
+
 
 (* verbose version of do_compile_matching, for debug *)
 and do_compile_matching_pr repr partial ctx x =
@@ -3132,48 +3274,51 @@ and do_compile_matching repr partial ctx pmh =
             *)
             assert false
       in
-      let pat = what_is_cases pm.cases in
-      match pat.pat_desc with
-      | Tpat_any ->
+      let ph = what_is_cases pm.cases in
+      let pomega = Pattern_head.to_omega_pattern ph in
+      let ploc = Pattern_head.loc ph in
+      match Pattern_head.desc ph with
+      | Any ->
           compile_no_test divide_var Context.rshift repr partial ctx pm
-      | Tpat_tuple patl ->
+      | Tuple l ->
           compile_no_test
-            (divide_tuple (List.length patl) (normalize_pat pat))
+            (divide_tuple l pomega)
             Context.combine repr partial ctx pm
-      | Tpat_record ((_, lbl, _) :: _, _) ->
+      | Record [] -> assert false
+      | Record (lbl :: _) ->
           compile_no_test
-            (divide_record lbl.lbl_all (normalize_pat pat))
+            (divide_record lbl.lbl_all pomega)
             Context.combine repr partial ctx pm
-      | Tpat_constant cst ->
+      | Constant cst ->
           compile_test
             (compile_match repr partial)
             partial divide_constant
-            (combine_constant pat.pat_loc arg cst partial)
+            (combine_constant ploc arg cst partial)
             ctx pm
-      | Tpat_construct (_, cstr, _) ->
+      | Construct cstr ->
           compile_test
             (compile_match repr partial)
             partial divide_constructor
-            (combine_constructor pat.pat_loc arg pat cstr partial)
+            (combine_constructor
+               ploc arg (Pattern_head.env ph) cstr partial)
             ctx pm
-      | Tpat_array _ ->
-          let kind = Typeopt.array_pattern_kind pat in
+      | Array _ ->
+          let kind = Typeopt.array_pattern_kind pomega in
           compile_test
             (compile_match repr partial)
             partial (divide_array kind)
-            (combine_array pat.pat_loc arg kind partial)
+            (combine_array ploc arg kind partial)
             ctx pm
-      | Tpat_lazy _ ->
+      | Lazy ->
           compile_no_test
-            (divide_lazy (normalize_pat pat))
+            (divide_lazy pomega)
             Context.combine repr partial ctx pm
-      | Tpat_variant (_, _, row) ->
+      | Variant { cstr_row = row } ->
           compile_test
             (compile_match repr partial)
             partial (divide_variant !row)
-            (combine_variant pat.pat_loc !row arg partial)
+            (combine_variant ploc !row arg partial)
             ctx pm
-      | _ -> assert false
     )
   | PmVar { inside = pmh } ->
       let lam, total =
@@ -3181,7 +3326,7 @@ and do_compile_matching repr partial ctx pmh =
       in
       (lam, Jumps.map Context.rshift total)
   | PmOr { body; handlers } ->
-      let lam, total = compile_match repr partial ctx body in
+      let lam, total = compile_match_simplified repr partial ctx body in
       compile_orhandlers (compile_match repr partial) lam total ctx handlers
 
 and compile_no_test divide up_ctx repr partial ctx to_match =
@@ -3533,10 +3678,13 @@ let flatten_pattern size p =
 
 let flatten_cases size cases =
   List.map
-    (fun (ps, action) ->
-      match ps with
-      | [ p ] -> (flatten_pattern size p, action)
-      | _ -> fatal_error "Matching.flatten_case")
+    (function
+      | (p, []), action -> (
+          match flatten_pattern size (General.erase p) with
+          | p :: ps -> ((p, ps), action)
+          | [] -> assert false
+        )
+      | _ -> fatal_error "Matching.flatten_hc_cases")
     cases
 
 let flatten_pm size args pm =
@@ -3548,11 +3696,15 @@ let flatten_pm size args pm =
 let flatten_handler size handler =
   { handler with provenance = flatten_matrix size handler.provenance }
 
+type pm_flattened =
+  | FPmOr of pattern pm_or_compiled
+  | FPm of pattern Non_empty_clause.t pattern_matching
+
 let flatten_precompiled size args pmh =
   match pmh with
-  | Pm pm -> Pm (flatten_pm size args pm)
+  | Pm pm -> FPm (flatten_pm size args pm)
   | PmOr { body = b; handlers = hs; or_matrix = m } ->
-      PmOr
+      FPmOr
         { body = flatten_pm size args b;
           handlers = List.map (flatten_handler size) hs;
           or_matrix = flatten_matrix size m
@@ -3566,11 +3718,10 @@ let flatten_precompiled size args pmh =
 
 let compile_flattened repr partial ctx pmh =
   match pmh with
-  | Pm pm -> compile_match repr partial ctx pm
-  | PmOr { body = b; handlers = hs } ->
-      let lam, total = compile_match repr partial ctx b in
+  | FPm pm -> compile_match_nonempty repr partial ctx pm
+  | FPmOr { body = b; handlers = hs } ->
+      let lam, total = compile_match_nonempty repr partial ctx b in
       compile_orhandlers (compile_match repr partial) lam total ctx hs
-  | PmVar _ -> assert false
 
 let do_for_multiple_match loc paraml pat_act_list partial =
   let repr = None in
