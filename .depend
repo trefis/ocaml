@@ -768,6 +768,7 @@ typing/parmatch.cmo : \
     typing/subst.cmi \
     typing/printpat.cmi \
     typing/predef.cmi \
+    typing/patterns.cmi \
     typing/path.cmi \
     parsing/parsetree.cmi \
     utils/misc.cmi \
@@ -790,6 +791,7 @@ typing/parmatch.cmx : \
     typing/subst.cmx \
     typing/printpat.cmx \
     typing/predef.cmx \
+    typing/patterns.cmx \
     typing/path.cmx \
     parsing/parsetree.cmi \
     utils/misc.cmx \
@@ -818,6 +820,50 @@ typing/path.cmx : \
     typing/path.cmi
 typing/path.cmi : \
     typing/ident.cmi
+typing/patterns.cmo : \
+    typing/types.cmi \
+    typing/typedtree.cmi \
+    parsing/longident.cmi \
+    parsing/location.cmi \
+    typing/env.cmi \
+    typing/ctype.cmi \
+    typing/btype.cmi \
+    parsing/asttypes.cmi \
+    typing/patterns.cmi
+typing/patterns.cmx : \
+    typing/types.cmx \
+    typing/typedtree.cmx \
+    parsing/longident.cmx \
+    parsing/location.cmx \
+    typing/env.cmx \
+    typing/ctype.cmx \
+    typing/btype.cmx \
+    parsing/asttypes.cmi \
+    typing/patterns.cmi
+typing/patterns.cmi : \
+    typing/types.cmi \
+    typing/typedtree.cmi \
+    parsing/location.cmi \
+    typing/env.cmi \
+    parsing/asttypes.cmi
+typing/pattypes.cmo : \
+    typing/types.cmi \
+    typing/typedtree.cmi \
+    parsing/longident.cmi \
+    parsing/location.cmi \
+    typing/env.cmi \
+    typing/ctype.cmi \
+    typing/btype.cmi \
+    parsing/asttypes.cmi
+typing/pattypes.cmx : \
+    typing/types.cmx \
+    typing/typedtree.cmx \
+    parsing/longident.cmx \
+    parsing/location.cmx \
+    typing/env.cmx \
+    typing/ctype.cmx \
+    typing/btype.cmx \
+    parsing/asttypes.cmi
 typing/predef.cmo : \
     typing/types.cmi \
     typing/path.cmi \
@@ -1665,7 +1711,7 @@ bytecomp/bytelibrarian.cmi :
 bytecomp/bytelink.cmo : \
     utils/warnings.cmi \
     bytecomp/symtable.cmi \
-    bytecomp/opcodes.cmo \
+    bytecomp/opcodes.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
@@ -1766,7 +1812,7 @@ bytecomp/dll.cmi :
 bytecomp/emitcode.cmo : \
     bytecomp/translmod.cmi \
     typing/primitive.cmi \
-    bytecomp/opcodes.cmo \
+    bytecomp/opcodes.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
     bytecomp/lambda.cmi \
@@ -1864,6 +1910,7 @@ bytecomp/matching.cmo : \
     bytecomp/printlambda.cmi \
     typing/primitive.cmi \
     typing/predef.cmi \
+    typing/patterns.cmi \
     typing/parmatch.cmi \
     utils/misc.cmi \
     parsing/longident.cmi \
@@ -1884,6 +1931,7 @@ bytecomp/matching.cmx : \
     bytecomp/printlambda.cmx \
     typing/primitive.cmx \
     typing/predef.cmx \
+    typing/patterns.cmx \
     typing/parmatch.cmx \
     utils/misc.cmx \
     parsing/longident.cmx \
@@ -1908,8 +1956,11 @@ bytecomp/meta.cmx : \
     bytecomp/meta.cmi
 bytecomp/meta.cmi : \
     bytecomp/instruct.cmi
-bytecomp/opcodes.cmo :
-bytecomp/opcodes.cmx :
+bytecomp/opcodes.cmo : \
+    bytecomp/opcodes.cmi
+bytecomp/opcodes.cmx : \
+    bytecomp/opcodes.cmi
+bytecomp/opcodes.cmi :
 bytecomp/printinstr.cmo : \
     bytecomp/printlambda.cmi \
     parsing/location.cmi \
@@ -5907,7 +5958,7 @@ toplevel/topdirs.cmo : \
     typing/predef.cmi \
     typing/path.cmi \
     parsing/parsetree.cmi \
-    bytecomp/opcodes.cmo \
+    bytecomp/opcodes.cmi \
     utils/misc.cmi \
     bytecomp/meta.cmi \
     parsing/longident.cmi \
@@ -6120,7 +6171,7 @@ driver/compdynlink.cmx : \
     driver/compdynlink.cmi
 driver/compdynlink.cmo : \
     bytecomp/symtable.cmi \
-    bytecomp/opcodes.cmo \
+    bytecomp/opcodes.cmi \
     utils/misc.cmi \
     bytecomp/meta.cmi \
     typing/ident.cmi \
