@@ -132,7 +132,7 @@ let all_record_args lbls =
   | (_, { lbl_all }, _) :: _ ->
       let t =
         Array.map
-          (fun lbl -> (mknoloc (Longident.Lident "?temp?"), lbl, omega))
+          (fun lbl -> (mknoloc (Longident.Lident "?temp?"), lbl, Patterns.omega))
           lbl_all
       in
       List.iter (fun ((_, lbl, _) as x) -> t.(lbl.lbl_pos) <- x) lbls;
@@ -149,7 +149,7 @@ module Non_empty_clause = struct
     | [], _ -> assert false
     | pat :: patl, act -> ((pat, patl), act)
 
-  let map_head f ((p, patl), act) = ((f p, patl), act)
+  let map_first f ((p, patl), act) = ((f p, patl), act)
 end
 
 type simple_view = [
@@ -287,7 +287,7 @@ end = struct
         (({ p with pat_desc = view }, patl), action) in
       match p.pat_desc with
       | `Any -> stop p `Any
-      | `Var (id, s) -> continue p (`Alias (omega, id, s))
+      | `Var (id, s) -> continue p (`Alias (Patterns.omega, id, s))
       | `Alias (p, id, _) ->
           let arg =
             match args with
@@ -321,7 +321,7 @@ module Simple : sig
   type pattern = simple_view pattern_
   type clause = pattern Non_empty_clause.t
 
-  val head : pattern -> Pattern_head.t
+  val head : pattern -> Patterns.Head.t
 
   val explode_or_pat :
     Half_simple.pattern * Typedtree.pattern list ->
@@ -335,7 +335,7 @@ end = struct
   type clause = pattern Non_empty_clause.t
 
   let head p =
-    fst (Pattern_head.deconstruct (General.erase (p :> General.pattern)))
+    fst (Patterns.Head.deconstruct (General.erase (p :> General.pattern)))
 
   let alpha env (p : pattern) : pattern =
     let alpha_pat env p = Typedtree.alpha_pat env p in
@@ -379,7 +379,7 @@ end = struct
          split_explode p (id :: aliases) rem
       | `Var (id, str) ->
          explode
-           { p with pat_desc = `Alias (Parmatch.omega, id, str) } aliases rem
+           { p with pat_desc = `Alias (Patterns.omega, id, str) } aliases rem
       | #simple_view as view ->
          let env = mk_alpha_env arg aliases vars in
          ((alpha env { p with pat_desc = view }, patl),
@@ -392,7 +392,7 @@ type initial_clause = pattern list clause
 
 type matrix = pattern list list
 
-let add_omega_column pss = List.map (fun ps -> omega :: ps) pss
+let add_omega_column pss = List.map (fun ps -> Patterns.omega :: ps) pss
 
 let rec rev_split_at n ps =
   if n <= 0 then
@@ -454,7 +454,7 @@ end = struct
 
     let lforget { left; right } =
       match right with
-      | _ :: xs -> { left = omega :: left; right = xs }
+      | _ :: xs -> { left = Patterns.omega :: left; right = xs }
       | _ -> assert false
 
     let rshift { left; right } =
@@ -479,7 +479,7 @@ end = struct
 
   let empty = []
 
-  let start n : t = [ { left = []; right = omegas n } ]
+  let start n : t = [ { left = []; right = Patterns.omegas n } ]
 
   let is_empty = function
     | [] -> true
@@ -507,16 +507,16 @@ end = struct
            {p with pat_desc = Tpat_record (all_record_args l, Closed)}
         | Tpat_alias (p, _, _) -> expand_record p
         | _ -> p in
-    let ph, omegas =
-      let ph, p_args = Pattern_head.deconstruct (expand_record p) in
-      ph, List.map (fun _ -> omega) p_args in
-    let qh, args = Pattern_head.deconstruct (expand_record q) in
+    let ph, omega_args =
+      let ph, p_args = Patterns.Head.deconstruct (expand_record p) in
+      ph, Patterns.omega_list p_args in
+    let qh, args = Patterns.Head.deconstruct (expand_record q) in
     let yes () = (p, args @ rem) in
     let no () = raise NoMatch in
     let yesif b = if b then yes () else no () in
-    match Pattern_head.desc ph, Pattern_head.desc qh with
+    match Patterns.Head.desc ph, Patterns.Head.desc qh with
       | Any, _ -> fatal_error "Matching.Context.matcher"
-      | _, Any -> (p, omegas @ rem)
+      | _, Any -> (p, omega_args @ rem)
 
       | Construct cstr, Construct cstr' ->
          (* NB: may_equal_constr considers (potential) constructor rebinding *)
@@ -562,7 +562,7 @@ end = struct
                 )
           | Tpat_alias (p, _, _) ->
               filter_rec ({ l with right = p :: ps } :: rem)
-          | Tpat_var _ -> filter_rec ({ l with right = omega :: ps } :: rem)
+          | Tpat_var _ -> filter_rec ({ l with right = Patterns.omega :: ps } :: rem)
           | _ -> (
               let rem = filter_rec rem in
               try
@@ -609,7 +609,7 @@ exception OrPat
 
 let rec flatten_pat_line size p k =
   match p.pat_desc with
-  | Tpat_any -> omegas size :: k
+  | Tpat_any -> Patterns.omegas size :: k
   | Tpat_tuple args -> args :: k
   | Tpat_or (p1, p2, _) ->
       flatten_pat_line size p1 (flatten_pat_line size p2 k)
@@ -687,7 +687,7 @@ end = struct
       | (p :: ps) :: rem -> (
           match p.pat_desc with
           | Tpat_alias (p, _, _) -> filter_rec ((p :: ps) :: rem)
-          | Tpat_var _ -> filter_rec ((omega :: ps) :: rem)
+          | Tpat_var _ -> filter_rec ((Patterns.omega :: ps) :: rem)
           | _ -> (
               let rem = filter_rec rem in
               try matcher p ps :: rem with
@@ -1040,7 +1040,7 @@ let safe_before ((p, ps), act_p) l =
 let half_simplify_nonempty
       args (cls : Typedtree.pattern Non_empty_clause.t) : Half_simple.clause =
   cls
-  |> Non_empty_clause.map_head General.view
+  |> Non_empty_clause.map_first General.view
   |> Half_simple.of_clause ~args
 
 let half_simplify_clause args (cls : Typedtree.pattern list clause) =
@@ -1053,10 +1053,10 @@ let half_simplify_clause args (cls : Typedtree.pattern list clause) =
 
 let rec what_is_cases ~skip_any cases =
   match cases with
-  | [] -> Pattern_head.omega
+  | [] -> Patterns.Head.omega
   | ((p, _), _) :: rem -> (
       let head = Simple.head p in
-      match Pattern_head.desc head with
+      match Patterns.Head.desc head with
       | Any when skip_any -> what_is_cases ~skip_any rem
       | _ -> head
     )
@@ -1075,12 +1075,12 @@ let pat_as_constr = function
   | _ -> fatal_error "Matching.pat_as_constr"
 
 and group_var p =
-  match Pattern_head.desc (Simple.head p) with
+  match Patterns.Head.desc (Simple.head p) with
   | Any -> true
   | _ -> false
 
 let can_group discr pat =
-  match Pattern_head.desc discr, Pattern_head.desc (Simple.head pat) with
+  match Patterns.Head.desc discr, Patterns.Head.desc (Simple.head pat) with
   | Any, Any
   | Constant (Const_int _), Constant (Const_int _)
   | Constant (Const_char _), Constant (Const_char _)
@@ -1344,7 +1344,7 @@ and split_no_or cls args def k =
         let yes = List.rev rev_yes and no = List.rev rev_no in
         insert_split group_discr yes no def k
   and insert_split group_discr yes no def k =
-    let precompile_group = match Pattern_head.desc group_discr with
+    let precompile_group = match Patterns.Head.desc group_discr with
         | Any -> precompile_var
         | _ -> do_not_precompile
     in
@@ -1357,7 +1357,7 @@ and split_no_or cls args def k =
           (Default_environment.cons matrix idef def)
           ((idef, next) :: nexts)
   and should_split group_discr =
-    match Pattern_head.desc group_discr with
+    match Patterns.Head.desc group_discr with
     | Construct { cstr_tag = Cstr_extension _ } ->
         (* it is unlikely that we will raise anything, so we split now *)
         true
@@ -1478,7 +1478,7 @@ and precompile_or argo (cls : Simple.clause list) ors args def k =
                      (id, Typeopt.value_kind orp.pat_env ty))
             in
             let or_num = next_raise_count () in
-            let new_patl = Parmatch.omega_list patl in
+            let new_patl = Patterns.omega_list patl in
             let mk_new_action ~vars =
               Lstaticraise (or_num, List.map (fun v -> Lvar v) vars)
             in
@@ -1709,7 +1709,7 @@ let matcher_constr cstr =
         | Tpat_construct (_, cstr', [ arg ])
           when Types.may_equal_constr cstr cstr' ->
             arg :: rem
-        | Tpat_any -> omega :: rem
+        | Tpat_any -> Patterns.omega :: rem
         | _ -> raise NoMatch
       in
       matcher_rec
@@ -1725,7 +1725,7 @@ let matcher_constr cstr =
         | Tpat_construct (_, cstr', args)
           when Types.may_equal_constr cstr cstr' ->
             args @ rem
-        | Tpat_any -> Parmatch.omegas cstr.cstr_arity @ rem
+        | Tpat_any -> Patterns.omegas cstr.cstr_arity @ rem
         | _ -> raise NoMatch
     )
 
@@ -1783,7 +1783,7 @@ let matcher_variant_nonconst lab p rem =
   match p.pat_desc with
   | Tpat_or (_, _, _) -> raise OrPat
   | Tpat_variant (lab1, Some arg, _) when lab1 = lab -> arg :: rem
-  | Tpat_any -> omega :: rem
+  | Tpat_any -> Patterns.omega :: rem
   | _ -> raise NoMatch
 
 let make_variant_matching_nonconst p lab def ctx = function
@@ -1848,13 +1848,13 @@ let make_var_matching def = function
       }
 
 let divide_var ctx pm =
-  divide_line Context.lshift make_var_matching get_args_var omega ctx pm
+  divide_line Context.lshift make_var_matching get_args_var Patterns.omega ctx pm
 
 (* Matching and forcing a lazy value *)
 
 let get_arg_lazy p rem =
   match p with
-  | { pat_desc = Tpat_any } -> omega :: rem
+  | { pat_desc = Tpat_any } -> Patterns.omega :: rem
   | { pat_desc = Tpat_lazy arg } -> arg :: rem
   | _ -> assert false
 
@@ -1863,7 +1863,7 @@ let matcher_lazy p rem =
   | Tpat_or (_, _, _) -> raise OrPat
   | Tpat_any
   | Tpat_var _ ->
-      omega :: rem
+      Patterns.omega :: rem
   | Tpat_lazy arg -> arg :: rem
   | _ -> raise NoMatch
 
@@ -2015,7 +2015,7 @@ let divide_lazy p ctx pm =
 
 let get_args_tuple arity p rem =
   match p with
-  | { pat_desc = Tpat_any } -> omegas arity @ rem
+  | { pat_desc = Tpat_any } -> Patterns.omegas arity @ rem
   | { pat_desc = Tpat_tuple args } -> args @ rem
   | _ -> assert false
 
@@ -2024,7 +2024,7 @@ let matcher_tuple arity p rem =
   | Tpat_or (_, _, _) -> raise OrPat
   | Tpat_any
   | Tpat_var _ ->
-      omegas arity @ rem
+      Patterns.omegas arity @ rem
   | Tpat_tuple args when List.length args = arity -> args @ rem
   | _ -> raise NoMatch
 
@@ -2050,7 +2050,7 @@ let divide_tuple arity p ctx pm =
 (* Matching against a record pattern *)
 
 let record_matching_line num_fields lbl_pat_list =
-  let patv = Array.make num_fields omega in
+  let patv = Array.make num_fields Patterns.omega in
   List.iter (fun (_, lbl, pat) -> patv.(lbl.lbl_pos) <- pat) lbl_pat_list;
   Array.to_list patv
 
@@ -2123,7 +2123,7 @@ let matcher_array len p rem =
   match p.pat_desc with
   | Tpat_or (_, _, _) -> raise OrPat
   | Tpat_array args when List.length args = len -> args @ rem
-  | Tpat_any -> Parmatch.omegas len @ rem
+  | Tpat_any -> Patterns.omegas len @ rem
   | _ -> raise NoMatch
 
 let make_array_matching kind p def ctx = function
@@ -3213,8 +3213,17 @@ and compile_match_nonempty repr partial ctx
       let cases = List.map (half_simplify_nonempty args) m.cases in
       let m = { m with args; cases } in
       let first_match, rem = split_and_precompile_half_simplified (Some v) m in
-      combine_handlers
-        repr partial ctx (v, str, arg) first_match rem
+      let lam, total =
+        comp_match_handlers
+          (( if dbg then
+             do_compile_matching_pr
+           else
+             do_compile_matching
+           )
+             repr)
+          partial ctx first_match rem
+      in
+      (bind_check str v arg lam, total)
   | _ -> assert false
 
 and compile_match_simplified repr partial ctx
@@ -3225,23 +3234,18 @@ and compile_match_simplified repr partial ctx
       let args = (arg, Alias) :: argl in
       let m = { m with args } in
       let first_match, rem = split_and_precompile_simplified m in
-      combine_handlers
-        repr partial ctx (v, str, arg) first_match rem
+      let lam, total =
+        comp_match_handlers
+          (( if dbg then
+             do_compile_matching_pr
+           else
+             do_compile_matching
+           )
+             repr)
+          partial ctx first_match rem
+      in
+      (bind_check str v arg lam, total)
   | _ -> assert false
-
-and combine_handlers repr partial ctx (v, str, arg) first_match rem =
-  let lam, total =
-    comp_match_handlers
-      (( if dbg then
-           do_compile_matching_pr
-         else
-           do_compile_matching
-       )
-         repr)
-      partial ctx first_match rem
-  in
-  (bind_check str v arg lam, total)
-
 
 (* verbose version of do_compile_matching, for debug *)
 and do_compile_matching_pr repr partial ctx x =
@@ -3275,9 +3279,9 @@ and do_compile_matching repr partial ctx pmh =
             assert false
       in
       let ph = what_is_cases pm.cases in
-      let pomega = Pattern_head.to_omega_pattern ph in
-      let ploc = Pattern_head.loc ph in
-      match Pattern_head.desc ph with
+      let pomega = Patterns.Head.to_omega_pattern ph in
+      let ploc = Patterns.Head.loc ph in
+      match Patterns.Head.desc ph with
       | Any ->
           compile_no_test divide_var Context.rshift repr partial ctx pm
       | Tuple l ->
@@ -3300,7 +3304,7 @@ and do_compile_matching repr partial ctx pmh =
             (compile_match repr partial)
             partial divide_constructor
             (combine_constructor
-               ploc arg (Pattern_head.env ph) cstr partial)
+               ploc arg (Patterns.Head.env ph) cstr partial)
             ctx pm
       | Array _ ->
           let kind = Typeopt.array_pattern_kind pomega in
@@ -3460,7 +3464,7 @@ let compile_matching repr handler_fun arg pat_act_list partial =
       let pm =
         { cases = List.map (fun (pat, act) -> ([ pat ], act)) pat_act_list;
           args = [ (arg, Strict) ];
-          default = Default_environment.(cons [ [ omega ] ] raise_num empty)
+          default = Default_environment.(cons [ [ Patterns.omega ] ] raise_num empty)
         }
       in
       try
@@ -3656,11 +3660,11 @@ let for_let loc param pat body =
 let for_tupled_function loc paraml pats_act_list partial =
   let partial = check_partial_list pats_act_list partial in
   let raise_num = next_raise_count () in
-  let omegas = [ List.map (fun _ -> omega) paraml ] in
+  let omega_params = [ Patterns.omega_list paraml ] in
   let pm =
     { cases = pats_act_list;
       args = List.map (fun id -> (Lvar id, Strict)) paraml;
-      default = Default_environment.(cons omegas raise_num empty)
+      default = Default_environment.(cons omega_params raise_num empty)
     }
   in
   try
@@ -3673,7 +3677,7 @@ let for_tupled_function loc paraml pats_act_list partial =
 let flatten_pattern size p =
   match p.pat_desc with
   | Tpat_tuple args -> args
-  | Tpat_any -> omegas size
+  | Tpat_any -> Patterns.omegas size
   | _ -> raise Cannot_flatten
 
 let flatten_cases size cases =
@@ -3731,7 +3735,7 @@ let do_for_multiple_match loc paraml pat_act_list partial =
       match partial with
       | Partial ->
           let raise_num = next_raise_count () in
-          (raise_num, Default_environment.(cons [ [ omega ] ] raise_num empty))
+          (raise_num, Default_environment.(cons [ [ Patterns.omega ] ] raise_num empty))
       | Total -> (-1, Default_environment.empty)
     in
     ( raise_num,
