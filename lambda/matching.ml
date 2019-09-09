@@ -147,8 +147,8 @@ let rec expand_record p =
     | _ -> p
 
 let expand_record_head head =
-  match Patterns.Head.desc head with
-    | Record _ ->
+  match head.pat_desc with
+    | Patterns.Head.Record _ ->
        head
        |> Patterns.Head.to_omega_pattern
        |> expand_record
@@ -433,7 +433,8 @@ let matcher discr (p : Simple.pattern) rem =
   let yes () = args @ rem in
   let no () = raise NoMatch in
   let yesif b = if b then yes () else no () in
-  match Patterns.Head.desc discr, Patterns.Head.desc ph with
+  let open Patterns.Head in
+  match discr.pat_desc, ph.pat_desc with
     | Any, _ -> rem
     | (Constant _ | Construct _ | Variant _ | Lazy | Array _ | Record _ | Tuple _),
       Any -> omegas @ rem
@@ -1132,8 +1133,8 @@ let rec what_is_cases ~skip_any cases =
   | [] -> Patterns.Head.omega
   | ((p, _), _) :: rem -> (
       let head = Simple.head p in
-      match Patterns.Head.desc head with
-      | Any when skip_any -> what_is_cases ~skip_any rem
+      match head.pat_desc with
+      | Patterns.Head.Any when skip_any -> what_is_cases ~skip_any rem
       | _ -> head
     )
 
@@ -1146,13 +1147,14 @@ let pm_free_variables { cases } =
     cases Ident.Set.empty
 
 (* Basic grouping predicates *)
-let group_var p =
-  match Patterns.Head.desc (Simple.head p) with
-  | Any -> true
+and group_var p =
+  match (Simple.head p).pat_desc with
+  | Patterns.Head.Any -> true
   | _ -> false
 
 let can_group discr pat =
-  match Patterns.Head.desc discr, Patterns.Head.desc (Simple.head pat) with
+  let open Patterns.Head in
+  match discr.pat_desc, (Simple.head pat).pat_desc with
   | Any, Any
   | Constant (Const_int _), Constant (Const_int _)
   | Constant (Const_char _), Constant (Const_char _)
@@ -1416,8 +1418,8 @@ and split_no_or cls args def k =
         let yes = List.rev rev_yes and no = List.rev rev_no in
         insert_split group_discr yes no def k
   and insert_split group_discr yes no def k =
-    let precompile_group = match Patterns.Head.desc group_discr with
-        | Any -> precompile_var
+    let precompile_group = match group_discr.pat_desc with
+        | Patterns.Head.Any -> precompile_var
         | _ -> do_not_precompile
     in
     match no with
@@ -1429,8 +1431,8 @@ and split_no_or cls args def k =
           (Default_environment.cons matrix idef def)
           ((idef, next) :: nexts)
   and should_split group_discr =
-    match Patterns.Head.desc group_discr with
-    | Construct { cstr_tag = Cstr_extension _ } ->
+    match group_discr.pat_desc with
+    | Patterns.Head.Construct { cstr_tag = Cstr_extension _ } ->
         (* it is unlikely that we will raise anything, so we split now *)
         true
     | _ -> false
@@ -1724,10 +1726,10 @@ let get_pat_args_constr p rem =
   | _ -> assert false
 
 let get_expr_args_constr head (arg, _mut) rem =
-  let cstr = match Patterns.Head.desc head with
-    | Construct cstr -> cstr
+  let cstr = match head.pat_desc with
+    | Patterns.Head.Construct cstr -> cstr
     | _ -> fatal_error "Matching.get_expr_args_constr" in
-  let loc = Patterns.Head.loc head in
+  let loc = head.pat_loc in
   let make_field_accesses binding_kind first_pos last_pos argl =
     let rec make_args pos =
       if pos > last_pos then
@@ -1758,7 +1760,7 @@ let get_expr_args_variant_constant =
   get_expr_args_constant
 
 let get_expr_args_variant_nonconst head (arg, _mut) rem =
-  let loc = Patterns.Head.loc head in
+  let loc = head.pat_loc in
   (Lprim (Pfield 1, [ arg ], loc), Alias) :: rem
 
 let divide_variant row ctx { cases = cl; args; default = def } =
@@ -1949,7 +1951,7 @@ let inline_lazy_force arg loc =
     inline_lazy_force_cond arg loc
 
 let get_expr_args_lazy head (arg, _mut) rem =
-  let loc = Patterns.Head.loc head in
+  let loc = head.pat_loc in
   (inline_lazy_force arg loc, Strict) :: rem
 
 let divide_lazy head ctx pm =
@@ -1968,7 +1970,7 @@ let get_pat_args_tuple arity p rem =
   | _ -> assert false
 
 let get_expr_args_tuple head (arg, _mut) rem =
-  let loc = Patterns.Head.loc head in
+  let loc = head.pat_loc in
   let arity = Patterns.Head.arity head in
   let rec make_args pos =
     if pos >= arity then
@@ -1999,8 +2001,10 @@ let get_pat_args_record num_fields p rem =
   | _ -> assert false
 
 let get_expr_args_record head (arg, _mut) rem =
-  let loc = Patterns.Head.loc head in
-  let all_labels = match Patterns.Head.desc head with
+  let loc = head.pat_loc in
+  let all_labels =
+    let open Patterns.Head in
+    match head.pat_desc with
       | Record (lbl :: _) -> lbl.lbl_all
       | Record [] | _ -> assert false
   in
@@ -2047,10 +2051,12 @@ let get_pat_args_array p rem =
   | _ -> assert false
 
 let get_expr_args_array kind head (arg, _mut) rem =
-  let len = match Patterns.Head.desc head with
+  let len =
+    let open Patterns.Head in
+    match head.pat_desc with
     | Array len -> len
     | _ -> assert false in
-  let loc = Patterns.Head.loc head in
+  let loc = head.pat_loc in
   let rec make_args pos =
     if pos >= len then
       rem
@@ -3200,8 +3206,8 @@ and do_compile_matching repr partial ctx pmh =
       in
       let ph = what_is_cases pm.cases in
       let pomega = Patterns.Head.to_omega_pattern ph in
-      let ploc = Patterns.Head.loc ph in
-      match Patterns.Head.desc ph with
+      let open Patterns.Head in
+      match ph.pat_desc with
       | Any ->
           compile_no_test divide_var Context.rshift repr partial ctx pm
       | Tuple _ ->
@@ -3217,21 +3223,20 @@ and do_compile_matching repr partial ctx pmh =
           compile_test
             (compile_match repr partial)
             partial divide_constant
-            (combine_constant ploc arg cst partial)
+            (combine_constant ph.pat_loc arg cst partial)
             ctx pm
       | Construct cstr ->
           compile_test
             (compile_match repr partial)
             partial divide_constructor
-            (combine_constructor
-               ploc arg (Patterns.Head.env ph) cstr partial)
+            (combine_constructor ph.pat_loc arg ph.pat_env cstr partial)
             ctx pm
       | Array _ ->
           let kind = Typeopt.array_pattern_kind pomega in
           compile_test
             (compile_match repr partial)
             partial (divide_array kind)
-            (combine_array ploc arg kind partial)
+            (combine_array ph.pat_loc arg kind partial)
             ctx pm
       | Lazy ->
           compile_no_test
@@ -3241,7 +3246,7 @@ and do_compile_matching repr partial ctx pmh =
           compile_test
             (compile_match repr partial)
             partial (divide_variant !row)
-            (combine_variant ploc !row arg partial)
+            (combine_variant ph.pat_loc !row arg partial)
             ctx pm
     )
   | PmVar { inside = pmh } ->
