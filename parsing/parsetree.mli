@@ -97,6 +97,8 @@ and core_type_desc =
            ~l:T1 -> T2    Labelled
            ?l:T1 -> T2    Optional
          *)
+  | Ptyp_implicit_arrow of string * package_type * core_type
+        (* {M:S} -> T *)
   | Ptyp_tuple of core_type list
         (* T1 * ... * Tn
 
@@ -288,10 +290,10 @@ and expression_desc =
            - "fun P1 P2 .. Pn -> E1" is represented as nested Pexp_fun.
            - "let f P = E" is represented using Pexp_fun.
          *)
-  | Pexp_apply of expression * (arg_label * expression) list
+  | Pexp_implicit_fun of string * package_type * expression
+        (* fun {M : S} -> E *)
+  | Pexp_apply of expression * (apply_label * expression) list
         (* E0 ~l1:E1 ... ~ln:En
-           li can be empty (non labeled argument) or start with '?'
-           (optional argument).
 
            Invariant: n > 0
          *)
@@ -636,7 +638,7 @@ and class_expr_desc =
            fun ?l:P -> CE                       (Optional l, None)
            fun ?l:(P = E0) -> CE                (Optional l, Some E0)
          *)
-  | Pcl_apply of class_expr * (arg_label * expression) list
+  | Pcl_apply of class_expr * (apply_label * expression) list
         (* CE ~l1:E1 ... ~ln:En
            li can be empty (non labeled argument) or start with '?'
            (optional argument).

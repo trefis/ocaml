@@ -2189,6 +2189,16 @@ let rec expands_to_datatype env ty =
       end
   | _ -> false
 
+let modtype_of_package = ref (fun _ _ _ _ _ -> assert false)
+
+let modtype_of_tpackage env t =
+  let t = repr t in
+  match t.desc with
+  | Tpackage (p, lis, tys) ->
+      (* FIXME: Location.none *)
+      !modtype_of_package env Location.none p lis tys
+  | _ -> assert false (* FIXME: How is that safe? *)
+
 (* mcomp type_pairs subst env t1 t2 does not raise an
    exception if it is possible that t1 and t2 are actually
    equal, assuming the types in type_pairs are equal and
@@ -2221,6 +2231,14 @@ let rec mcomp type_pairs env t1 t2 =
         | (Tvar _, _)
         | (_, Tvar _)  ->
             ()
+        | Timplicit_arrow (id1, t1, u1, _c1),
+          Timplicit_arrow (id2, t2, u2, _c2) ->
+            mcomp type_pairs env t1 t2;
+            let mty = modtype_of_tpackage env t1 in
+            (* FIXME: presence? *)
+            let env = Env.add_module id1 Mp_present mty env in
+            let subst = Subst.add_module id2 (Path.Pident id1) Subst.identity in
+            mcomp type_pairs env u1 (Subst.type_expr subst u2);
         | (Tarrow (l1, t1, u1, _), Tarrow (l2, t2, u2, _))
           when l1 = l2 || not (is_optional l1 || is_optional l2) ->
             mcomp type_pairs env t1 t2;
@@ -3095,7 +3113,6 @@ let unify env ty1 ty2 =
   unify_pairs (ref env) ty1 ty2 []
 
 
-
 (**** Special cases of unification ****)
 
 let expand_head_trace env t =
@@ -3125,6 +3142,14 @@ let filter_arrow env t l =
       (t1, t2)
   | _ ->
       raise (Unify [])
+
+let filter_implicit env t =
+  let t = expand_head_trace env t in
+  match t.desc with
+    Tvar _ -> None
+  | Timplicit_arrow(id, pkg, t, _) -> Some(id, pkg, t)
+  | _ -> raise (Unify [])
+
 
 (* Used by [filter_method]. *)
 let rec filter_method_field env name priv ty =
@@ -3467,6 +3492,23 @@ let matches env ty ty' =
                  (*********************************************)
                  (*  Equivalence between parameterized types  *)
                  (*********************************************)
+
+type equality_equation = {
+  eq_lhs : type_expr;
+  eq_lhs_params : type_expr list;
+  eq_lhs_path : Path.t;
+  eq_rhs : type_expr;
+}
+
+let equality_equations
+  : equality_equation list ref Ident.Map.t ref
+  = ref Ident.Map.empty
+
+let with_equality_equations tbl f =
+  let equality_equations' = !equality_equations in
+  equality_equations := tbl;
+  try_finally f
+    ~always:(fun () -> equality_equations := equality_equations')
 
 let expand_head_rigid env ty =
   let old = !rigid_variants in
@@ -4014,6 +4056,12 @@ let rec build_subtype env visited loops posi level t =
       let (t2', c2) = build_subtype env visited loops posi level t2 in
       let c = max c1 c2 in
       if c > Unchanged then (newty (Tarrow(l, t1', t2', Cok)), c)
+      else (t, Unchanged)
+  | Timplicit_arrow(id, pkg, t, _) ->
+      if memq_warn t visited then (t, Unchanged) else
+      let visited = t :: visited in
+      let (t', c) = build_subtype env visited loops posi level t in
+      if c > Unchanged then (newty (Timplicit_arrow(id, pkg, t', Cok)), c)
       else (t, Unchanged)
   | Ttuple tlist ->
       if memq_warn t visited then (t, Unchanged) else

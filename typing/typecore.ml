@@ -103,6 +103,7 @@ type error =
       type_expr * type_expr * Ctype.Unification_trace.t * bool
   | Too_many_arguments of bool * type_expr * type_forcing_context option
   | Abstract_wrong_label of arg_label * type_expr * type_forcing_context option
+  | Abstract_not_implicit of type_expr * type_forcing_context option
   | Scoping_let_module of string * type_expr
   | Not_a_variant_type of Longident.t
   | Incoherent_label_order
@@ -2038,12 +2039,13 @@ let rec is_nonexpansive exp =
   | Texp_constant _
   | Texp_unreachable
   | Texp_function _
+  | Texp_implicit_function _
   | Texp_array [] -> true
   | Texp_let(_rec_flag, pat_exp_list, body) ->
       List.for_all (fun vb -> is_nonexpansive vb.vb_expr) pat_exp_list &&
       is_nonexpansive body
-  | Texp_apply(e, (_,None)::el) ->
-      is_nonexpansive e && List.for_all is_nonexpansive_opt (List.map snd el)
+  | Texp_apply(e, Normal (_,None)::el) ->
+      is_nonexpansive e && List.for_all is_nonexpansive_arg el
   | Texp_match(e, cases, _) ->
      (* Not sure this is necessary, if [e] is nonexpansive then we shouldn't
          care if there are exception patterns. But the previous version enforced
@@ -2113,7 +2115,7 @@ let rec is_nonexpansive exp =
       { exp_desc = Texp_ident (_, _, {val_kind =
              Val_prim {Primitive.prim_name =
                          ("%raise" | "%reraise" | "%raise_notrace")}}) },
-      [Nolabel, Some e]) ->
+      [Normal (Nolabel, Some e)]) ->
      is_nonexpansive e
   | Texp_array (_ :: _)
   | Texp_apply _
@@ -2168,6 +2170,10 @@ and is_nonexpansive_opt = function
   | None -> true
   | Some e -> is_nonexpansive e
 
+and is_nonexpansive_arg : argument -> bool = function
+  | Normal (_, eo) -> is_nonexpansive_opt eo
+  | Implicit _ -> false
+
 let maybe_expansive e = not (is_nonexpansive e)
 
 let check_recursive_bindings env valbinds =
@@ -2198,6 +2204,9 @@ let rec approx_type env sty =
     Ptyp_arrow (p, _, sty) ->
       let ty1 = if is_optional p then type_option (newvar ()) else newvar () in
       newty (Tarrow (p, ty1, approx_type env sty, Cok))
+  | Ptyp_implicit_arrow _ ->
+      (* FIXME: see below [Pexp_implicit_fun]. *)
+      newvar ()
   | Ptyp_tuple args ->
       newty (Ttuple (List.map (approx_type env) args))
   | Ptyp_constr (lid, ctl) ->
@@ -2217,6 +2226,21 @@ let rec type_approx env sexp =
   | Pexp_fun (p, _, _, e) ->
       let ty = if is_optional p then type_option (newvar ()) else newvar () in
       newty (Tarrow(p, ty, type_approx env e, Cok))
+  | Pexp_implicit_fun _ ->
+      (* FIXME: not sure what to do here.
+         [Typemod.transl_recmodule_modtypes] first generates all the ids, and
+         then uses them in both the approx typing and normal typing.
+         But it's easier there because it's working with a list of bindings.
+         What about here?
+
+         IDEA: we could replace the name (a string at this point) by a fresh
+         unique name, to which we'd associate an [Ident.t].
+
+         ---
+
+         Unrelated potential issue: scoping.
+      *)
+      newvar ()
   | Pexp_function ({pc_rhs=e}::_) ->
       newty (Tarrow(Nolabel, newvar (), type_approx env e, Cok))
   | Pexp_match (_, {pc_rhs=e}::_) -> type_approx env e
@@ -2322,7 +2346,7 @@ let check_partial_application statement exp =
             | Texp_setinstvar _ | Texp_override _ | Texp_assert _
             | Texp_lazy _ | Texp_object _ | Texp_pack _ | Texp_unreachable
             | Texp_extension_constructor _ | Texp_ifthenelse (_, _, None)
-            | Texp_function _ ->
+            | Texp_function _ | Texp_implicit_function _ ->
                 check_statement ()
             | Texp_match (_, cases, _) ->
                 List.iter (fun {c_rhs; _} -> check c_rhs) cases
@@ -2684,6 +2708,9 @@ and type_expect_
   | Pexp_function caselist ->
       type_function ?in_function
         loc sexp.pexp_attributes env ty_expected_explained Nolabel caselist
+  | Pexp_implicit_fun (s, pkg, sbody) ->
+      type_implicit_function ?in_function loc sexp.pexp_attributes env
+                    ty_expected_explained s pkg sbody
   | Pexp_apply(sfunct, sargs) ->
       assert (sargs <> []);
       begin_def (); (* one more level for non-returning functions *)
@@ -3197,12 +3224,12 @@ and type_expect_
                                 exp_type = method_type;
                                 exp_attributes = []; (* check *)
                                 exp_env = exp_env},
-                          [ Nolabel,
+                          [ Normal (Nolabel,
                             Some {exp_desc = Texp_ident(path, lid, desc);
                                   exp_loc = obj.exp_loc; exp_extra = [];
                                   exp_type = desc.val_type;
                                   exp_attributes = []; (* check *)
-                                  exp_env = exp_env}
+                                  exp_env = exp_env})
                           ])
                   in
                   (Tmeth_name met, Some (re {exp_desc = exp;
@@ -3743,6 +3770,93 @@ and type_function ?in_function loc attrs env ty_expected_explained l caselist =
     exp_attributes = attrs;
     exp_env = env }
 
+and type_implicit_function ?in_function loc attrs env ty_expected_explained
+    name spkg sbody =
+  let { ty = ty_expected; explanation } = ty_expected_explained in
+  let (loc_fun, ty_fun) =
+    match in_function with Some p -> p
+    | None -> (loc, instance ty_expected)
+  in
+  let separate = !Clflags.principal || Env.has_local_constraints env in
+  if separate then begin_def ();
+  let expected =
+    try filter_implicit env (instance ty_expected)
+    with Unify _ ->
+      match expand_head env ty_expected with
+        {desc = Tarrow _} as ty ->
+          raise(Error(loc, env, Abstract_not_implicit(ty, explanation)))
+      | _ ->
+          raise(Error(loc_fun, env,
+                      Too_many_arguments (in_function <> None,
+                                          ty_fun,
+                                          explanation)))
+  in
+  let package_type, pkg =
+    let (pack_path, pack_fields, pkg) =
+      create_package_type loc env ((fst spkg).txt,
+                                   List.map (fun ({ txt }, ct) -> txt, ct)
+                                     (snd spkg))
+    in
+    let pack_type =
+      !Typetexp.modtype_of_package env loc pack_path
+        (List.map fst pack_fields)
+        (List.map (fun (_, ct) -> ct.ctyp_type) pack_fields)
+    in
+    (* FIXME *)
+    let pack_fields = List.map (fun (x, y) -> mknoloc x, y) pack_fields in
+    let package_type =
+      { pack_path; pack_fields; pack_type; pack_txt = fst spkg }
+    in
+    match expected with
+    | None -> package_type, pkg
+    | Some(_, ty_arg, _) ->
+        try
+          unify env pkg ty_arg;
+          package_type, pkg
+        with
+          Unify trace ->
+            raise(Error(loc, env, Expr_type_clash(trace, None, None)))
+  in
+  if separate then begin
+    end_def ();
+    match expected with
+    | None -> ()
+    | Some(_, _, ty_res) ->
+        generalize_structure pkg;
+        generalize_structure ty_res;
+  end;
+  let scope = Ctype.create_scope () in
+  let ident, env =
+    Env.enter_module ~scope ~arg:false (* FIXME: true? *)
+      name Mp_present package_type.pack_type env
+  in
+  begin_def ();
+  let ty_res = 
+    match expected with
+    | None -> newvar ()
+    | Some (_, _, ty_res) -> ty_res
+  in
+  let exp = 
+    type_expect ~in_function:(loc_fun, ty_fun)
+      env sbody (mk_expected ty_res)
+  in
+  let package_ty =
+    newty (
+      Tpackage (
+        package_type.pack_path,
+        (List.map (fun (lid, _) -> lid.txt) package_type.pack_fields),
+        (List.map (fun (_, ct) -> ct.ctyp_type) package_type.pack_fields)
+      )
+    )
+  in
+  re {
+    exp_desc = Texp_implicit_function (ident, package_type, exp);
+    exp_loc = loc; exp_extra = [];
+    exp_type =
+      instance (
+        newgenty (Timplicit_arrow(ident, package_ty, ty_res, Cok)));
+    exp_attributes = attrs;
+    exp_env = env }
 
 and type_label_access env srecord lid =
   if !Clflags.principal then begin_def ();
@@ -4095,11 +4209,11 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
         end_def ();
         generalize_structure texp.exp_type
       end;
-      let rec make_args args ty_fun =
+      let rec make_args (args : argument list) ty_fun =
         match (expand_head env ty_fun).desc with
         | Tarrow (l,ty_arg,ty_fun,_) when is_optional l ->
             let ty = option_none env (instance ty_arg) sarg.pexp_loc in
-            make_args ((l, Some ty) :: args) ty_fun
+            make_args ((Normal (l, Some ty) : argument) :: args) ty_fun
         | Tarrow (l,_,ty_res',_) when l = Nolabel || !Clflags.classic ->
             List.rev args, ty_fun, no_labels ty_res'
         | Tvar _ ->  List.rev args, ty_fun, false
@@ -4141,7 +4255,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
           {texp with exp_type = ty_res; exp_desc =
            Texp_apply
              (texp,
-              args @ [Nolabel, Some eta_var])}
+              args @ [(Normal (Nolabel, Some eta_var) : argument)])}
         in
         let cases = [case eta_pat e] in
         let param = name_cases "param" cases in
@@ -4151,7 +4265,10 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
       in
       Location.prerr_warning texp.exp_loc
         (Warnings.Eliminated_optional_arguments
-           (List.map (fun (l, _) -> Printtyp.string_of_label l) args));
+           (List.map (fun (a : argument) ->
+                match a with
+                | Normal (l, _) -> Printtyp.string_of_label l
+                | _ -> assert false) args));
       if warn then Location.prerr_warning texp.exp_loc
           (Warnings.Without_principality "eliminated optional argument");
       (* let-expand to have side effects *)
@@ -5382,6 +5499,12 @@ let report_error ~loc env = function
         Printtyp.type_expr ty
         (report_type_expected_explanation_opt explanation)
         (label_mark l)
+  | Abstract_not_implicit (ty, explanation) ->
+      Location.errorf ~loc
+        "@[<v>@[<2>This function should have type@ %a%t@]@,\
+         but its first argument is implicit.@]"
+        type_expr ty
+        (report_type_expected_explanation_opt explanation)
   | Scoping_let_module(id, ty) ->
       Location.errorf ~loc
         "This `let module' expression has type@ %a@ \

@@ -500,6 +500,10 @@ and raw_type_desc ppf = function
       fprintf ppf "@[<hov1>Tarrow(\"%s\",@,%a,@,%a,@,%s)@]"
         (string_of_label l) raw_type t1 raw_type t2
         (safe_commu_repr [] c)
+  | Timplicit_arrow(id, t1, t2, c) ->
+      fprintf ppf "@[<hov1>Timplicit_arrow(\"%s\",@,%a,@,%a,@,%s)@]"
+        (Ident.name id) raw_type t1 raw_type t2
+        (safe_commu_repr [] c)
   | Ttuple tl ->
       fprintf ppf "@[<1>Ttuple@,%a@]" raw_type_list tl
   | Tconstr (p, tl, abbrev) ->
@@ -540,8 +544,7 @@ and raw_type_desc ppf = function
           | Some(p,tl) ->
               fprintf ppf "Some(@,%a,@,%a)" path p raw_type_list tl)
   | Tpackage (p, _, tl) ->
-      fprintf ppf "@[<hov1>Tpackage(@,%a@,%a)@]" path p
-        raw_type_list tl
+      fprintf ppf "@[<hov1>Tpackage(@,%a@,%a)@]" path p raw_type_list tl
 and raw_row_fixed ppf = function
 | None -> fprintf ppf "None"
 | Some Types.Fixed_private -> fprintf ppf "Some Fixed_private"
@@ -859,7 +862,8 @@ let rec mark_loops_rec visited ty =
     let visited = px :: visited in
     match ty.desc with
     | Tvar _ -> add_named_var ty
-    | Tarrow(_, ty1, ty2, _) ->
+    | Tarrow(_, ty1, ty2, _)
+    | Timplicit_arrow(_, ty1, ty2, _) ->
         mark_loops_rec visited ty1; mark_loops_rec visited ty2
     | Ttuple tyl -> List.iter (mark_loops_rec visited) tyl
     | Tconstr(p, tyl, _) ->
@@ -960,6 +964,9 @@ let rec tree_of_typexp sch ty =
             | _ -> Otyp_stuff "<hidden>"
           else tree_of_typexp sch ty1 in
         Otyp_arrow (lab, t1, tree_of_typexp sch ty2)
+    | Timplicit_arrow (id, _pkg, ty, _) ->
+        Otyp_arrow
+          (Ident.name id, Otyp_stuff "<implicit>", tree_of_typexp sch ty)
     | Ttuple tyl ->
         Otyp_tuple (tree_of_typlist sch tyl)
     | Tconstr(p, tyl, _abbrev) ->

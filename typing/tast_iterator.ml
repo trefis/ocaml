@@ -176,6 +176,10 @@ let pat
       sub.pat sub p1;
       sub.pat sub p2
 
+let argument sub = function
+  | Normal (_, o) 
+  | Implicit { inst = o } -> Option.iter (sub.expr sub) o
+
 let expr sub {exp_extra; exp_desc; exp_env; _} =
   let extra = function
     | Texp_constraint cty -> sub.typ sub cty
@@ -195,9 +199,12 @@ let expr sub {exp_extra; exp_desc; exp_env; _} =
       sub.expr sub exp
   | Texp_function {cases; _} ->
      List.iter (sub.case sub) cases
+  | Texp_implicit_function(_, pkg, exp) ->
+      sub.package_type sub pkg;
+      sub.expr sub exp
   | Texp_apply (exp, list) ->
       sub.expr sub exp;
-      List.iter (fun (_, o) -> Option.iter (sub.expr sub) o) list
+      List.iter (argument sub) list
   | Texp_match (exp, cases, _) ->
       sub.expr sub exp;
       List.iter (sub.case sub) cases
@@ -370,7 +377,7 @@ let class_expr sub {cl_desc; cl_env; _} =
       sub.class_expr sub cl
   | Tcl_apply (cl, args) ->
       sub.class_expr sub cl;
-      List.iter (fun (_, e) -> Option.iter (sub.expr sub) e) args
+      List.iter (argument sub) args
   | Tcl_let (rec_flag, value_bindings, ivars, cl) ->
       sub.value_bindings sub (rec_flag, value_bindings);
       List.iter (fun (_, e) -> sub.expr sub e) ivars;
@@ -414,6 +421,9 @@ let typ sub {ctyp_desc; ctyp_env; _} =
   | Ttyp_arrow (_, ct1, ct2) ->
       sub.typ sub ct1;
       sub.typ sub ct2
+  | Ttyp_implicit_arrow (_, pt, ct) ->
+      sub.package_type sub pt;
+      sub.typ sub ct
   | Ttyp_tuple list -> List.iter (sub.typ sub) list
   | Ttyp_constr (_, _, list) ->  List.iter (sub.typ sub) list
   | Ttyp_object (list, _) -> List.iter (sub.object_field sub) list

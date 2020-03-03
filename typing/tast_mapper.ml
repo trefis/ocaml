@@ -229,6 +229,10 @@ let pat
   in
   {x with pat_extra; pat_desc; pat_env}
 
+let argument sub = function
+  | Normal (lbl, eo) -> Normal (lbl, Option.map (sub.expr sub) eo)
+  | Implicit { inst } -> Implicit { inst = Option.map (sub.expr sub) inst }
+
 let expr sub x =
   let extra = function
     | Texp_constraint cty ->
@@ -250,10 +254,12 @@ let expr sub x =
     | Texp_function { arg_label; param; cases; partial; } ->
         let cases = List.map (sub.case sub) cases in
         Texp_function { arg_label; param; cases; partial; }
+    | Texp_implicit_function (id, pkg, exp) ->
+        Texp_implicit_function (id, sub.package_type sub pkg, sub.expr sub exp)
     | Texp_apply (exp, list) ->
         Texp_apply (
           sub.expr sub exp,
-          List.map (tuple2 id (Option.map (sub.expr sub))) list
+          List.map (argument sub) list
         )
     | Texp_match (exp, cases, p) ->
         Texp_match (
@@ -543,7 +549,7 @@ let class_expr sub x =
     | Tcl_apply (cl, args) ->
         Tcl_apply (
           sub.class_expr sub cl,
-          List.map (tuple2 id (Option.map (sub.expr sub))) args
+          List.map (argument sub) args
         )
     | Tcl_let (rec_flag, value_bindings, ivars, cl) ->
         let (rec_flag, value_bindings) =
@@ -612,6 +618,8 @@ let typ sub x =
     | Ttyp_var _ as d -> d
     | Ttyp_arrow (label, ct1, ct2) ->
         Ttyp_arrow (label, sub.typ sub ct1, sub.typ sub ct2)
+    | Ttyp_implicit_arrow (id, pkg, ct) ->
+        Ttyp_implicit_arrow (id, sub.package_type sub pkg, sub.typ sub ct)
     | Ttyp_tuple list -> Ttyp_tuple (List.map (sub.typ sub) list)
     | Ttyp_constr (path, lid, list) ->
         Ttyp_constr (path, lid, List.map (sub.typ sub) list)

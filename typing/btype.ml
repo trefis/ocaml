@@ -290,6 +290,9 @@ let fold_type_expr f init ty =
   | Tarrow (_, ty1, ty2, _) ->
     let result = f init ty1 in
     f result ty2
+  | Timplicit_arrow (_, ty1, ty2, _) ->
+    let result = f init ty1 in
+    f result ty2
   | Ttuple l            -> List.fold_left f init l
   | Tconstr (_, l, _)   -> List.fold_left f init l
   | Tobject(ty, {contents = Some (_, p)})
@@ -310,7 +313,9 @@ let fold_type_expr f init ty =
   | Tpoly (ty, tyl)     ->
     let result = f init ty in
     List.fold_left f result tyl
-  | Tpackage (_, _, l)  -> List.fold_left f init l
+  | Tpackage (_,_,l)  -> 
+    List.fold_left f init l
+
 
 let iter_type_expr f ty =
   fold_type_expr (fun () v -> f v) () ty
@@ -483,6 +488,8 @@ let rec norm_univar ty =
 let rec copy_type_desc ?(keep_names=false) f = function
     Tvar _ as ty        -> if keep_names then ty else Tvar None
   | Tarrow (p, ty1, ty2, c)-> Tarrow (p, f ty1, f ty2, copy_commu c)
+  | Timplicit_arrow(id, ty1, ty2, c) ->
+      Timplicit_arrow (id, f ty1, f ty2, copy_commu c)
   | Ttuple l            -> Ttuple (List.map f l)
   | Tconstr (p, l, _)   -> Tconstr (p, List.map f l, ref Mnil)
   | Tobject(ty, {contents = Some (p, tl)})

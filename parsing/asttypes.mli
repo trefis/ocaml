@@ -51,6 +51,12 @@ type arg_label =
   | Labelled of string (*  label:T -> ... *)
   | Optional of string (* ?label:T -> ... *)
 
+type apply_label =
+  | Papp_nolabel
+  | Papp_labelled of string (*  label:T -> ... *)
+  | Papp_optional of string (* ?label:T -> ... *)
+  | Papp_implicit
+
 type 'a loc = 'a Location.loc = {
   txt : 'a;
   loc : Location.t;

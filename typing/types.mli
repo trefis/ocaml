@@ -73,6 +73,11 @@ and type_desc =
 
       See [commutable] for the last argument. *)
 
+  | Timplicit_arrow of Ident.t * type_expr * type_expr * commutable
+  (** [Timplicit_arrow (id, pkg, ty, c)] ==> [{id : pkg} -> ty]
+
+      See [commutable] for the last argument. *)
+
   | Ttuple of type_expr list
   (** [Ttuple [t1;...;tn]] ==> [(t1 * ... * tn)] *)
 

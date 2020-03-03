@@ -62,6 +62,7 @@
    typetexp printpat parmatch stypes typedecl typeopt rec_check typecore
    typeclass typemod typedecl_variance typedecl_properties typedecl_immediacy
    typedecl_unboxed typedecl_separability cmt2annot
+   typeimplicit implicitsearch
    ; manual update: mli only files
    annot outcometree
 

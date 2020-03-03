@@ -100,6 +100,10 @@ let rec add_type bv ty =
     Ptyp_any -> ()
   | Ptyp_var _ -> ()
   | Ptyp_arrow(_, t1, t2) -> add_type bv t1; add_type bv t2
+  | Ptyp_implicit_arrow (_id, pt, t) ->
+      (* FIXME: introduce _id in bv, so it's not marked as a dep. *)
+      add_package_type bv pt;
+      add_type bv t
   | Ptyp_tuple tl -> List.iter (add_type bv) tl
   | Ptyp_constr(c, tl) -> add bv c; List.iter (add_type bv) tl
   | Ptyp_object (fl, _) ->
@@ -202,6 +206,11 @@ let rec add_expr bv exp =
       let bv = add_bindings rf bv pel in add_expr bv e
   | Pexp_fun (_, opte, p, e) ->
       add_opt add_expr bv opte; add_expr (add_pattern bv p) e
+  | Pexp_implicit_fun (m, pt, e) ->
+      (* FIXME: wtf is going on. *)
+      let bv = String.Map.add m bound bv in
+      add_package_type bv pt;
+      add_expr bv e
   | Pexp_function pel ->
       add_cases bv pel
   | Pexp_apply(e, el) ->

@@ -141,6 +141,14 @@ let longident_loc i ppf li = line i ppf "%a\n" fmt_longident_loc li;;
 let string i ppf s = line i ppf "\"%s\"\n" s;;
 let string_loc i ppf s = line i ppf "%a\n" fmt_string_loc s;;
 let str_opt_loc i ppf s = line i ppf "%a\n" fmt_str_opt_loc s;;
+
+let app_label i ppf = function
+  | Papp_nolabel -> line i ppf "Nolabel\n"
+  | Papp_optional s -> line i ppf "Optional \"%s\"\n" s
+  | Papp_labelled s -> line i ppf "Labelled \"%s\"\n" s
+  | Papp_implicit -> line i ppf "Implicit\n"
+;;
+
 let arg_label i ppf = function
   | Nolabel -> line i ppf "Nolabel\n"
   | Optional s -> line i ppf "Optional \"%s\"\n" s
@@ -159,6 +167,12 @@ let rec core_type i ppf x =
       arg_label i ppf l;
       core_type i ppf ct1;
       core_type i ppf ct2;
+  | Ptyp_implicit_arrow (l, (s, lst), ct) ->
+      line i ppf "Ptyp_implicit_arrow\n";
+      string i ppf l;
+      line i ppf "%a\n" fmt_longident_loc s;
+      list i package_with ppf lst;
+      core_type i ppf ct;
   | Ptyp_tuple l ->
       line i ppf "Ptyp_tuple\n";
       list i core_type ppf l;
@@ -279,6 +293,12 @@ and expression i ppf x =
       arg_label i ppf l;
       option i expression ppf eo;
       pattern i ppf p;
+      expression i ppf e;
+  | Pexp_implicit_fun (l, (s, lst), e) ->
+      line i ppf "Pexp_implicit_fun\n";
+      string i ppf l;
+      line i ppf "%a\n" fmt_longident_loc s;
+      list i package_with ppf lst;
       expression i ppf e;
   | Pexp_apply (e, l) ->
       line i ppf "Pexp_apply\n";
@@ -924,7 +944,7 @@ and longident_x_expression i ppf (li, e) =
 
 and label_x_expression i ppf (l,e) =
   line i ppf "<arg>\n";
-  arg_label i ppf l;
+  app_label i ppf l;
   expression (i+1) ppf e;
 
 and label_x_bool_x_core_type_list i ppf x =

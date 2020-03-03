@@ -63,6 +63,8 @@ module Typ = struct
   let any ?loc ?attrs () = mk ?loc ?attrs Ptyp_any
   let var ?loc ?attrs a = mk ?loc ?attrs (Ptyp_var a)
   let arrow ?loc ?attrs a b c = mk ?loc ?attrs (Ptyp_arrow (a, b, c))
+  let implicit_arrow ?loc ?attrs a b c =
+    mk ?loc ?attrs (Ptyp_implicit_arrow (a, b, c))
   let tuple ?loc ?attrs a = mk ?loc ?attrs (Ptyp_tuple a)
   let constr ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_constr (a, b))
   let object_ ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_object (a, b))
@@ -92,6 +94,8 @@ module Typ = struct
             Ptyp_var x
         | Ptyp_arrow (label,core_type,core_type') ->
             Ptyp_arrow(label, loop core_type, loop core_type')
+        | Ptyp_implicit_arrow (label,pkg,core_type) ->
+            Ptyp_implicit_arrow(label, loop_pkg pkg, loop core_type)
         | Ptyp_tuple lst -> Ptyp_tuple (List.map loop lst)
         | Ptyp_constr( { txt = Longident.Lident s }, [])
           when List.mem s var_names ->
@@ -112,8 +116,8 @@ module Typ = struct
           List.iter (fun v ->
             check_variable var_names t.ptyp_loc v.txt) string_lst;
             Ptyp_poly(string_lst, loop core_type)
-        | Ptyp_package(longident,lst) ->
-            Ptyp_package(longident,List.map (fun (n,typ) -> (n,loop typ) ) lst)
+        | Ptyp_package pkg ->
+            Ptyp_package (loop_pkg pkg)
         | Ptyp_extension (s, arg) ->
             Ptyp_extension (s, arg)
       in
@@ -134,6 +138,8 @@ module Typ = struct
             Oinherit (loop t)
       in
       { field with pof_desc; }
+    and loop_pkg (lid, lst) =
+      lid, List.map (fun (n,typ) -> (n,loop typ)) lst
     in
     loop t
 
@@ -180,6 +186,8 @@ module Exp = struct
   let let_ ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_let (a, b, c))
   let fun_ ?loc ?attrs a b c d = mk ?loc ?attrs (Pexp_fun (a, b, c, d))
   let function_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_function a)
+  let implicit_fun ?loc ?attrs a b c =
+    mk ?loc ?attrs (Pexp_implicit_fun (a, b, c))
   let apply ?loc ?attrs a b = mk ?loc ?attrs (Pexp_apply (a, b))
   let match_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_match (a, b))
   let try_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_try (a, b))

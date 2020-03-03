@@ -189,7 +189,8 @@ and expression_desc =
               [Partial] if the pattern match is partial
               [Total] otherwise.
          *)
-  | Texp_apply of expression * (arg_label * expression option) list
+  | Texp_implicit_function of Ident.t * package_type * expression
+  | Texp_apply of expression * argument list
         (** E0 ~l1:E1 ... ~ln:En
 
             The expression can be None if the expression is abstracted over
@@ -276,6 +277,13 @@ and expression_desc =
   | Texp_open of open_declaration * expression
         (** let open[!] M in e *)
 
+and argument =
+  | Normal of arg_label (* cheat. *) * expression option
+  | Implicit of { 
+      mutable inst: expression option;
+      (* Mutable to defer instance selection *)
+    }
+
 and meth =
     Tmeth_name of string
   | Tmeth_val of Ident.t
@@ -320,7 +328,7 @@ and class_expr_desc =
   | Tcl_fun of
       arg_label * pattern * (Ident.t * expression) list
       * class_expr * partial
-  | Tcl_apply of class_expr * (arg_label * expression option) list
+  | Tcl_apply of class_expr * argument list
   | Tcl_let of rec_flag * value_binding list *
                   (Ident.t * expression) list * class_expr
   | Tcl_constraint of
@@ -572,6 +580,7 @@ and core_type_desc =
     Ttyp_any
   | Ttyp_var of string
   | Ttyp_arrow of arg_label * core_type * core_type
+  | Ttyp_implicit_arrow of Ident.t * package_type * core_type
   | Ttyp_tuple of core_type list
   | Ttyp_constr of Path.t * Longident.t loc * core_type list
   | Ttyp_object of object_field list * closed_flag

@@ -384,6 +384,16 @@ let value_binding sub vb =
     (sub.pat sub vb.vb_pat)
     (sub.expr sub vb.vb_expr)
 
+let apply_label_of_arg_label = function
+  | Nolabel -> Papp_nolabel
+  | Optional s -> Papp_optional s
+  | Labelled s -> Papp_labelled s
+
+let argument sub = function
+  | Normal (lbl, Some e) -> Some (apply_label_of_arg_label lbl, sub.expr sub e)
+  | Implicit { inst = Some e } -> Some (Papp_implicit, sub.expr sub e)
+  | _ -> None
+
 let expression sub exp =
   let loc = sub.location sub exp.exp_loc in
   let attrs = sub.attributes sub exp.exp_attributes in
@@ -411,13 +421,12 @@ let expression sub exp =
         Pexp_fun (label, None, Pat.var ~loc {loc;txt = name },
           Exp.match_ ~loc (Exp.ident ~loc {loc;txt= Lident name})
                           (List.map (sub.case sub) cases))
+    | Texp_implicit_function (id, pkg, exp) ->
+        Pexp_implicit_fun (Ident.name id,
+                           sub.package_type sub pkg,
+                           sub.expr sub exp)
     | Texp_apply (exp, list) ->
-        Pexp_apply (sub.expr sub exp,
-          List.fold_right (fun (label, expo) list ->
-              match expo with
-                None -> list
-              | Some exp -> (label, sub.expr sub exp) :: list
-          ) list [])
+        Pexp_apply (sub.expr sub exp, List.filter_map (argument sub) list)
     | Texp_match (exp, cases, _) ->
       Pexp_match (sub.expr sub exp, List.map (sub.case sub) cases)
     | Texp_try (exp, cases) ->
@@ -674,11 +683,7 @@ let class_expr sub cexpr =
 
     | Tcl_apply (cl, args) ->
         Pcl_apply (sub.class_expr sub cl,
-          List.fold_right (fun (label, expo) list ->
-              match expo with
-                None -> list
-              | Some exp -> (label, sub.expr sub exp) :: list
-          ) args [])
+                   List.filter_map (argument sub) args)
 
     | Tcl_let (rec_flat, bindings, _ivars, cl) ->
         Pcl_let (rec_flat,
@@ -739,6 +744,9 @@ let core_type sub ct =
     | Ttyp_var s -> Ptyp_var s
     | Ttyp_arrow (label, ct1, ct2) ->
         Ptyp_arrow (label, sub.typ sub ct1, sub.typ sub ct2)
+    | Ttyp_implicit_arrow (id, pkg, ct) ->
+        Ptyp_implicit_arrow
+          (Ident.name id, sub.package_type sub pkg, sub.typ sub ct)
     | Ttyp_tuple list -> Ptyp_tuple (List.map (sub.typ sub) list)
     | Ttyp_constr (_path, lid, list) ->
         Ptyp_constr (map_loc sub lid,

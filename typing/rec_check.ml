@@ -117,9 +117,10 @@ let is_ref : Types.value_description -> bool = function
 
 (* See the note on abstracted arguments in the documentation for
     Typedtree.Texp_apply *)
-let is_abstracted_arg : arg_label * expression option -> bool = function
-  | (_, None) -> true
-  | (_, Some _) -> false
+let is_abstracted_arg : argument -> bool = function
+  | Normal (_, None) -> true
+  | Implicit _
+  | Normal (_, Some _) -> false
 
 let classify_expression : Typedtree.expression -> sd =
   (* We need to keep track of the size of expressions
@@ -190,6 +191,7 @@ let classify_expression : Typedtree.expression -> sd =
     | Texp_pack _
     | Texp_object _
     | Texp_function _
+    | Texp_implicit_function _
     | Texp_lazy _
     | Texp_unreachable
     | Texp_extension_constructor _ ->
@@ -564,7 +566,7 @@ let rec expression : Typedtree.expression -> term_judg =
       path pth << Dereference
     | Texp_instvar (self_path, pth, _inst_var) ->
         join [path self_path << Dereference; path pth]
-    | Texp_apply ({exp_desc = Texp_ident (_, _, vd)}, [_, Some arg])
+    | Texp_apply ({exp_desc = Texp_ident (_, _, vd)}, [Normal (_, Some arg)])
       when is_ref vd ->
       (*
         G |- e: m[Guard]
@@ -573,7 +575,10 @@ let rec expression : Typedtree.expression -> term_judg =
       *)
       expression arg << Guard
     | Texp_apply (e, args)  ->
-        let arg (_, eo) = option expression eo in
+        let arg = function
+          | Normal (_, eo) -> option expression eo
+          | Implicit { inst } -> option expression inst
+        in
         let app_mode = if List.exists is_abstracted_arg args
           then (* see the comment on Texp_apply in typedtree.mli;
                   the non-abstracted arguments are bound to local
@@ -787,6 +792,16 @@ let rec expression : Typedtree.expression -> term_judg =
       *)
       let case_env c m = fst (case c m) in
       list case_env cases << Delay
+    | Texp_implicit_function (id, _, exp) ->
+      (* FIXME: clearly not OK. *)
+      (*
+         G |- e : Delay
+         ----------------------------------------
+         G - id; Delay |- fun {id} -> e : Delay
+      *)
+      (fun _ -> 
+        let env = expression exp Delay in
+        Env.remove id env)
     | Texp_lazy e ->
       (*
         G |- e: m[Delay]
@@ -1033,7 +1048,10 @@ and class_expr : Typedtree.class_expr -> term_judg =
         let ids = List.map fst args in
         remove_ids ids (class_expr ce << Delay)
     | Tcl_apply (ce, args) ->
-        let arg (_label, eo) = option expression eo in
+        let arg = function
+          | Normal (_, eo)
+          | Implicit { inst = eo } -> option expression eo
+        in
         join [
           class_expr ce << Dereference;
           list arg args << Dereference;

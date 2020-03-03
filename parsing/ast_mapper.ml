@@ -137,6 +137,11 @@ module T = struct
     | Ptyp_var s -> var ~loc ~attrs s
     | Ptyp_arrow (lab, t1, t2) ->
         arrow ~loc ~attrs lab (sub.typ sub t1) (sub.typ sub t2)
+    | Ptyp_implicit_arrow (lab, (lid, l), t) ->
+        implicit_arrow ~loc ~attrs lab
+          ((map_loc sub lid),
+           List.map (map_tuple (map_loc sub) (sub.typ sub)) l)
+          (sub.typ sub t)
     | Ptyp_tuple tyl -> tuple ~loc ~attrs (List.map (sub.typ sub) tyl)
     | Ptyp_constr (lid, tl) ->
         constr ~loc ~attrs (map_loc sub lid) (List.map (sub.typ sub) tl)
@@ -391,6 +396,10 @@ module E = struct
         fun_ ~loc ~attrs lab (map_opt (sub.expr sub) def) (sub.pat sub p)
           (sub.expr sub e)
     | Pexp_function pel -> function_ ~loc ~attrs (sub.cases sub pel)
+    | Pexp_implicit_fun (s, (lid, l), e) ->
+        implicit_fun ~loc ~attrs s
+          (map_loc sub lid, List.map (map_tuple (map_loc sub) (sub.typ sub)) l)
+          (sub.expr sub e)
     | Pexp_apply (e, l) ->
         apply ~loc ~attrs (sub.expr sub e) (List.map (map_snd (sub.expr sub)) l)
     | Pexp_match (e, pel) ->

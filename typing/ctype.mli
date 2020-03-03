@@ -246,6 +246,9 @@ val with_passive_variants: ('a -> 'b) -> ('a -> 'b)
         (* Call [f] in passive_variants mode, for exhaustiveness check. *)
 val filter_arrow: Env.t -> type_expr -> arg_label -> type_expr * type_expr
         (* A special case of unification (with l:'a -> 'b). *)
+val filter_implicit: Env.t -> Types.type_expr ->
+  (Ident.t * Types.type_expr * Types.type_expr) option
+        (* A special case of unification with {M:S} -> 'b *)
 val filter_method: Env.t -> string -> private_flag -> type_expr -> type_expr
         (* A special case of unification (with {m : 'a; 'b}). *)
 val check_filter_method: Env.t -> string -> private_flag -> type_expr -> unit
@@ -289,6 +292,17 @@ type class_match_failure =
 val match_class_types:
     ?trace:bool -> Env.t -> class_type -> class_type -> class_match_failure list
         (* Check if the first class type is more general than the second. *)
+
+type equality_equation = {
+  eq_lhs : type_expr;
+  eq_lhs_params : type_expr list;
+  eq_lhs_path : Path.t;
+  eq_rhs : type_expr;
+}
+
+val with_equality_equations
+  : equality_equation list ref Ident.Map.t -> (unit -> 'a) -> 'a
+
 val equal: Env.t -> bool -> type_expr list -> type_expr list -> bool
         (* [equal env [x1...xn] tau [y1...yn] sigma]
            checks whether the parameterized types
@@ -369,5 +383,9 @@ val maybe_pointer_type : Env.t -> type_expr -> bool
 val package_subtype :
     (Env.t -> Path.t -> Longident.t list -> type_expr list ->
       Path.t -> Longident.t list -> type_expr list -> bool) ref
+
+val modtype_of_package: (* from Typemod *)
+    (Env.t -> Location.t ->
+        Path.t -> Longident.t list -> type_expr list -> module_type) ref
 
 val mcomp : Env.t -> type_expr -> type_expr -> unit

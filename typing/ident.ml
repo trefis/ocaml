@@ -258,6 +258,10 @@ let rec find_same id = function
       else
         find_same id (if c < 0 then l else r)
 
+let mem id tbl =
+  try ignore (find_same id tbl); true
+  with Not_found -> false
+
 let rec find_name n = function
     Empty ->
       raise Not_found

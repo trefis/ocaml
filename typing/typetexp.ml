@@ -55,10 +55,11 @@ module TyVarMap = Misc.Stdlib.String.Map
 
 type variable_context = int * type_expr TyVarMap.t
 
-(* Support for first-class modules. *)
+(* Support for first-class modules and implicits. *)
 
 let transl_modtype_longident = ref (fun _ -> assert false)
 let transl_modtype = ref (fun _ -> assert false)
+let modtype_of_package = ref (fun _ _ _ _ _ -> assert false)
 
 let create_package_mty fake loc env (p, l) =
   let l =
@@ -207,6 +208,19 @@ and transl_type_aux env policy styp =
       else ty1 in
     let ty = newty (Tarrow(l, ty1, cty2.ctyp_type, Cok)) in
     ctyp (Ttyp_arrow (l, cty1, cty2)) ty
+  | Ptyp_implicit_arrow (name, pkg, cty) ->
+      let pkg_t, (p, lis, tys) =
+        transl_package env styp.ptyp_loc policy pkg
+      in
+      let mty = !modtype_of_package env loc p lis tys in
+      let scope = create_scope () in
+      (* FIXME: presence?? *)
+      let pkg_ty = newty (Tpackage (p, lis, tys)) in
+      let (id, new_env) = Env.enter_module ~scope name Mp_absent mty env in
+      let cty = transl_type new_env policy cty in
+      let ty = newty (Timplicit_arrow (id, pkg_ty, cty.ctyp_type, Cok)) in
+      { (ctyp (Ttyp_implicit_arrow (id, pkg_t, cty)) ty)
+        with ctyp_env = new_env }
   | Ptyp_tuple stl ->
     assert (List.length stl >= 2);
     let ctys = List.map (transl_type env policy) stl in
@@ -510,26 +524,35 @@ and transl_type_aux env policy styp =
       unify_var env (newvar()) ty';
       ctyp (Ttyp_poly (vars, cty)) ty'
   | Ptyp_package (p, l) ->
-      let l, mty = create_package_mty true styp.ptyp_loc env (p, l) in
-      let z = narrow () in
-      let mty = !transl_modtype env mty in
-      widen z;
-      let ptys = List.map (fun (s, pty) ->
-                             s, transl_type env policy pty
-                          ) l in
-      let path = !transl_modtype_longident styp.ptyp_loc env p.txt in
-      let ty = newty (Tpackage (path,
-                       List.map (fun (s, _pty) -> s.txt) l,
-                       List.map (fun (_,cty) -> cty.ctyp_type) ptys))
-      in
-      ctyp (Ttyp_package {
-            pack_path = path;
-            pack_type = mty.mty_type;
-            pack_fields = ptys;
-            pack_txt = p;
-           }) ty
+      let pkg, (p, l, tyl) = transl_package env styp.ptyp_loc policy (p, l) in
+      let ty = newty (Tpackage (p, l, tyl)) in
+      ctyp (Ttyp_package pkg) ty
   | Ptyp_extension ext ->
       raise (Error_forward (Builtin_attributes.error_of_extension ext))
+
+and transl_package env loc policy (p, l) =
+  let l, mty = create_package_mty true loc env (p, l) in
+  let z = narrow () in
+  let mty = !transl_modtype env mty in
+  widen z;
+  let ptys = List.map (fun (s, pty) ->
+      s, transl_type env policy pty
+    ) l in
+  let path = !transl_modtype_longident loc env p.txt in
+  let pkg =
+    {
+      pack_path = path;
+      pack_type = mty.mty_type;
+      pack_fields = ptys;
+      pack_txt = p;
+    }
+  in
+  let ty_desc =
+    path,
+    List.map (fun (s, _pty) -> s.txt) l,
+    List.map (fun (_,cty) -> cty.ctyp_type) ptys
+  in
+  pkg, ty_desc
 
 and transl_poly_type env policy t =
   transl_type env policy (Ast_helper.Typ.force_poly t)

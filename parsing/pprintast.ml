@@ -517,7 +517,7 @@ and sugar_expr ctxt f e =
   else match e.pexp_desc with
   | Pexp_apply ({ pexp_desc = Pexp_ident {txt = id; _};
                   pexp_attributes=[]; _}, args)
-    when List.for_all (fun (lab, _) -> lab = Nolabel) args -> begin
+    when List.for_all (fun (lab, _) -> lab = Papp_nolabel) args -> begin
       let print_indexop a path_prefix assign left sep right print_index indices
           rem_args =
         let print_path ppf = function
@@ -632,7 +632,7 @@ and expression ctxt f x =
             match view_fixity_of_exp e with
             | `Infix s ->
                 begin match l with
-                | [ (Nolabel, _) as arg1; (Nolabel, _) as arg2 ] ->
+                | [ (Papp_nolabel, _) as arg1; (Papp_nolabel, _) as arg2 ] ->
                     (* FIXME associativity label_x_expression_param *)
                     pp f "@[<2>%a@;%s@;%a@]"
                       (label_x_expression_param reset_ctxt) arg1 s
@@ -653,7 +653,7 @@ and expression ctxt f x =
                   then String.sub s 1 (String.length s -1)
                   else s in
                 begin match l with
-                | [(Nolabel, x)] ->
+                | [(Papp_nolabel, x)] ->
                   pp f "@[<2>%s@;%a@]" s (simple_expr ctxt) x
                 | _   ->
                   pp f "@[<2>%a %a@]" (simple_expr ctxt) e
@@ -1589,17 +1589,19 @@ and label_x_expression_param ctxt f (l,e) =
        pexp_attributes=[]} -> Some l
     | _ -> None
   in match l with
-  | Nolabel  -> expression2 ctxt f e (* level 2*)
-  | Optional str ->
+  | Papp_nolabel  -> expression2 ctxt f e (* level 2*)
+  | Papp_optional str ->
       if Some str = simple_name then
         pp f "?%s" str
       else
         pp f "?%s:%a" str (simple_expr ctxt) e
-  | Labelled lbl ->
+  | Papp_labelled lbl ->
       if Some lbl = simple_name then
         pp f "~%s" lbl
       else
         pp f "~%s:%a" lbl (simple_expr ctxt) e
+  | Papp_implicit ->
+        pp f "{%a}" (expression2 ctxt) e
 
 and directive_argument f x =
   match x.pdira_desc with

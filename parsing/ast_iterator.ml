@@ -110,6 +110,10 @@ module T = struct
     | Otag (_, t) -> sub.typ sub t
     | Oinherit t -> sub.typ sub t
 
+  let iter_package sub (lid, l) =
+    iter_loc sub lid;
+    List.iter (iter_tuple (iter_loc sub) (sub.typ sub)) l
+
   let iter sub {ptyp_desc = desc; ptyp_loc = loc; ptyp_attributes = attrs} =
     sub.location sub loc;
     sub.attributes sub attrs;
@@ -118,6 +122,8 @@ module T = struct
     | Ptyp_var _ -> ()
     | Ptyp_arrow (_lab, t1, t2) ->
         sub.typ sub t1; sub.typ sub t2
+    | Ptyp_implicit_arrow (_lab, pt, t) ->
+        iter_package sub pt; sub.typ sub t
     | Ptyp_tuple tyl -> List.iter (sub.typ sub) tyl
     | Ptyp_constr (lid, tl) ->
         iter_loc sub lid; List.iter (sub.typ sub) tl
@@ -129,9 +135,7 @@ module T = struct
     | Ptyp_variant (rl, _b, _ll) ->
         List.iter (row_field sub) rl
     | Ptyp_poly (_, t) -> sub.typ sub t
-    | Ptyp_package (lid, l) ->
-        iter_loc sub lid;
-        List.iter (iter_tuple (iter_loc sub) (sub.typ sub)) l
+    | Ptyp_package pkg -> iter_package sub pkg
     | Ptyp_extension x -> sub.extension sub x
 
   let iter_type_declaration sub
@@ -351,6 +355,9 @@ module E = struct
     | Pexp_fun (_lab, def, p, e) ->
         iter_opt (sub.expr sub) def;
         sub.pat sub p;
+        sub.expr sub e
+    | Pexp_implicit_fun (_lab, pkg, e) ->
+        T.iter_package sub pkg;
         sub.expr sub e
     | Pexp_function pel -> sub.cases sub pel
     | Pexp_apply (e, l) ->

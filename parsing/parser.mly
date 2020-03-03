@@ -133,7 +133,7 @@ let ghstr ~loc d = Str.mk ~loc:(ghost_loc loc) d
 let ghsig ~loc d = Sig.mk ~loc:(ghost_loc loc) d
 
 let mkinfix arg1 op arg2 =
-  Pexp_apply(op, [Nolabel, arg1; Nolabel, arg2])
+  Pexp_apply(op, [Papp_nolabel, arg1; Papp_nolabel, arg2])
 
 let neg_string f =
   if String.length f > 0 && f.[0] = '-'
@@ -147,7 +147,7 @@ let mkuminus ~oploc name arg =
   | ("-" | "-."), Pexp_constant(Pconst_float (f, m)) ->
       Pexp_constant(Pconst_float(neg_string f, m))
   | _ ->
-      Pexp_apply(mkoperator ~loc:oploc ("~" ^ name), [Nolabel, arg])
+      Pexp_apply(mkoperator ~loc:oploc ("~" ^ name), [Papp_nolabel, arg])
 
 let mkuplus ~oploc name arg =
   let desc = arg.pexp_desc in
@@ -155,7 +155,7 @@ let mkuplus ~oploc name arg =
   | "+", Pexp_constant(Pconst_integer _)
   | ("+" | "+."), Pexp_constant(Pconst_float _) -> desc
   | _ ->
-      Pexp_apply(mkoperator ~loc:oploc ("~" ^ name), [Nolabel, arg])
+      Pexp_apply(mkoperator ~loc:oploc ("~" ^ name), [Papp_nolabel, arg])
 
 (* TODO define an abstraction boundary between locations-as-pairs
    and locations-as-Location.t; it should be clear when we move from
@@ -259,11 +259,11 @@ let multi_indices ~loc = function
   | l -> true, mkexp ~loc (Pexp_array l)
 
 let index_get ~loc get_fun array index =
-  let args = [Nolabel, array; Nolabel, index] in
+  let args = [Papp_nolabel, array; Papp_nolabel, index] in
    mkexp ~loc (Pexp_apply(get_fun, args))
 
 let index_set ~loc set_fun array index value =
-  let args = [Nolabel, array; Nolabel, index; Nolabel, value] in
+  let args = [Papp_nolabel, array; Papp_nolabel, index; Papp_nolabel, value] in
    mkexp ~loc (Pexp_apply(set_fun, args))
 
 let array_get ~loc = index_get ~loc (array_get_fun ~loc)
@@ -297,16 +297,18 @@ let bigarray_get ~loc arr arg =
   match bigarray_untuplify arg with
     [c1] ->
       mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array1" get)),
-                       [Nolabel, arr; Nolabel, c1]))
+                       [Papp_nolabel, arr; Papp_nolabel, c1]))
   | [c1;c2] ->
       mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array2" get)),
-                       [Nolabel, arr; Nolabel, c1; Nolabel, c2]))
+                       [Papp_nolabel, arr; Papp_nolabel, c1; Papp_nolabel, c2]))
   | [c1;c2;c3] ->
       mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array3" get)),
-                       [Nolabel, arr; Nolabel, c1; Nolabel, c2; Nolabel, c3]))
+                       [Papp_nolabel, arr; Papp_nolabel, c1;
+                        Papp_nolabel, c2; Papp_nolabel, c3]))
   | coords ->
       mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Genarray" "get")),
-                       [Nolabel, arr; Nolabel, ghexp(Pexp_array coords)]))
+                       [Papp_nolabel, arr;
+                        Papp_nolabel, ghexp(Pexp_array coords)]))
 
 let bigarray_set ~loc arr arg newval =
   let mkexp, ghexp = mkexp ~loc, ghexp ~loc in
@@ -315,20 +317,22 @@ let bigarray_set ~loc arr arg newval =
   match bigarray_untuplify arg with
     [c1] ->
       mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array1" set)),
-                       [Nolabel, arr; Nolabel, c1; Nolabel, newval]))
+                       [Papp_nolabel, arr; Papp_nolabel, c1;
+                        Papp_nolabel, newval]))
   | [c1;c2] ->
       mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array2" set)),
-                       [Nolabel, arr; Nolabel, c1;
-                        Nolabel, c2; Nolabel, newval]))
+                       [Papp_nolabel, arr; Papp_nolabel, c1;
+                        Papp_nolabel, c2; Papp_nolabel, newval]))
   | [c1;c2;c3] ->
       mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Array3" set)),
-                       [Nolabel, arr; Nolabel, c1;
-                        Nolabel, c2; Nolabel, c3; Nolabel, newval]))
+                       [Papp_nolabel, arr; Papp_nolabel, c1;
+                        Papp_nolabel, c2; Papp_nolabel, c3;
+                        Papp_nolabel, newval]))
   | coords ->
       mkexp(Pexp_apply(ghexp(Pexp_ident(bigarray_function "Genarray" "set")),
-                       [Nolabel, arr;
-                        Nolabel, ghexp(Pexp_array coords);
-                        Nolabel, newval]))
+                       [Papp_nolabel, arr;
+                        Papp_nolabel, ghexp(Pexp_array coords);
+                        Papp_nolabel, newval]))
 
 let lapply ~loc p1 p2 =
   if !Clflags.applicative_functors
@@ -2313,9 +2317,9 @@ simple_expr:
   | name_tag %prec prec_constant_constructor
       { Pexp_variant($1, None) }
   | op(PREFIXOP) simple_expr
-      { Pexp_apply($1, [Nolabel,$2]) }
+      { Pexp_apply($1, [Papp_nolabel,$2]) }
   | op(BANG {"!"}) simple_expr
-      { Pexp_apply($1, [Nolabel,$2]) }
+      { Pexp_apply($1, [Papp_nolabel,$2]) }
   | LBRACELESS object_expr_content GREATERRBRACE
       { Pexp_override $2 }
   | LBRACELESS object_expr_content error
@@ -2397,17 +2401,17 @@ simple_expr:
 ;
 labeled_simple_expr:
     simple_expr %prec below_HASH
-      { (Nolabel, $1) }
+      { (Papp_nolabel, $1) }
   | LABEL simple_expr %prec below_HASH
-      { (Labelled $1, $2) }
+      { (Papp_labelled $1, $2) }
   | TILDE label = LIDENT
       { let loc = $loc(label) in
-        (Labelled label, mkexpvar ~loc label) }
+        (Papp_labelled label, mkexpvar ~loc label) }
   | QUESTION label = LIDENT
       { let loc = $loc(label) in
-        (Optional label, mkexpvar ~loc label) }
+        (Papp_optional label, mkexpvar ~loc label) }
   | OPTLABEL simple_expr %prec below_HASH
-      { (Optional $1, $2) }
+      { (Papp_optional $1, $2) }
 ;
 %inline lident_list:
   xs = mkrhs(LIDENT)+

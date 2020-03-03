@@ -185,6 +185,11 @@ let rec core_type i ppf x =
       arg_label i ppf l;
       core_type i ppf ct1;
       core_type i ppf ct2;
+  | Ttyp_implicit_arrow (id, { pack_path = s; pack_fields = l }, ct) ->
+      line i ppf "Ttyp_implicit_arrow %a\n" fmt_ident id;
+      line i ppf "%a" fmt_path s;
+      list i package_with ppf l;
+      core_type i ppf ct
   | Ttyp_tuple l ->
       line i ppf "Ttyp_tuple\n";
       list i core_type ppf l;
@@ -326,10 +331,15 @@ and expression i ppf x =
       line i ppf "Texp_function\n";
       arg_label i ppf p;
       list i case ppf cases;
+  | Texp_implicit_function (id, { pack_path = s; pack_fields = l }, e) ->
+      line i ppf "Texp_implicit_function %a\n" fmt_ident id;
+      line i ppf "%a\n" fmt_path s;
+      list (i + 1) package_with ppf l;
+      expression i ppf e
   | Texp_apply (e, l) ->
       line i ppf "Texp_apply\n";
       expression i ppf e;
-      list i label_x_expression ppf l;
+      list i argument ppf l;
   | Texp_match (e, l, _partial) ->
       line i ppf "Texp_match\n";
       expression i ppf e;
@@ -606,7 +616,7 @@ and class_expr i ppf x =
   | Tcl_apply (ce, l) ->
       line i ppf "Tcl_apply\n";
       class_expr i ppf ce;
-      list i label_x_expression ppf l;
+      list i argument ppf l;
   | Tcl_let (rf, l1, l2, ce) ->
       line i ppf "Tcl_let %a\n" fmt_rec_flag rf;
       list i value_binding ppf l1;
@@ -918,10 +928,16 @@ and record_field i ppf = function
   | _, Kept _ ->
       line i ppf "<kept>"
 
-and label_x_expression i ppf (l, e) =
+and arg_label_x_expression i ppf l e =
   line i ppf "<arg>\n";
   arg_label (i+1) ppf l;
   (match e with None -> () | Some e -> expression (i+1) ppf e)
+
+and argument i ppf = function
+  | Normal (l, e) -> arg_label_x_expression i ppf l e
+  | Implicit { inst } ->
+      line i ppf "<implicit arg>\n";
+      (match inst with None -> () | Some e -> expression (i+1) ppf e)
 
 and ident_x_expression_def i ppf (l, e) =
   line i ppf "<def> \"%a\"\n" fmt_ident l;
