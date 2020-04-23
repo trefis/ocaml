@@ -182,6 +182,8 @@ let rec immediate_subtypes : type_expr -> type_expr list = fun ty ->
   match (Ctype.repr ty).desc with
   (* these are the important cases,
      on which immediate_subtypes is called from [check_type] *)
+  | Timplicit_arrow(_,ty1,ty2,_) ->
+      [ty1; ty2]
   | Tarrow(_,ty1,ty2,_) ->
       [ty1; ty2]
   | Ttuple(tys)
@@ -462,6 +464,7 @@ let check_type
         TVarMap.singleton {text = alpha; id = ty.Types.id} m
     (* "Separable" case for constructors with known memory representation. *)
     | (Tarrow _           , Sep    )
+    | (Timplicit_arrow _  , Sep    )
     | (Ttuple _           , Sep    )
     | (Tvariant(_)        , Sep    )
     | (Tobject(_,_)       , Sep    )
@@ -469,6 +472,7 @@ let check_type
     | (Tpackage(_,_,_)    , Sep    ) -> empty
     (* "Deeply separable" case for these same constructors. *)
     | (Tarrow _           , Deepsep)
+    | (Timplicit_arrow _  , Deepsep)
     | (Ttuple _           , Deepsep)
     | (Tvariant(_)        , Deepsep)
     | (Tobject(_,_)       , Deepsep)

@@ -43,7 +43,7 @@ type pending_implicit = {
   (* When linking with an implicit module M, a constraint (path, ty) is
      satisfied iff path unify with ty when implicit_id is bound to M in
      implicit_env *)
-  implicit_argument: argument;
+  implicit_argument: Typedtree.expression option ref;
 }
 
 (*val env : Env.t
@@ -124,7 +124,7 @@ let instantiate_one_implicit loc env id ty_arg ty_res =
         implicit_loc = loc;
         implicit_type = (p,nl,tl);
         implicit_constraints = [];
-        implicit_argument = Implicit { inst = None };
+        implicit_argument = ref None;
       }
     | _ -> assert false
   in
@@ -168,10 +168,7 @@ module Link = struct
     (* Pack the module to appropriate signature *)
     let expr = pack_implicit inst path in
     (* Update the argument *)
-    match inst.implicit_argument with
-    | Normal _ -> assert false
-    | Implicit arg ->
-        arg.inst <- Some expr
+    inst.implicit_argument := Some expr
 
   let to_expr inst expr =
     (* An implicit instance always have to be a path to a module in scope *)

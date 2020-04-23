@@ -231,7 +231,8 @@ let pat
 
 let argument sub = function
   | Normal (lbl, eo) -> Normal (lbl, Option.map (sub.expr sub) eo)
-  | Implicit { inst } -> Implicit { inst = Option.map (sub.expr sub) inst }
+  | Implicit { contents } ->
+      Implicit { contents = Option.map (sub.expr sub) contents }
 
 let expr sub x =
   let extra = function

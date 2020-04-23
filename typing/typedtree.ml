@@ -102,7 +102,7 @@ and expression_desc =
   | Texp_function of { arg_label : arg_label; param : Ident.t;
       cases : value case list; partial : partial; }
   | Texp_implicit_function of Ident.t * package_type * expression
-  | Texp_apply of expression * (arg_label * expression option) list
+  | Texp_apply of expression * argument list
   | Texp_match of expression * computation case list * partial
   | Texp_try of expression * value case list
   | Texp_tuple of expression list
@@ -150,7 +150,7 @@ and expression_desc =
 
 and argument =
   | Normal of arg_label * expression option
-  | Implicit of { mutable inst: expression option }
+  | Implicit of expression option ref
 
 and meth =
     Tmeth_name of string

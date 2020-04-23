@@ -480,6 +480,12 @@ let print_name ppf = function
     None -> fprintf ppf "None"
   | Some name -> fprintf ppf "\"%s\"" name
 
+let string_of_apply_label = function
+  | Papp_nolabel
+  | Papp_implicit -> ""
+  | Papp_labelled s -> s
+  | Papp_optional s -> "?"^s
+
 let string_of_label = function
     Nolabel -> ""
   | Labelled s -> s

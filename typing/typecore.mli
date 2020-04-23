@@ -139,7 +139,7 @@ type error =
       Ctype.Unification_trace.t * type_forcing_context option
       * Typedtree.expression_desc option
   | Apply_non_function of type_expr
-  | Apply_wrong_label of arg_label * type_expr * bool
+  | Apply_wrong_label of apply_label * type_expr * bool
   | Label_multiply_defined of string
   | Label_missing of Ident.t list
   | Label_not_mutable of Longident.t
@@ -162,6 +162,7 @@ type error =
       type_expr * type_expr * Ctype.Unification_trace.t * bool
   | Too_many_arguments of bool * type_expr * type_forcing_context option
   | Abstract_wrong_label of arg_label * type_expr * type_forcing_context option
+  | Abstract_not_implicit of type_expr * type_forcing_context option
   | Scoping_let_module of string * type_expr
   | Not_a_variant_type of Longident.t
   | Incoherent_label_order
@@ -188,6 +189,7 @@ type error =
   | Letop_type_clash of string * Ctype.Unification_trace.t
   | Andop_type_clash of string * Ctype.Unification_trace.t
   | Bindings_type_clash of Ctype.Unification_trace.t
+  | Apply_unexpected_implicit of type_expr
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

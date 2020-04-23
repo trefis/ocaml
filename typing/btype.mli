@@ -198,14 +198,21 @@ val forget_abbrev:
 (**** Utilities for labels ****)
 
 val is_optional : arg_label -> bool
+val is_optional_arg : apply_label -> bool
+
 val label_name : arg_label -> label
+val apply_label_name : apply_label -> label
+
+val apply_label_of_arg_label : arg_label -> apply_label
+
+val arg_can_be_used : arg_label -> apply_label -> bool
 
 (* Returns the label name with first character '?' or '~' as appropriate. *)
 val prefixed_label_name : arg_label -> label
 
 val extract_label :
-    label -> (arg_label * 'a) list ->
-    (arg_label * 'a * bool * (arg_label * 'a) list) option
+    label -> (apply_label * 'a) list ->
+    (apply_label * 'a * bool * (apply_label * 'a) list) option
 (* actual label,
    value,
    whether (label, value) was at the head of the list,

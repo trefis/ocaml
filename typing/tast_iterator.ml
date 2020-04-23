@@ -178,7 +178,7 @@ let pat
 
 let argument sub = function
   | Normal (_, o) 
-  | Implicit { inst = o } -> Option.iter (sub.expr sub) o
+  | Implicit { contents = o } -> Option.iter (sub.expr sub) o
 
 let expr sub {exp_extra; exp_desc; exp_env; _} =
   let extra = function

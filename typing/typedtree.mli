@@ -279,10 +279,7 @@ and expression_desc =
 
 and argument =
   | Normal of arg_label (* cheat. *) * expression option
-  | Implicit of { 
-      mutable inst: expression option;
-      (* Mutable to defer instance selection *)
-    }
+  | Implicit of expression option ref (* Mutable to defer instance selection *)
 
 and meth =
     Tmeth_name of string

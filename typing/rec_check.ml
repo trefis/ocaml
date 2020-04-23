@@ -577,7 +577,7 @@ let rec expression : Typedtree.expression -> term_judg =
     | Texp_apply (e, args)  ->
         let arg = function
           | Normal (_, eo) -> option expression eo
-          | Implicit { inst } -> option expression inst
+          | Implicit { contents } -> option expression contents
         in
         let app_mode = if List.exists is_abstracted_arg args
           then (* see the comment on Texp_apply in typedtree.mli;
@@ -1050,7 +1050,7 @@ and class_expr : Typedtree.class_expr -> term_judg =
     | Tcl_apply (ce, args) ->
         let arg = function
           | Normal (_, eo)
-          | Implicit { inst = eo } -> option expression eo
+          | Implicit { contents = eo } -> option expression eo
         in
         join [
           class_expr ce << Dereference;

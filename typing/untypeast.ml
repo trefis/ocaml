@@ -391,7 +391,7 @@ let apply_label_of_arg_label = function
 
 let argument sub = function
   | Normal (lbl, Some e) -> Some (apply_label_of_arg_label lbl, sub.expr sub e)
-  | Implicit { inst = Some e } -> Some (Papp_implicit, sub.expr sub e)
+  | Implicit { contents = Some e } -> Some (Papp_implicit, sub.expr sub e)
   | _ -> None
 
 let expression sub exp =

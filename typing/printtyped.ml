@@ -935,7 +935,7 @@ and arg_label_x_expression i ppf l e =
 
 and argument i ppf = function
   | Normal (l, e) -> arg_label_x_expression i ppf l e
-  | Implicit { inst } ->
+  | Implicit { contents = inst } ->
       line i ppf "<implicit arg>\n";
       (match inst with None -> () | Some e -> expression (i+1) ppf e)
 

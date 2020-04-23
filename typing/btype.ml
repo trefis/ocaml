@@ -686,21 +686,46 @@ let check_memorized_abbrevs () =
                   (**********************************)
 
 let is_optional = function Optional _ -> true | _ -> false
+let is_optional_arg = function Papp_optional _ -> true | _ -> false
 
 let label_name = function
     Nolabel -> ""
   | Labelled s
   | Optional s -> s
 
+let apply_label_name = function
+  | Papp_nolabel
+  | Papp_implicit -> ""
+  | Papp_labelled s
+  | Papp_optional s -> s
+
 let prefixed_label_name = function
     Nolabel -> ""
   | Labelled s -> "~" ^ s
   | Optional s -> "?" ^ s
 
+let apply_label_of_arg_label = function
+  | Nolabel -> Papp_nolabel
+  | Labelled s -> Papp_labelled s
+  | Optional s -> Papp_optional s
+
+let arg_equals_app arg_lbl app_lbl =
+  match arg_lbl, app_lbl with
+  | _, Papp_implicit -> false
+  | Nolabel, Papp_nolabel -> true
+  | Labelled l1, Papp_labelled l2
+  | Optional l1, Papp_optional l2 -> l1 = l2
+  | _ -> false
+
+let arg_can_be_used arg_lbl app_lbl =
+  match arg_lbl, app_lbl with
+  | Labelled _, Papp_nolabel when !Clflags.classic -> true
+  | _ -> arg_equals_app arg_lbl app_lbl
+
 let rec extract_label_aux hd l = function
   | [] -> None
   | (l',t as p) :: ls ->
-      if label_name l' = l then
+      if apply_label_name l' = l then
         Some (l', t, hd <> [], List.rev_append hd ls)
       else
         extract_label_aux (p::hd) l ls
