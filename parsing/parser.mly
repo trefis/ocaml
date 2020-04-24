@@ -336,7 +336,7 @@ let bigarray_set ~loc arr arg newval =
 
 let lapply ~loc p1 p2 =
   if !Clflags.applicative_functors
-  then Lapply(p1, p2)
+  then Lapply(p1, p2, Nonimplicit)
   else raise (Syntaxerr.Error(
                   Syntaxerr.Applicative_path (make_loc loc)))
 
@@ -1236,7 +1236,7 @@ module_expr:
     | (* Application to unit is sugar for application to an empty structure. *)
       me1 = module_expr LPAREN RPAREN
         { (* TODO review mkmod location *)
-          Pmod_apply(me1, mkmod ~loc:$sloc Pfa_unit) }
+          Pmod_apply(me1, Pfa_unit) }
     | (* An extension. *)
       ex = extension
         { Pmod_extension ex }
