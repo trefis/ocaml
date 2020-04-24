@@ -50,10 +50,10 @@ let cons_opt x_opt xs =
    currently compiled module expression).  Useful for naming extensions. *)
 
 let global_path glob = Some(Pident glob)
-let functor_path path param =
+let functor_path path param i =
   match path with
     None -> None
-  | Some p -> Some(Papply(p, Pident param))
+  | Some p -> Some(Papply(p, Pident param, i))
 let field_path path field =
   match path with
     None -> None
@@ -445,8 +445,12 @@ let merge_functors mexp coercion root_path =
         | Unit -> None, Ident.create_local "*"
         | Named (None, _, _) ->
           let id = Ident.create_local "_" in
-          functor_path path id, id
-        | Named (Some id, _, _) -> functor_path path id, id
+          functor_path path id Nonimplicit, id
+        | Named (Some id, _, _) -> functor_path path id Nonimplicit, id
+        | Implicit_param (None, _, _) ->
+          let id = Ident.create_local "_" in
+          functor_path path id Implicit, id
+        | Implicit_param (Some id, _, _) -> functor_path path id Implicit, id
       in
       let inline_attribute =
         merge_inline_attributes inline_attribute inline_attribute' loc
@@ -511,13 +515,20 @@ and transl_module cc rootpath mexp =
         (Lapply{ap_should_be_tailcall=false;
                 ap_loc=loc;
                 ap_func=transl_module Tcoerce_none None funct;
-                ap_args=[transl_module ccarg None arg];
+                ap_args=[transl_functor_arg loc ccarg arg];
                 ap_inlined=inlined_attribute;
                 ap_specialised=Default_specialise})
   | Tmod_constraint(arg, _, _, ccarg) ->
       transl_module (compose_coercions cc ccarg) rootpath arg
   | Tmod_unpack(arg, _) ->
       apply_coercion loc Strict cc (Translcore.transl_exp arg)
+
+and transl_functor_arg loc cc = function
+  | Mapp_unit ->
+      Lprim(Pmakeblock(0, Immutable, None), [], loc)
+  | Mapp_named me
+  | Mapp_implicit me ->
+      transl_module cc None me
 
 and transl_struct loc fields cc rootpath str =
   transl_structure loc fields cc rootpath str.str_final_env str.str_items
