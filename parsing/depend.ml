@@ -68,7 +68,7 @@ let rec add_path bv ?(p=[]) = function
         prerr_endline "";*)
       add_names free
   | Ldot(l, s) -> add_path bv ~p:(s::p) l
-  | Lapply(l1, l2) -> add_path bv l1; add_path bv l2
+  | Lapply(l1, l2, _) -> add_path bv l1; add_path bv l2
 
 let open_module bv lid =
   match lookup_map lid bv with
@@ -440,13 +440,18 @@ and add_module_expr bv modl =
       in
       add_module_expr bv modl
   | Pmod_apply(mod1, mod2) ->
-      add_module_expr bv mod1; add_module_expr bv mod2
+      add_module_expr bv mod1; add_functor_argument bv mod2
   | Pmod_constraint(modl, mty) ->
       add_module_expr bv modl; add_modtype bv mty
   | Pmod_unpack(e) ->
       add_expr bv e
   | Pmod_extension e ->
       handle_extension e
+
+and add_functor_argument bv = function
+  | Pfa_unit -> ()
+  | Pfa_applicative me
+  | Pfa_implicit me -> add_module_expr bv me
 
 and add_class_type bv cty =
   match cty.pcty_desc with

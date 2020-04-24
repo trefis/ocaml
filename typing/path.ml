@@ -16,14 +16,14 @@
 type t =
     Pident of Ident.t
   | Pdot of t * string
-  | Papply of t * t
+  | Papply of t * t * Asttypes.implicit_flag
 
 let rec same p1 p2 =
   p1 == p2
   || match (p1, p2) with
     (Pident id1, Pident id2) -> Ident.same id1 id2
   | (Pdot(p1, s1), Pdot(p2, s2)) -> s1 = s2 && same p1 p2
-  | (Papply(fun1, arg1), Papply(fun2, arg2)) ->
+  | (Papply(fun1, arg1, _i1), Papply(fun2, arg2, _i2)) ->
        same fun1 fun2 && same arg1 arg2
   | (_, _) -> false
 
@@ -34,7 +34,7 @@ let rec compare p1 p2 =
   | (Pdot(p1, s1), Pdot(p2, s2)) ->
       let h = compare p1 p2 in
       if h <> 0 then h else String.compare s1 s2
-  | (Papply(fun1, arg1), Papply(fun2, arg2)) ->
+  | (Papply(fun1, arg1, _), Papply(fun2, arg2, _)) ->
       let h = compare fun1 fun2 in
       if h <> 0 then h else compare arg1 arg2
   | ((Pident _ | Pdot _), (Pdot _ | Papply _)) -> -1
@@ -43,7 +43,7 @@ let rec compare p1 p2 =
 let rec find_free_opt ids = function
     Pident id -> List.find_opt (Ident.same id) ids
   | Pdot(p, _s) -> find_free_opt ids p
-  | Papply(p1, p2) ->
+  | Papply(p1, p2, _) ->
       match find_free_opt ids p1 with
       | None -> find_free_opt ids p2
       | Some _ as res -> res
@@ -56,7 +56,7 @@ let exists_free ids p =
 let rec scope = function
     Pident id -> Ident.scope id
   | Pdot(p, _s) -> scope p
-  | Papply(p1, p2) -> max (scope p1) (scope p2)
+  | Papply(p1, p2, _) -> max (scope p1) (scope p2)
 
 let kfalse _ = false
 
@@ -64,12 +64,14 @@ let rec name ?(paren=kfalse) = function
     Pident id -> Ident.name id
   | Pdot(p, s) ->
       name ~paren p ^ if paren s then ".( " ^ s ^ " )" else "." ^ s
-  | Papply(p1, p2) -> name ~paren p1 ^ "(" ^ name ~paren p2 ^ ")"
+  | Papply(p1, p2, Nonimplicit) -> name ~paren p1 ^ "(" ^ name ~paren p2 ^ ")"
+  | Papply(p1, p2, Implicit) -> name ~paren p1 ^ "{" ^ name ~paren p2 ^ "}"
 
 let rec print ppf = function
   | Pident id -> Ident.print_with_scope ppf id
   | Pdot(p, s) -> Format.fprintf ppf "%a.%s" print p s
-  | Papply(p1, p2) -> Format.fprintf ppf "%a(%a)" print p1 print p2
+  | Papply(p1, p2, Nonimplicit) -> Format.fprintf ppf "%a(%a)" print p1 print p2
+  | Papply(p1, p2, Implicit) -> Format.fprintf ppf "%a{%a}" print p1 print p2
 
 let rec head = function
     Pident id -> id
@@ -88,14 +90,14 @@ let heads p =
   let rec heads p acc = match p with
     | Pident id -> id :: acc
     | Pdot (p, _s) -> heads p acc
-    | Papply(p1, p2) ->
+    | Papply(p1, p2, _) ->
         heads p1 (heads p2 acc)
   in heads p []
 
 let rec last = function
   | Pident id -> Ident.name id
   | Pdot(_, s) -> s
-  | Papply(_, p) -> last p
+  | Papply(_, p, _) -> last p
 
 let is_uident s =
   assert (s <> "");

@@ -249,12 +249,18 @@ and module_type_constraint =
 and functor_parameter =
   | Unit
   | Named of Ident.t option * string option loc * module_type
+  | Implicit_param of Ident.t option * string option loc * module_type
+
+and functor_argument =
+  | Mapp_unit
+  | Mapp_named of module_expr
+  | Mapp_implicit of module_expr
 
 and module_expr_desc =
     Tmod_ident of Path.t * Longident.t loc
   | Tmod_structure of structure
   | Tmod_functor of functor_parameter * module_expr
-  | Tmod_apply of module_expr * module_expr * module_coercion
+  | Tmod_apply of module_expr * functor_argument * module_coercion
   | Tmod_constraint of
       module_expr * Types.module_type * module_type_constraint * module_coercion
   | Tmod_unpack of expression * Types.module_type

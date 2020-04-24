@@ -82,8 +82,8 @@ let rec module_path s path =
     | Pident _ -> path
     | Pdot(p, n) ->
        Pdot(module_path s p, n)
-    | Papply(p1, p2) ->
-       Papply(module_path s p1, module_path s p2)
+    | Papply(p1, p2, i) ->
+       Papply(module_path s p1, module_path s p2, i)
 
 let modtype_path s = function
     Pident id as p ->
@@ -474,6 +474,12 @@ let rec modtype scoping s = function
   | Mty_functor(Named (Some id, arg), res) ->
       let id' = Ident.rename id in
       Mty_functor(Named (Some id', (modtype scoping s) arg),
+                  modtype scoping (add_module id (Pident id') s) res)
+  | Mty_functor(Implicit (None, arg), res) ->
+      Mty_functor(Implicit (None, (modtype scoping s) arg), modtype scoping s res)
+  | Mty_functor(Implicit (Some id, arg), res) ->
+      let id' = Ident.rename id in
+      Mty_functor(Implicit (Some id', (modtype scoping s) arg),
                   modtype scoping (add_module id (Pident id') s) res)
   | Mty_alias p ->
       Mty_alias (module_path s p)

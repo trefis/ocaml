@@ -40,12 +40,25 @@ let rec strengthen ~aliasable env mty p =
   | Mty_functor(Named (Some param, arg), res)
     when !Clflags.applicative_functors ->
       Mty_functor(Named (Some param, arg),
-        strengthen ~aliasable:false env res (Papply(p, Pident param)))
+                  strengthen ~aliasable:false env res
+                    (Papply(p, Pident param, Nonimplicit)))
   | Mty_functor(Named (None, arg), res)
     when !Clflags.applicative_functors ->
       let param = Ident.create_scoped ~scope:(Path.scope p) "Arg" in
       Mty_functor(Named (Some param, arg),
-        strengthen ~aliasable:false env res (Papply(p, Pident param)))
+                  strengthen ~aliasable:false env res
+                    (Papply(p, Pident param, Nonimplicit)))
+  | Mty_functor(Implicit (Some param, arg), res)
+    when !Clflags.applicative_functors ->
+      Mty_functor(Named (Some param, arg),
+                  strengthen ~aliasable:false env res
+                    (Papply(p, Pident param, Implicit)))
+  | Mty_functor(Implicit (None, arg), res)
+    when !Clflags.applicative_functors ->
+      let param = Ident.create_scoped ~scope:(Path.scope p) "Arg" in
+      Mty_functor(Named (Some param, arg),
+                  strengthen ~aliasable:false env res
+                    (Papply(p, Pident param, Implicit)))
   | mty ->
       mty
 
@@ -188,6 +201,19 @@ let rec nondep_mty_with_presence env va ids pres mty =
       in
       let mty =
         Mty_functor(Named (param, nondep_mty env var_inv ids arg),
+                    nondep_mty res_env va ids res)
+      in
+      pres, mty
+  | Mty_functor(Implicit (param, arg), res) ->
+      let var_inv =
+        match va with Co -> Contra | Contra -> Co | Strict -> Strict in
+      let res_env =
+        match param with
+        | None -> env
+        | Some param -> Env.add_module ~arg:true param Mp_present arg env
+      in
+      let mty =
+        Mty_functor(Implicit (param, nondep_mty env var_inv ids arg),
                     nondep_mty res_env va ids res)
       in
       pres, mty
@@ -381,12 +407,12 @@ let contains_type env mty =
 let rec get_prefixes = function
   | Pident _ -> Path.Set.empty
   | Pdot (p, _)
-  | Papply (p, _) -> Path.Set.add p (get_prefixes p)
+  | Papply (p, _, _) -> Path.Set.add p (get_prefixes p)
 
 let rec get_arg_paths = function
   | Pident _ -> Path.Set.empty
   | Pdot (p, _) -> get_arg_paths p
-  | Papply (p1, p2) ->
+  | Papply (p1, p2, _) ->
       Path.Set.add p2
         (Path.Set.union (get_prefixes p2)
            (Path.Set.union (get_arg_paths p1) (get_arg_paths p2)))

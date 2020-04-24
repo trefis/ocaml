@@ -307,6 +307,8 @@ val equal: Env.t -> bool -> type_expr list -> type_expr list -> bool
         (* [equal env [x1...xn] tau [y1...yn] sigma]
            checks whether the parameterized types
            [/\x1.../\xn.tau] and [/\y1.../\yn.sigma] are equivalent. *)
+val equal': Env.t -> bool -> type_expr list -> type_expr list -> unit
+  (* @raises Unify *)
 val match_class_declarations:
         Env.t -> type_expr list -> class_type -> type_expr list ->
         class_type -> class_match_failure list
@@ -389,3 +391,5 @@ val modtype_of_package: (* from Typemod *)
         Path.t -> Longident.t list -> type_expr list -> module_type) ref
 
 val mcomp : Env.t -> type_expr -> type_expr -> unit
+
+val new_declaration: int -> type_expr option -> type_declaration

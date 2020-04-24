@@ -272,6 +272,11 @@ let map_functor_param sub = function
   | Unit -> Unit
   | Named (s, mt) -> Named (map_loc sub s, sub.module_type sub mt)
 
+let map_functor_arg sub = function
+  | Pfa_unit -> Pfa_unit
+  | Pfa_applicative me -> Pfa_applicative (sub.module_expr sub me)
+  | Pfa_implicit me -> Pfa_implicit (sub.module_expr sub me)
+
 module MT = struct
   (* Type expressions for the module language *)
 
@@ -346,7 +351,7 @@ module M = struct
           (map_functor_param sub param)
           (sub.module_expr sub body)
     | Pmod_apply (m1, m2) ->
-        apply ~loc ~attrs (sub.module_expr sub m1) (sub.module_expr sub m2)
+        apply ~loc ~attrs (sub.module_expr sub m1) (map_functor_arg sub m2)
     | Pmod_constraint (m, mty) ->
         constraint_ ~loc ~attrs (sub.module_expr sub m)
                     (sub.module_type sub mty)

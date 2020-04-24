@@ -575,7 +575,7 @@ let rec expression : Typedtree.expression -> term_judg =
       *)
       expression arg << Guard
     | Texp_apply (e, args)  ->
-        let arg = function
+        let arg : argument -> _ = function
           | Normal (_, eo) -> option expression eo
           | Implicit { contents } -> option expression contents
         in
@@ -863,6 +863,12 @@ and class_field_kind : Typedtree.class_field_kind -> term_judg =
     | Tcfk_concrete (_, e) ->
       expression e << Dereference
 
+and functarg : Typedtree.functor_argument -> term_judg =
+  function
+  | Mapp_unit -> (fun _ -> Env.empty)
+  | Mapp_named mexp
+  | Mapp_implicit mexp -> modexp mexp
+
 and modexp : Typedtree.module_expr -> term_judg =
   fun mexp -> match mexp.mod_desc with
     | Tmod_ident (pth, _) ->
@@ -874,7 +880,7 @@ and modexp : Typedtree.module_expr -> term_judg =
     | Tmod_apply (f, p, _) ->
       join [
         modexp f << Dereference;
-        modexp p << Dereference;
+        functarg p << Dereference;
       ]
     | Tmod_constraint (mexp, _, _, coe) ->
       let rec coercion coe k = match coe with
@@ -920,7 +926,7 @@ and path : Path.t -> term_judg =
         single x
     | Path.Pdot (t, _) ->
         path t << Dereference
-    | Path.Papply (f, p) ->
+    | Path.Papply (f, p, _) ->
         join [
           path f << Dereference;
           path p << Dereference;

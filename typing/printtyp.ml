@@ -32,7 +32,8 @@ module String = Misc.Stdlib.String
 let rec longident ppf = function
   | Lident s -> pp_print_string ppf s
   | Ldot(p, s) -> fprintf ppf "%a.%s" longident p s
-  | Lapply(p1, p2) -> fprintf ppf "%a(%a)" longident p1 longident p2
+  | Lapply(p1, p2, Nonimplicit) -> fprintf ppf "%a(%a)" longident p1 longident p2
+  | Lapply(p1, p2, Implicit) -> fprintf ppf "%a{%a}" longident p1 longident p2
 
 let () = Env.print_longident := longident
 
@@ -367,9 +368,9 @@ let rec rewrite_double_underscore_paths env p =
   match p with
   | Pdot (p, s) ->
     Pdot (rewrite_double_underscore_paths env p, s)
-  | Papply (a, b) ->
+  | Papply (a, b, i) ->
     Papply (rewrite_double_underscore_paths env a,
-            rewrite_double_underscore_paths env b)
+            rewrite_double_underscore_paths env b, i)
   | Pident id ->
     let name = Ident.name id in
     match find_double_underscore name with
@@ -406,7 +407,8 @@ let rec tree_of_path namespace = function
       Oide_dot (Oide_ident (ident_name Type t), s)
   | Pdot(p, s) ->
       Oide_dot (tree_of_path Module p, s)
-  | Papply(p1, p2) ->
+  | Papply(p1, p2, _i) ->
+      (* FIXME: add a constructor for implicit appl. *)
       Oide_apply (tree_of_path Module p1, tree_of_path Module p2)
 
 let tree_of_path namespace p =
@@ -652,7 +654,7 @@ let rec path_size = function
       penalty (Ident.name id), -Ident.scope id
   | Pdot (p, _) ->
       let (l, b) = path_size p in (1+l, b)
-  | Papply (p1, p2) ->
+  | Papply (p1, p2, _) ->
       let (l, b) = path_size p1 in
       (l + fst (path_size p2), b)
 
@@ -703,8 +705,8 @@ let rec lid_of_path = function
       Longident.Lident (Ident.name id)
   | Path.Pdot (p1, s) ->
       Longident.Ldot (lid_of_path p1, s)
-  | Path.Papply (p1, p2) ->
-      Longident.Lapply (lid_of_path p1, lid_of_path p2)
+  | Path.Papply (p1, p2, i) ->
+      Longident.Lapply (lid_of_path p1, lid_of_path p2, i)
 
 let is_unambiguous path env =
   let l = Env.find_shadowed_types path env in
@@ -1667,6 +1669,7 @@ let rec tree_of_modtype ?(ellipsis=false) = function
       let param, res =
         match param with
         | Unit -> None, tree_of_modtype ~ellipsis ty_res
+        | Implicit (param, ty_arg) (* FIXME! *)
         | Named (param, ty_arg) ->
           let name, env =
             match param with

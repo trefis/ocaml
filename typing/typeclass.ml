@@ -71,7 +71,7 @@ type error =
   | Field_type_mismatch of string * string * Ctype.Unification_trace.t
   | Structure_expected of class_type
   | Cannot_apply of class_type
-  | Apply_wrong_label of arg_label
+  | Apply_wrong_label of apply_label
   | Pattern_type_clash of type_expr
   | Repeated_parameter
   | Unbound_class_2 of Longident.t
@@ -1083,21 +1083,21 @@ and class_expr_aux cl_num val_env met_env scl =
         match ty_fun with
         | Cty_arrow (l, _, ty_res) ->
             if Btype.is_optional l then nonopt_labels ls ty_res
-            else nonopt_labels (l::ls) ty_res
+            else nonopt_labels (Btype.apply_label_of_arg_label l::ls) ty_res
         | _    -> ls
       in
       let ignore_labels =
         !Clflags.classic ||
         let labels = nonopt_labels [] cl.cl_type in
         List.length labels = List.length sargs &&
-        List.for_all (fun (l,_) -> l = Nolabel) sargs &&
-        List.exists (fun l -> l <> Nolabel) labels &&
+        List.for_all (fun (l,_) -> l = Papp_nolabel) sargs &&
+        List.exists (fun l -> l <> Papp_nolabel) labels &&
         begin
           Location.prerr_warning
             cl.cl_loc
             (Warnings.Labels_omitted
-               (List.map Printtyp.string_of_label
-                         (List.filter ((<>) Nolabel) labels)));
+               (List.map Printtyp.string_of_apply_label
+                         (List.filter ((<>) Papp_nolabel) labels)));
           true
         end
       in
@@ -1109,7 +1109,7 @@ and class_expr_aux cl_num val_env met_env scl =
             and optional = Btype.is_optional l in
             let use_arg sarg l' =
               Some (
-                if not optional || Btype.is_optional l' then
+                if not optional || Btype.is_optional_arg l' then
                   type_argument val_env sarg ty ty0
                 else
                   let ty' = extract_option_type val_env ty
@@ -1126,13 +1126,14 @@ and class_expr_aux cl_num val_env met_env scl =
                 match sargs with
                 | [] -> assert false
                 | (l', sarg) :: remaining_sargs ->
-                    if name = Btype.label_name l' ||
-                       (not optional && l' = Nolabel)
+                    if name = Btype.apply_label_name l' ||
+                       (not optional && l' = Papp_nolabel)
                     then
                       (remaining_sargs, use_arg sarg l')
                     else if
                       optional &&
-                      not (List.exists (fun (l, _) -> name = Btype.label_name l)
+                      not (List.exists
+                             (fun (l, _) -> name = Btype.apply_label_name l)
                              remaining_sargs)
                     then
                       (sargs, eliminate_optional_arg ())
@@ -1141,20 +1142,22 @@ and class_expr_aux cl_num val_env met_env scl =
               end else
                 match Btype.extract_label name sargs with
                 | Some (l', sarg, _, remaining_sargs) ->
-                    if not optional && Btype.is_optional l' then
+                    if not optional && Btype.is_optional_arg l' then
                       Location.prerr_warning sarg.pexp_loc
                         (Warnings.Nonoptional_label
                            (Printtyp.string_of_label l));
                     remaining_sargs, use_arg sarg l'
                 | None ->
                     sargs,
-                    if Btype.is_optional l && List.mem_assoc Nolabel sargs then
+                    if Btype.is_optional l && List.mem_assoc Papp_nolabel sargs
+                    then
                       eliminate_optional_arg ()
                     else
                       None
             in
             let omitted = if arg = None then (l,ty0) :: omitted else omitted in
-            type_args ((l,arg)::args) omitted ty_fun ty_fun0 remaining_sargs
+            type_args (Normal (l,arg)::args) omitted ty_fun ty_fun0
+              remaining_sargs
         | _ ->
             match sargs with
               (l, sarg0)::_ ->
@@ -1907,8 +1910,11 @@ let report_error env ppf = function
         "This class expression is not a class function, it cannot be applied"
   | Apply_wrong_label l ->
       let mark_label = function
-        | Nolabel -> "out label"
-        |  l -> sprintf " label %s" (Btype.prefixed_label_name l) in
+        | Papp_nolabel -> "out label"
+        | Papp_implicit -> sprintf "FIXME IMPLICIT"
+        | Papp_labelled s -> sprintf " label ~%s" s
+        | Papp_optional s -> sprintf " label ?%s" s
+      in
       fprintf ppf "This argument cannot be applied with%s" (mark_label l)
   | Pattern_type_clash ty ->
       (* XXX Trace *)

@@ -737,6 +737,11 @@ and functor_parameter =
         (* (X : MT)          Some X, MT
            (_ : MT)          None, MT *)
 
+and functor_argument =
+  | Pfa_unit
+  | Pfa_applicative of module_expr
+  | Pfa_implicit of module_expr
+
 and signature = signature_item list
 
 and signature_item =
@@ -873,7 +878,7 @@ and module_expr_desc =
         (* struct ... end *)
   | Pmod_functor of functor_parameter * module_expr
         (* functor(X : MT1) -> ME *)
-  | Pmod_apply of module_expr * module_expr
+  | Pmod_apply of module_expr * functor_argument
         (* ME1(ME2) *)
   | Pmod_constraint of module_expr * module_type
         (* (ME : MT) *)

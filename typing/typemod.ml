@@ -271,7 +271,7 @@ let rec iter_path_apply p ~f =
   match p with
   | Pident _ -> ()
   | Pdot (p, _) -> iter_path_apply p ~f
-  | Papply (p1, p2) ->
+  | Papply (p1, p2, _) ->
      iter_path_apply p1 ~f;
      iter_path_apply p2 ~f;
      f p1 p2 (* after recursing, so we know both paths are well typed *)
@@ -309,7 +309,8 @@ let iterator_with_env env =
       let env_before = !env in
       begin match param with
       | Unit -> ()
-      | Named (param, mty_arg) ->
+      | Named (param, mty_arg)
+      | Implicit (param, mty_arg) ->
         self.Btype.it_module_type self mty_arg;
         match param with
         | None -> ()
@@ -1610,7 +1611,13 @@ let rec path_of_module mexp =
   match mexp.mod_desc with
   | Tmod_ident (p,_) -> p
   | Tmod_apply(funct, arg, _coercion) when !Clflags.applicative_functors ->
-      Papply(path_of_module funct, path_of_module arg)
+      begin match arg with
+      | Mapp_unit -> assert false
+      | Mapp_named arg -> 
+          Papply(path_of_module funct, path_of_module arg, Nonimplicit)
+      | Mapp_implicit arg -> 
+          Papply(path_of_module funct, path_of_module arg, Implicit)
+      end
   | Tmod_constraint (mexp, _, _, _) ->
       path_of_module mexp
   | _ -> raise Not_a_path
@@ -1630,8 +1637,10 @@ let rec closed_modtype env = function
       let env =
         match arg_opt with
         | Unit
-        | Named (None, _) -> env
-        | Named (Some id, param) ->
+        | Named (None, _)
+        | Implicit (None, _) -> env
+        | Named (Some id, param) 
+        | Implicit (Some id, param) ->
             Env.add_module ~arg:true id Mp_present param env
       in
       closed_modtype env body
@@ -1945,22 +1954,31 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
         mod_env = env;
         mod_attributes = smod.pmod_attributes;
         mod_loc = smod.pmod_loc }
-  | Pmod_apply(sfunct, sarg) ->
+  | Pmod_apply(sfunct, Pfa_unit) ->
+      let funct = type_module false funct_body None env sfunct in
+      begin match Env.scrape_alias env funct.mod_type with
+      | Mty_functor (Unit, mty_res) ->
+          if funct_body && Mtype.contains_type env funct.mod_type then
+            raise (Error (smod.pmod_loc, env, Not_allowed_in_functor_body));
+          { mod_desc = Tmod_apply(funct, Mapp_unit, Tcoerce_none);
+            mod_type = mty_res;
+            mod_env = env;
+            mod_attributes = smod.pmod_attributes;
+            mod_loc = smod.pmod_loc }
+      | Mty_alias path ->
+          raise(Error(sfunct.pmod_loc, env, Cannot_scrape_alias path))
+      | _ ->
+          raise(Error(sfunct.pmod_loc, env, Cannot_apply funct.mod_type))
+      end
+  | Pmod_apply(sfunct, (Pfa_implicit sarg as pfa))
+  | Pmod_apply(sfunct, (Pfa_applicative sarg as pfa)) ->
       let arg = type_module true funct_body None env sarg in
       let path = path_of_module arg in
       let funct =
         type_module (sttn && path <> None) funct_body None env sfunct in
       begin match Env.scrape_alias env funct.mod_type with
-      | Mty_functor (Unit, mty_res) ->
-          if sarg.pmod_desc <> Pmod_structure [] then
-            raise (Error (sfunct.pmod_loc, env, Apply_generative));
-          if funct_body && Mtype.contains_type env funct.mod_type then
-            raise (Error (smod.pmod_loc, env, Not_allowed_in_functor_body));
-          { mod_desc = Tmod_apply(funct, arg, Tcoerce_none);
-            mod_type = mty_res;
-            mod_env = env;
-            mod_attributes = smod.pmod_attributes;
-            mod_loc = smod.pmod_loc }
+      | Mty_functor (Unit, _) ->
+          raise (Error (sfunct.pmod_loc, env, Apply_generative));
       | Mty_functor (Named (param, mty_param), mty_res) as mty_functor ->
           let coercion =
             try
@@ -2009,6 +2027,12 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
           in
           check_well_formed_module env smod.pmod_loc
             "the signature of this functor application" mty_appl;
+          let arg =
+            match pfa with
+            | Pfa_unit -> assert false
+            | Pfa_applicative _ -> Mapp_named arg
+            | Pfa_implicit _ -> Mapp_implicit arg
+          in
           { mod_desc = Tmod_apply(funct, arg, coercion);
             mod_type = mty_appl;
             mod_env = env;

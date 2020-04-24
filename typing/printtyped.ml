@@ -38,8 +38,10 @@ let rec fmt_longident_aux f x =
   match x with
   | Longident.Lident (s) -> fprintf f "%s" s;
   | Longident.Ldot (y, s) -> fprintf f "%a.%s" fmt_longident_aux y s;
-  | Longident.Lapply (y, z) ->
+  | Longident.Lapply (y, z, Nonimplicit) ->
       fprintf f "%a(%a)" fmt_longident_aux y fmt_longident_aux z;
+  | Longident.Lapply (y, z, Implicit) ->
+      fprintf f "%a{%a}" fmt_longident_aux y fmt_longident_aux z;
 ;;
 
 let fmt_longident f x = fprintf f "\"%a\"" fmt_longident_aux x.txt;;
@@ -54,8 +56,10 @@ let rec fmt_path_aux f x =
   match x with
   | Path.Pident (s) -> fprintf f "%a" fmt_ident s;
   | Path.Pdot (y, s) -> fprintf f "%a.%s" fmt_path_aux y s;
-  | Path.Papply (y, z) ->
+  | Path.Papply (y, z, Nonimplicit) ->
       fprintf f "%a(%a)" fmt_path_aux y fmt_path_aux z;
+  | Path.Papply (y, z, Implicit) ->
+      fprintf f "%a{%a}" fmt_path_aux y fmt_path_aux z;
 ;;
 
 let fmt_path f x = fprintf f "\"%a\"" fmt_path_aux x;;
@@ -698,6 +702,10 @@ and module_type i ppf x =
       line i ppf "Tmty_functor \"%a\"\n" fmt_modname s;
       module_type i ppf mt1;
       module_type i ppf mt2;
+  | Tmty_functor (Implicit_param (s, _, mt1), mt2) ->
+      line i ppf "Tmty_functor implicit \"%a\"\n" fmt_modname s;
+      module_type i ppf mt1;
+      module_type i ppf mt2;
   | Tmty_with (mt, l) ->
       line i ppf "Tmty_with\n";
       module_type i ppf mt;
@@ -801,10 +809,14 @@ and module_expr i ppf x =
       line i ppf "Tmod_functor \"%a\"\n" fmt_modname s;
       module_type i ppf mt;
       module_expr i ppf me;
+  | Tmod_functor (Implicit_param (s, _, mt), me) ->
+      line i ppf "Tmod_functor implicit \"%a\"\n" fmt_modname s;
+      module_type i ppf mt;
+      module_expr i ppf me;
   | Tmod_apply (me1, me2, _) ->
       line i ppf "Tmod_apply\n";
       module_expr i ppf me1;
-      module_expr i ppf me2;
+      functor_argument i ppf me2;
   | Tmod_constraint (me, _, Tmodtype_explicit mt, _) ->
       line i ppf "Tmod_constraint\n";
       module_expr i ppf me;
@@ -813,6 +825,13 @@ and module_expr i ppf x =
   | Tmod_unpack (e, _) ->
       line i ppf "Tmod_unpack\n";
       expression i ppf e;
+
+and functor_argument i ppf = function
+  | Mapp_unit -> line i ppf "()"
+  | Mapp_named me -> module_expr i ppf me
+  | Mapp_implicit me ->
+      line i ppf "implicit\n";
+      module_expr i ppf me
 
 and structure i ppf x = list i structure_item ppf x.str_items
 

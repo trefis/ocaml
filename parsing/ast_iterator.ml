@@ -243,6 +243,11 @@ let iter_functor_param sub = function
     iter_loc sub name;
     sub.module_type sub mty
 
+let iter_functor_arg sub = function
+  | Pfa_unit -> ()
+  | Pfa_applicative me
+  | Pfa_implicit me -> sub.module_expr sub me
+
 module MT = struct
   (* Type expressions for the module language *)
 
@@ -311,7 +316,7 @@ module M = struct
         iter_functor_param sub param;
         sub.module_expr sub body
     | Pmod_apply (m1, m2) ->
-        sub.module_expr sub m1; sub.module_expr sub m2
+        sub.module_expr sub m1; iter_functor_arg sub m2
     | Pmod_constraint (m, mty) ->
         sub.module_expr sub m; sub.module_type sub mty
     | Pmod_unpack e -> sub.expr sub e

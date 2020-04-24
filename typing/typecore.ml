@@ -131,6 +131,9 @@ type error =
   | Andop_type_clash of string * Ctype.Unification_trace.t
   | Bindings_type_clash of Ctype.Unification_trace.t
   | Apply_unexpected_implicit of type_expr
+  | No_instance_found of Typeimplicit.pending_implicit
+  | Ambiguous_implicit of Typeimplicit.pending_implicit * Path.t * Path.t
+  | Termination_fail of Typeimplicit.pending_implicit
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -5729,6 +5732,18 @@ let report_error ~loc env = function
           fprintf ppf "These bindings have type")
         (function ppf ->
           fprintf ppf "but bindings were expected of type")
+  | No_instance_found inst ->
+      Location.errorf ~loc "No instance found for implicit %s."
+        (Ident.name inst.Typeimplicit.implicit_id)
+  | Ambiguous_implicit (inst, p1, p2) ->
+      Location.errorf ~loc
+        "Ambiguous implicit %s:@ %a@ and %a@ are both solutions."
+        (Ident.name inst.Typeimplicit.implicit_id)
+        Printtyp.path p1 Printtyp.path p2
+  | Termination_fail inst ->
+      Location.errorf ~loc
+        "Termination check failed when searching for implicit %s."
+        (Ident.name inst.Typeimplicit.implicit_id)
 
 let report_error ~loc env err =
   Printtyp.wrap_printing_env ~error:true env

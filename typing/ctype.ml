@@ -2454,7 +2454,7 @@ let rec concat_longident lid1 =
   function
     Lident s -> Ldot (lid1, s)
   | Ldot (lid2, s) -> Ldot (concat_longident lid1 lid2, s)
-  | Lapply (lid2, lid) -> Lapply (concat_longident lid1 lid2, lid)
+  | Lapply (lid2, lid, i) -> Lapply (concat_longident lid1 lid2, lid, i)
 
 let nondep_instance env level id ty =
   let ty = !nondep_type' env [id] ty in
@@ -3682,9 +3682,11 @@ let eqtype rename type_pairs subst env t1 t2 =
   eqtype_list rename type_pairs subst env [t1] [t2]
 
 (* Two modes: with or without renaming of variables *)
+let equal' env rename tyl1 tyl2 =
+    eqtype_list rename (TypePairs.create 11) (ref []) env tyl1 tyl2
+
 let equal env rename tyl1 tyl2 =
-  try
-    eqtype_list rename (TypePairs.create 11) (ref []) env tyl1 tyl2; true
+  try equal' env rename tyl1 tyl2; true
   with
     Unify _ -> false
 

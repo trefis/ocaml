@@ -190,6 +190,9 @@ type error =
   | Andop_type_clash of string * Ctype.Unification_trace.t
   | Bindings_type_clash of Ctype.Unification_trace.t
   | Apply_unexpected_implicit of type_expr
+  | No_instance_found of Typeimplicit.pending_implicit
+  | Ambiguous_implicit of Typeimplicit.pending_implicit * Path.t * Path.t
+  | Termination_fail of Typeimplicit.pending_implicit
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

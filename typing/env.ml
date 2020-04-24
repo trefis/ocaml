@@ -395,6 +395,8 @@ type t = {
   classes: (class_data, class_data) IdTbl.t;
   cltypes: (cltype_data, cltype_data) IdTbl.t;
   functor_args: unit Ident.tbl;
+  implicit_instances:
+    (Path.t * (Ident.t * module_type) list * module_type) list;
   summary: summary;
   local_constraints: type_declaration Path.Map.t;
   flags: int;
@@ -586,6 +588,7 @@ let empty = {
   summary = Env_empty; local_constraints = Path.Map.empty;
   flags = 0;
   functor_args = Ident.empty;
+  implicit_instances = [];
  }
 
 let in_signature b env =
@@ -633,9 +636,9 @@ let components_of_module_maker' =
             (module_components_repr, module_components_failure) result)
 
 let components_of_functor_appl' =
-  ref ((fun ~loc:_ _f _env _p1 _p2 -> assert false) :
+  ref ((fun ~loc:_ _f _env _p1 _p2 _i -> assert false) :
           loc:Location.t -> functor_components -> t ->
-            Path.t -> Path.t -> module_components)
+            Path.t -> Path.t -> implicit_flag -> module_components)
 let check_functor_application =
   (* to be filled by Includemod *)
   ref ((fun ~errors:_ ~loc:_ _env _mty1 _path1 _mty2 _path2 -> assert false) :
@@ -824,20 +827,24 @@ let get_components c =
 
 (* Module type of functor application *)
 
-let modtype_of_functor_appl fcomp p1 p2 =
+let modtype_of_functor_appl fcomp p1 p2 i =
   match fcomp.fcomp_res with
   | Mty_alias _ as mty -> mty
   | mty ->
       try
         Hashtbl.find fcomp.fcomp_subst_cache p2
       with Not_found ->
-        let scope = Path.scope (Papply(p1, p2)) in
+        let scope = Path.scope (Papply(p1, p2, i)) in
         let mty =
           let subst =
             match fcomp.fcomp_arg with
             | Unit
-            | Named (None, _) -> Subst.identity
-            | Named (Some param, _) -> Subst.add_module param p2 Subst.identity
+            | Named (None, _)
+            | Implicit (None, _) ->
+                Subst.identity
+            | Named (Some param, _)
+            | Implicit (Some param, _) ->
+                Subst.add_module param p2 Subst.identity
           in
           Subst.modtype (Rescope scope) subst mty
         in
@@ -858,10 +865,10 @@ let rec find_module_components path env =
   | Pdot(p, s) ->
       let sc = find_structure_components p env in
       (NameMap.find s sc.comp_modules).mda_components
-  | Papply(p1, p2) ->
+  | Papply(p1, p2, i) ->
       let fc = find_functor_components p1 env in
       let loc = Location.(in_file !input_name) in
-      !components_of_functor_appl' ~loc fc env p1 p2
+      !components_of_functor_appl' ~loc fc env p1 p2 i
 
 and find_structure_components path env =
   match get_components (find_module_components path env) with
@@ -882,10 +889,10 @@ let find_module ~alias path env =
       let sc = find_structure_components p env in
       let data = NameMap.find s sc.comp_modules in
       EnvLazy.force subst_modtype_maker data.mda_declaration
-  | Papply(p1, p2) ->
+  | Papply(p1, p2, i) ->
       let fc = find_functor_components p1 env in
       if alias then md (fc.fcomp_res)
-      else md (modtype_of_functor_appl fc p1 p2)
+      else md (modtype_of_functor_appl fc p1 p2 i)
 
 let find_value_full path env =
   match path with
@@ -1069,11 +1076,11 @@ let rec normalize_module_path lax env = function
       let p' = normalize_module_path lax env p in
       if p == p' then expand_module_path lax env path
       else expand_module_path lax env (Pdot(p', s))
-  | Papply (p1, p2) as path ->
+  | Papply (p1, p2, i) as path ->
       let p1' = normalize_module_path lax env p1 in
       let p2' = normalize_module_path true env p2 in
       if p1 == p1' && p2 == p2' then expand_module_path lax env path
-      else expand_module_path lax env (Papply(p1', p2'))
+      else expand_module_path lax env (Papply(p1', p2', i))
   | Pident _ as path ->
       expand_module_path lax env path
 
@@ -1211,6 +1218,11 @@ let make_copy_of_types env0 =
      if env.values != env0.values then fatal_error "Env.make_copy_of_types";
      {env with values; summary = Env_copy_types env.summary}
   )
+
+
+(* Implicits stuff *)
+
+let implicit_instances env = env.implicit_instances
 
 (* Helper to handle optional substitutions. *)
 
@@ -1615,7 +1627,9 @@ let rec components_of_module_maker
             (match arg with
             | Unit -> Unit
             | Named (param, ty_arg) ->
-              Named (param, Subst.modtype scoping sub ty_arg));
+                Named (param, Subst.modtype scoping sub ty_arg)
+            | Implicit (param, ty_arg) ->
+                Implicit (param, Subst.modtype scoping sub ty_arg));
           fcomp_res = Subst.modtype scoping sub ty_res;
           fcomp_cache = Hashtbl.create 17;
           fcomp_subst_cache = Hashtbl.create 17 })
@@ -1795,16 +1809,20 @@ let scrape_alias env mty = scrape_alias env None mty
 
 (* Compute the components of a functor application in a path. *)
 
-let components_of_functor_appl ~loc f env p1 p2 =
+let components_of_functor_appl ~loc f env p1 p2 i =
   try
     Hashtbl.find f.fcomp_cache p2
   with Not_found ->
-    let p = Papply(p1, p2) in
+    let p = Papply(p1, p2, i) in
     let sub =
       match f.fcomp_arg with
       | Unit
-      | Named (None, _) -> Subst.identity
-      | Named (Some param, _) -> Subst.add_module param p2 Subst.identity
+      | Named (None, _) 
+      | Implicit (None, _) ->
+          Subst.identity
+      | Named (Some param, _) 
+      | Implicit (Some param, _) ->
+          Subst.add_module param p2 Subst.identity
     in
     (* we have to apply eagerly instead of passing sub to [components_of_module]
        because of the call to [check_well_formed_module]. *)
@@ -2405,12 +2423,12 @@ let rec lookup_module_components ~errors ~use ~loc lid env =
   | Ldot(l, s) ->
       let path, data = lookup_dot_module ~errors ~use ~loc l s env in
       path, data.mda_components
-  | Lapply(l1, l2) ->
+  | Lapply(l1, l2, i) ->
       let p1, f, arg = lookup_functor_components ~errors ~use ~loc l1 env in
       let p2, md = lookup_module ~errors ~use ~loc l2 env in
       !check_functor_application ~errors ~loc env md.md_type p2 arg p1;
-      let comps = !components_of_functor_appl' ~loc f env p1 p2 in
-      (Papply(p1, p2), comps)
+      let comps = !components_of_functor_appl' ~loc f env p1 p2 i in
+      (Papply(p1, p2, i), comps)
 
 and lookup_structure_components ~errors ~use ~loc lid env =
   let path, comps = lookup_module_components ~errors ~use ~loc lid env in
@@ -2430,7 +2448,9 @@ and lookup_functor_components ~errors ~use ~loc lid env =
       match fcomps.fcomp_arg with
       | Unit -> (* PR#7611 *)
           may_lookup_error errors loc env (Generative_used_as_applicative lid)
-      | Named (_, arg) -> path, fcomps, arg
+      | Named (_, arg)
+      | Implicit (_, arg) ->
+          path, fcomps, arg
     end
   | Ok (Structure_comps _) ->
       may_lookup_error errors loc env (Structure_used_as_functor lid)
@@ -2449,12 +2469,12 @@ and lookup_module ~errors ~use ~loc lid env =
       let path, data = lookup_dot_module ~errors ~use ~loc l s env in
       let md = EnvLazy.force subst_modtype_maker data.mda_declaration in
       path, md
-  | Lapply(l1, l2) ->
+  | Lapply(l1, l2, i) ->
       let p1, fc, arg = lookup_functor_components ~errors ~use ~loc l1 env in
       let p2, md2 = lookup_module ~errors ~use ~loc l2 env in
       !check_functor_application ~errors ~loc env md2.md_type p2 arg p1;
-      let md = md (modtype_of_functor_appl fc p1 p2) in
-      Papply(p1, p2), md
+      let md = md (modtype_of_functor_appl fc p1 p2 i) in
+      Papply(p1, p2, i), md
 
 and lookup_dot_module ~errors ~use ~loc l s env =
   let p, comps = lookup_structure_components ~errors ~use ~loc l env in
@@ -2558,11 +2578,11 @@ let lookup_module_path ~errors ~use ~loc ~load lid env : Path.t =
       else
         fst (lookup_ident_module Load ~errors ~use ~loc s env)
   | Ldot(l, s) -> fst (lookup_dot_module ~errors ~use ~loc l s env)
-  | Lapply(l1, l2) ->
+  | Lapply(l1, l2, i) ->
       let (p1, _, arg) = lookup_functor_components ~errors ~use ~loc l1 env in
       let p2, md2 = lookup_module ~errors ~use ~loc l2 env in
       !check_functor_application ~errors ~loc env md2.md_type p2 arg p1;
-      Papply(p1, p2)
+      Papply(p1, p2, i)
 
 let lookup_value ~errors ~use ~loc lid env =
   match lid with

@@ -133,6 +133,11 @@ let try_expand_modtype_path env path =
     Env.find_modtype_expansion path env
   with Not_found -> raise Dont_match
 
+let expand_module_path env ctxt path =
+  try try_expand_modtype_path env path
+  with Dont_match ->
+    raise(Error[ctxt, env, Unbound_modtype_path path])
+
 let expand_module_alias env cxt path =
   try (Env.find_module path env).md_type
   with Not_found ->
@@ -763,7 +768,9 @@ and args ppf = function
       fprintf ppf " :@ %a" context_mty cxt
 and argname = function
   | Unit -> ""
+  | Implicit (None, _)
   | Named (None, _) -> "_"
+  | Implicit (Some id, _)
   | Named (Some id, _) -> Ident.name id
 
 let alt_context ppf cxt =

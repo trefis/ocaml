@@ -301,6 +301,12 @@ let class_description sub x =
 let functor_parameter sub = function
   | Unit -> ()
   | Named (_, _, mtype) -> sub.module_type sub mtype
+  | Implicit_param (_, _, mtype) -> sub.module_type sub mtype
+
+let functor_argument sub = function
+  | Mapp_unit -> ()
+  | Mapp_named mexpr -> sub.module_expr sub mexpr
+  | Mapp_implicit mexpr -> sub.module_expr sub mexpr
 
 let module_type sub {mty_desc; mty_env; _} =
   sub.env sub mty_env;
@@ -351,7 +357,7 @@ let module_expr sub {mod_desc; mod_env; _} =
       sub.module_expr sub mexpr
   | Tmod_apply (mexp1, mexp2, c) ->
       sub.module_expr sub mexp1;
-      sub.module_expr sub mexp2;
+      functor_argument sub mexp2;
       sub.module_coercion sub c
   | Tmod_constraint (mexpr, _, Tmodtype_implicit, c) ->
       sub.module_expr sub mexpr;

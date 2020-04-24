@@ -269,7 +269,7 @@ module Mod:
     val structure: ?loc:loc -> ?attrs:attrs -> structure -> module_expr
     val functor_: ?loc:loc -> ?attrs:attrs ->
       functor_parameter -> module_expr -> module_expr
-    val apply: ?loc:loc -> ?attrs:attrs -> module_expr -> module_expr ->
+    val apply: ?loc:loc -> ?attrs:attrs -> module_expr -> functor_argument ->
       module_expr
     val constraint_: ?loc:loc -> ?attrs:attrs -> module_expr -> module_type ->
       module_expr

@@ -41,8 +41,10 @@ let rec fmt_longident_aux f x =
   match x with
   | Longident.Lident (s) -> fprintf f "%s" s;
   | Longident.Ldot (y, s) -> fprintf f "%a.%s" fmt_longident_aux y s;
-  | Longident.Lapply (y, z) ->
+  | Longident.Lapply (y, z, Nonimplicit) ->
       fprintf f "%a(%a)" fmt_longident_aux y fmt_longident_aux z;
+  | Longident.Lapply (y, z, Implicit) ->
+      fprintf f "%a{%a}" fmt_longident_aux y fmt_longident_aux z;
 ;;
 
 let fmt_longident f x = fprintf f "\"%a\"" fmt_longident_aux x;;
@@ -807,7 +809,7 @@ and module_expr i ppf x =
   | Pmod_apply (me1, me2) ->
       line i ppf "Pmod_apply\n";
       module_expr i ppf me1;
-      module_expr i ppf me2;
+      functor_argument i ppf me2;
   | Pmod_constraint (me, mt) ->
       line i ppf "Pmod_constraint\n";
       module_expr i ppf me;
@@ -818,6 +820,13 @@ and module_expr i ppf x =
   | Pmod_extension (s, arg) ->
       line i ppf "Pmod_extension \"%s\"\n" s.txt;
       payload i ppf arg
+
+and functor_argument i ppf = function
+  | Pfa_unit -> line i ppf "()"
+  | Pfa_applicative me -> module_expr i ppf me
+  | Pfa_implicit me ->
+      line i ppf "implicit\n";
+      module_expr i ppf me
 
 and structure i ppf x = list i structure_item ppf x
 

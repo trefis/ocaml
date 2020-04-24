@@ -29,9 +29,7 @@ let rec list_filtermap f = function
 
 let string_of_path = Path.name
 
-(* FIXME? *)
-(* let papply path arg = Path.Papply (path, arg, Asttypes.Implicit) *)
-let papply path arg = Path.Papply (path, arg)
+let papply path arg = Path.Papply (path, arg, Implicit)
 
 (** [target] is the point from which a search starts *)
 type target = {
@@ -280,16 +278,16 @@ module Constraints = struct
     assert (to_unify = []);
     mty
 
-  (*
   let flatten ~root cstrs =
     let flatten_cstr (n,t) =
-      let id', dots = Path.flatten n in
-      assert (Ident.same root id');
-      assert (dots <> []);
-      List.map fst dots, t
+      match Path.flatten n with
+      | `Contains_apply -> assert false
+      | `Ok (id', dots) ->
+          assert (Ident.same root id');
+          assert (dots <> []);
+          dots, t
     in
     List.map flatten_cstr cstrs
-     *)
 
   (* Apply a list of equations to a target.
      Types referred to by paths *must* be abstract. *)
@@ -298,16 +296,18 @@ module Constraints = struct
     = fun env target eqns ->
     (* [env] is needed only to expand module type names *)
     let extract_constraint acc eqn =
-      let id, path = Path.flatten eqn.eq_lhs_path in
-      if not (Ident.same id target.target_id) then
-        acc
-      else
-        let path = List.map fst path in
-        let cstrs, hkt = acc in
-        if eqn.eq_lhs_params = [] then
-          ((path, eqn.eq_rhs) :: cstrs), hkt
+      match Path.flatten eqn.eq_lhs_path with
+      | `Contains_apply -> assert false
+      | `Ok (id, path) ->
+        if not (Ident.same id target.target_id) then
+          acc
         else
-          cstrs, ((eqn.eq_lhs, eqn.eq_rhs) :: hkt) in
+          let cstrs, hkt = acc in
+          if eqn.eq_lhs_params = [] then
+            ((path, eqn.eq_rhs) :: cstrs), hkt
+          else
+            cstrs, ((eqn.eq_lhs, eqn.eq_rhs) :: hkt)
+    in
     let cstrs, hkt = List.fold_left extract_constraint ([],[]) eqns in
     let mty = apply_abstract env target.target_type cstrs in
     let target = {target with target_type = mty;
@@ -322,19 +322,20 @@ module Constraints = struct
     = fun env targets eqns ->
     (* [env] is needed only to expand module type names *)
     let register_constraint table eqn =
-      let id, path = Path.flatten eqn.eq_lhs_path in
-      let path = List.map fst path in
-      let cstrs, hkt =
-        try Ident.find_same id table
-        with Not_found -> [], []
-      in
-      let cstrs' =
-        if eqn.eq_lhs_params = [] then
-          ((path, eqn.eq_rhs) :: cstrs), hkt
-        else
-          cstrs, ((eqn.eq_lhs, eqn.eq_rhs) :: hkt)
-      in
-      Ident.add id cstrs' table
+      match Path.flatten eqn.eq_lhs_path with
+      | `Contains_apply -> assert false
+      | `Ok (id, path) ->
+        let cstrs, hkt =
+          try Ident.find_same id table
+          with Not_found -> [], []
+        in
+        let cstrs' =
+          if eqn.eq_lhs_params = [] then
+            ((path, eqn.eq_rhs) :: cstrs), hkt
+          else
+            cstrs, ((eqn.eq_lhs, eqn.eq_rhs) :: hkt)
+        in
+        Ident.add id cstrs' table
     in
     let constraint_table =
       List.fold_left register_constraint Ident.empty eqns in
@@ -348,7 +349,8 @@ module Constraints = struct
         with Not_found ->
           target
       in
-      let env = Env.add_module target.target_id target.target_type env in
+      (* FIXME: module presence *)
+      let env = Env.add_module target.target_id Mp_present target.target_type env in
       (target :: targets, env)
     in
     let rtargets, _env = List.fold_left constraint_target ([],env) targets in
@@ -371,7 +373,8 @@ let remove_type_variables () =
             | None -> "ex" ^ string_of_int (incr k; !k)
             | Some name -> name
           in
-          let ident = Ident.create name in
+          (* FIXME: scope *)
+          let ident = Ident.create_scoped ~scope:Btype.lowest_level name in
           variables := (ty, ident) :: !variables;
           let ty' = newgenty (Tconstr (Path.Pident ident, [], ref Mnil)) in
           link_type ty ty';
@@ -525,8 +528,9 @@ end = struct
       let rec aux t2s acc = function
         | [] -> acc
         | (params, t1) :: t1s ->
-          let (params', t2), t2s = list_extract
-              (fun (params', t2) -> equal env true params params')
+            (* FIXME: why are these unused? *)
+          let (_params', t2), t2s = list_extract
+              (fun (params', _t2) -> equal env true params params')
               t2s in
           match smaller env t1 t2 with
           | `Different -> raise Not_found
@@ -570,7 +574,7 @@ end = struct
       stronger env true neqns oeqns
       (* Less equations, always weaker *)
     | [], _ -> false
-    | (n, _) :: neqns, (o, _) :: _  ->
+    | (n, _) :: _neqns, (o, _) :: _  ->
       assert (n > o);
       false
 
@@ -593,12 +597,13 @@ end = struct
     (* Add equations to target_id *)
     let eqns = list_filtermap
         (fun eqn ->
-          let id, path = Path.flatten eqn.eq_lhs_path in
-          if not (Ident.same target.target_id id) then
-            None
-          else
-            let path = List.map fst path in
-            Some (path, [eqn.eq_lhs_params, eqn.eq_rhs]))
+           match Path.flatten eqn.eq_lhs_path with
+           | `Contains_apply -> assert false
+           | `Ok (id, path) ->
+              if not (Ident.same target.target_id id) then
+                None
+              else
+                Some (path, [eqn.eq_lhs_params, eqn.eq_rhs]))
         eqns in
     let eqns = List.sort (fun (a,_) (b,_) -> compare a b) eqns in
     let eqns = merge_eqns eqns in
@@ -623,10 +628,11 @@ end = struct
     List.iter
       (fun eqn ->
          try
-           let id, path = Path.flatten eqn.eq_lhs_path in
-           let _uid, eqns = Ident.find_same id table in
-           let path = List.map fst path in
-           eqns := (path, [eqn.eq_lhs_params, eqn.eq_rhs]) :: !eqns
+           match Path.flatten eqn.eq_lhs_path with
+           | `Contains_apply -> assert false
+           | `Ok (id, path) ->
+               let _uid, eqns = Ident.find_same id table in
+               eqns := (path, [eqn.eq_lhs_params, eqn.eq_rhs]) :: !eqns
          with Not_found -> assert false)
       eqns;
     List.map
@@ -744,7 +750,7 @@ end = struct
          branch of the search will be added to [eq_var]. *)
       eq_initial: equality_equation list;
       eq_var: equality_equation list ref;
-      eq_table: (Ident.t, equality_equation list ref) Tbl.t;
+      eq_table: equality_equation list ref Ident.Map.t;
     }
 
   type query =
@@ -773,13 +779,13 @@ end = struct
     let level = get_current_level () in
     let env = List.fold_left (fun env variable ->
         Env.add_type ~check:false variable
-          (new_declaration (Some (level, level)) None) env)
+          (new_declaration level None) env)
         env vars
     in
     let eq_var = ref [] in
     let eq_table = List.fold_left
-        (fun tbl id -> Tbl.add id eq_var tbl)
-        Tbl.empty vars
+        (fun tbl id -> Ident.Map.add id eq_var tbl)
+        Ident.Map.empty vars
     in
     {
       payload = ();
@@ -796,10 +802,12 @@ end = struct
 
   let make_candidate path params mty =
     let rec loop path res s acc = function
-      | [] -> path, List.rev acc, Subst.modtype s res
+      | [] -> path, List.rev acc, Subst.modtype Keep s res
       | (id, param) :: rest ->
-          let param' = Subst.modtype s param in
-          let id' = Ident.rename id in
+          let param' = Subst.modtype Keep s param in
+          let id' =
+            Ident.create_scoped ~scope:(Ident.scope id) (Ident.name id)
+          in
           let s' = Subst.add_module id (Path.Pident id') s in
           let target =
             { target_uid = id;
@@ -822,10 +830,10 @@ end = struct
 
   let cleanup_equations ident eq_table =
     try
-      let eqns = Tbl.find ident eq_table in
+      let eqns = Ident.Map.find ident eq_table in
       let not_in_ident {eq_lhs_path} = Path.head eq_lhs_path <> ident in
       eqns := List.filter not_in_ident !eqns;
-      Tbl.remove ident eq_table
+      Ident.Map.remove ident eq_table
     with Not_found -> eq_table
 
   exception Invalid_candidate
@@ -845,11 +853,14 @@ end = struct
           printf "Binding %a with type %a\n%!"
             Printtyp.ident sub_target.target_id
             Printtyp.modtype sub_target.target_type;
-          Tbl.add sub_target.target_id state.eq_var eq_table,
-          Env.add_module sub_target.target_id sub_target.target_type env)
+          Ident.Map.add sub_target.target_id state.eq_var eq_table,
+          (* FIXME: module presence *)
+          Env.add_module sub_target.target_id Mp_present sub_target.target_type
+            env)
         (state.eq_table, state.env) sub_targets
     in
-    let env = Env.add_module target.target_id candidate_mty env in
+    (* FIXME: module presence *)
+    let env = Env.add_module target.target_id Mp_present candidate_mty env in
     Ctype.with_equality_equations eq_table
       (fun () ->
         let tyl, tvl = List.split target.target_hkt in
@@ -862,10 +873,10 @@ end = struct
               Printtyp.type_expr t2)
             tyl tvl;
           Ctype.equal' env true tyl tvl
-        with Ctype.Unify tls ->
+        with Ctype.Unify _tls ->
           printf "Failed to instantiate %s with constraints:\n"
             (string_of_path path);
-          let accepting_eq = Tbl.fold
+          let accepting_eq = Ident.Map.fold
               (fun ident _ acc -> Ident.name ident :: acc)
               eq_table []
           in
@@ -876,6 +887,7 @@ end = struct
                 Printtyp.type_expr eq_lhs Printtyp.type_expr eq_rhs)
             !(state.eq_var);
           printf "Because:\n%!";
+          (*
           List.iter (fun (ty1,ty2) ->
               printf "\t%a != %a\n%!"
                 Printtyp.type_expr ty1
@@ -897,10 +909,13 @@ end = struct
               check_expansion ty2;
               printf "\n%!"
             ) tls;
+             *)
           raise Invalid_candidate
         end;
         let _ : module_coercion =
-          Includemod.modtypes env candidate_mty target.target_type
+          (* FIXME: loc *)
+          Includemod.modtypes ~loc:Location.none env candidate_mty
+            target.target_type
         in
         ());
     let rec neweqns = function
@@ -973,10 +988,15 @@ end = struct
       let md = Env.find_module path arg.env in
       (* The original module declaration might be implicit, we want to avoid
          rebinding implicit *)
-      let md = {md with md_implicit = Asttypes.Nonimplicit} in
+      (* FIXME *)
+(*       let md = {md with md_implicit = Asttypes.Nonimplicit} in *)
       let target = Constraints.target arg.env target eq_initial in
       let termination = Termination.check_target arg.env target eq_initial partial.termination in
-      let env = Env.add_module_declaration target.target_id md arg.env in
+      let env =
+        (* FIXME: presence, check:true? *)
+        Env.add_module_declaration ~check:false target.target_id Mp_present md
+          arg.env
+      in
       let debug_path = path :: partial.debug_path in
       let arg = {arg with payload = (); target; debug_path; termination; env} in
       `Step (partial, arg)
@@ -1040,12 +1060,12 @@ let rec canonical_path env path =
     | Mty_alias path -> canonical_path env path
     | _ -> match path with
       | Path.Pident _ -> path
-      | Path.Pdot (p1,s,pos) ->
+      | Path.Pdot (p1,s) ->
           let p1' = canonical_path env p1 in
           if p1 == p1' then
             path
           else
-            Path.Pdot (p1', s, pos)
+            Path.Pdot (p1', s)
       | Path.Papply (p1, p2, i) ->
           let p1' = canonical_path env p1
           and p2' = canonical_path env p2 in
@@ -1064,18 +1084,7 @@ let find_pending_instance inst =
   let env = List.fold_left (fun env (_ty,ident) ->
       (* Create a fake abstract type declaration for name. *)
       let level = get_current_level () in
-      let decl = {
-        type_params = [];
-        type_arity = 0;
-        type_kind = Type_abstract;
-        type_private = Asttypes.Public;
-        type_manifest = None;
-        type_variance = [];
-        type_newtype_level = Some (level, level);
-        type_loc = Location.none;
-        type_attributes = [];
-      }
-      in
+      let decl = new_declaration level None in
       Env.add_type ~check:false ident decl env
     ) env vars
   in
@@ -1120,7 +1129,7 @@ let pack_implicit inst path =
   let rec translpath = function
     | Path.Pident _ | Path.Pdot _ as path ->
         let md = Env.find_module path env in
-        let lident = Location.mkloc (Path.to_longident path) loc in
+        let lident = Location.mkloc (Untypeast.lident_of_path path) loc in
         {
           mod_desc = Tmod_ident (path, lident);
           mod_loc = loc;
@@ -1135,36 +1144,44 @@ let pack_implicit inst path =
           | Mty_functor (param, mty_res) ->
               let param, mty_param =
                 match param with
-                | Mpar_generative -> assert false
-                | Mpar_applicative(param, mty_param)
-                | Mpar_implicit(param, mty_param) ->
+                | Unit -> assert false
+                | Named (param, mty_param)
+                | Implicit(param, mty_param) ->
                     param, mty_param
               in
-              let coercion = Includemod.modtypes env marg.mod_type mty_param in
+              let coercion =
+                (* FIXME: location *)
+                Includemod.modtypes ~loc:Location.none env marg.mod_type mty_param
+              in
               let mty_appl =
-                Subst.modtype
-                  (Subst.add_module param p2 Subst.identity) mty_res
+                match param with
+                | None -> mty_res
+                | Some param ->
+                    Subst.modtype Keep (* FIXME scope *)
+                      (Subst.add_module param p2 Subst.identity) mty_res
               in
               let marg =
                 match i with
-                | Asttypes.Nonimplicit -> Tmarg_applicative(marg, coercion)
-                | Asttypes.Implicit -> Tmarg_implicit(marg, coercion)
+                | Asttypes.Nonimplicit -> Mapp_named marg
+                | Asttypes.Implicit -> Mapp_implicit marg
               in
-              { mod_desc = Tmod_apply(acc, marg);
+              { mod_desc = Tmod_apply(acc, marg, coercion);
                 mod_type = mty_appl;
                 mod_env = env;
                 mod_attributes = [];
                 mod_loc = loc;
               }
           | Mty_ident path ->
+              (* FIXME? *)
               let mty = Includemod.expand_module_path env [] path in
               loop acc mty
           | Mty_alias path ->
-              let path = Env.normalize_path (Some loc) env path in
+              (* FIXME? *)
+              let path = Env.normalize_module_path (Some loc) env path in
               let mty = Includemod.expand_module_alias env [] path in
               let acc =
                 { mod_desc = Tmod_constraint (acc, mty, Tmodtype_implicit,
-                                 Tcoerce_alias (path, Tcoerce_none));
+                                 Tcoerce_alias (env, path, Tcoerce_none));
                   mod_type = mty;
                   mod_env = env;
                   mod_attributes = [];
@@ -1192,7 +1209,7 @@ let () =
 let generalize_implicits () =
   let current_level = get_current_level () in
   let not_linked = function
-    | {implicit_argument = {arg_expression = Some _}} -> None
+    | {implicit_argument = { contents = Some _}} -> None
     | inst -> Some inst in
   let not_linkeds l =
     match list_filtermap not_linked l with

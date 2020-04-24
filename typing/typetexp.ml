@@ -285,9 +285,9 @@ and transl_type_aux env policy styp =
         with Not_found -> try
           let lid2 =
             match lid.txt with
-              Longident.Lident s     -> Longident.Lident ("#" ^ s)
-            | Longident.Ldot(r, s)   -> Longident.Ldot (r, "#" ^ s)
-            | Longident.Lapply(_, _) -> fatal_error "Typetexp.transl_type"
+              Longident.Lident s        -> Longident.Lident ("#" ^ s)
+            | Longident.Ldot(r, s)      -> Longident.Ldot (r, "#" ^ s)
+            | Longident.Lapply(_, _, _) -> fatal_error "Typetexp.transl_type"
           in
           let path, decl = Env.find_type_by_name lid2 env in
           ignore(Env.lookup_cltype ~loc:lid.loc lid.txt env);

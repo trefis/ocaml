@@ -213,8 +213,10 @@ let paren: 'a . ?first:space_formatter -> ?last:space_formatter ->
 let rec longident f = function
   | Lident s -> protect_ident f s
   | Ldot(y,s) -> protect_longident f longident y s
-  | Lapply (y,s) ->
+  | Lapply (y,s, Nonimplicit) ->
       pp f "%a(%a)" longident y longident s
+  | Lapply (y,s, Implicit) ->
+      pp f "%a{%a{" longident y longident s
 
 let longident_loc f x = pp f "%a" longident x.txt
 
@@ -1188,7 +1190,11 @@ and module_expr ctxt f x =
         pp f "functor@ (%s@ :@ %a)@;->@;%a"
           (Option.value s.txt ~default:"_")
           (module_type ctxt) mt (module_expr ctxt) me
-    | Pmod_apply (me1, me2) ->
+    | Pmod_apply (me, Pfa_unit) ->
+        pp f "(%a)()" (module_expr ctxt) me
+    | Pmod_apply (me1, Pfa_implicit me2) ->
+        pp f "(%a){%a}" (module_expr ctxt) me1 (module_expr ctxt) me2
+    | Pmod_apply (me1, Pfa_applicative me2) ->
         pp f "(%a)(%a)" (module_expr ctxt) me1 (module_expr ctxt) me2
         (* Cf: #7200 *)
     | Pmod_unpack e ->
