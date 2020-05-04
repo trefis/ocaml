@@ -183,6 +183,9 @@ and rw_exp iflag sexp =
     rewrite_patexp_list iflag spat_sexp_list;
     rewrite_exp iflag sbody
 
+  | Pexp_implicit_fun (_s, _pkg, sbody) ->
+    rewrite_exp iflag sbody
+
   | Pexp_function caselist ->
     if !instr_fun then
       rewrite_function iflag caselist
@@ -386,10 +389,17 @@ and rewrite_mod iflag smod =
     Pmod_ident _ -> ()
   | Pmod_structure sstr -> List.iter (rewrite_str_item iflag) sstr
   | Pmod_functor(_param, sbody) -> rewrite_mod iflag sbody
-  | Pmod_apply(smod1, smod2) -> rewrite_mod iflag smod1; rewrite_mod iflag smod2
+  | Pmod_apply(smod1, smod2) ->
+      rewrite_mod iflag smod1;
+      rewrite_functor_arg iflag smod2
   | Pmod_constraint(smod, _smty) -> rewrite_mod iflag smod
   | Pmod_unpack(sexp) -> rewrite_exp iflag sexp
   | Pmod_extension _ -> ()
+
+and rewrite_functor_arg iflag = function
+  | Pfa_unit -> ()
+  | Pfa_applicative me
+  | Pfa_implicit me -> rewrite_mod iflag me
 
 and rewrite_str_item iflag item =
   match item.pstr_desc with
