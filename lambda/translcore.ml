@@ -234,6 +234,17 @@ and transl_exp0 e =
       Lconst(Const_base cst)
   | Texp_let(rec_flag, pat_expr_list, body) ->
       transl_let rec_flag pat_expr_list (event_before body (transl_exp body))
+  | Texp_implicit_function (id, _pkg, body) ->
+      (* TODO: This could be improved by handling [Texp_implicit_function] and
+         [Texp_function] in the same way / at the same time.
+         But the previous prototype already didn't do that. *)
+      let (), body = event_function e (fun _repr -> (), transl_exp body) in
+      let return = function_return_value_kind e.exp_env e.exp_type in
+      let params = [ id, Pgenval ] in
+      let attr = default_function_attribute in
+      let loc = e.exp_loc in
+      let lam = Lfunction{kind = Curried; params; return; body; attr; loc} in
+      Translattribute.add_function_attributes lam loc e.exp_attributes
   | Texp_function { arg_label = _; param; cases; partial; } ->
       let ((kind, params, return), body) =
         event_function e
@@ -250,10 +261,15 @@ and transl_exp0 e =
   | Texp_apply({ exp_desc = Texp_ident(path, _, {val_kind = Val_prim p});
                 exp_type = prim_type } as funct, oargs)
     when List.length oargs >= p.prim_arity
-    && List.for_all (fun (_, arg) -> arg <> None) oargs ->
+      && List.for_all (function
+             | Normal (_, arg)
+             | Implicit { contents = arg } -> arg <> None) oargs ->
       let argl, extra_args = cut p.prim_arity oargs in
       let arg_exps =
-         List.map (function _, Some x -> x | _ -> assert false) argl
+        List.map (function
+            | Normal (_, Some x)
+            | Implicit { contents = Some x } -> x
+            | _ -> assert false) argl
       in
       let args = transl_list arg_exps in
       let prim_exp = if extra_args = [] then Some e else None in
@@ -693,10 +709,11 @@ and transl_apply ?(should_be_tailcall=false) ?(inlined = Default_inline)
     | [] ->
         lapply lam (List.rev_map fst args)
   in
-  (build_apply lam [] (List.map (fun (l, x) ->
-                                   Option.map transl_exp x, Btype.is_optional l)
-                                sargs)
-     : Lambda.lambda)
+  (build_apply lam []
+     (List.map (function
+        | Normal (l, x) -> Option.map transl_exp x, Btype.is_optional l
+        | Implicit x -> Option.map transl_exp !x, false
+      ) sargs) : Lambda.lambda)
 
 and transl_function loc return untuplify_fn repr partial (param:Ident.t) cases =
   match cases with
