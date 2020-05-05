@@ -622,6 +622,7 @@ let mk_directive ~loc name arg =
 %token GREATERRBRACE
 %token GREATERRBRACKET
 %token IF
+%token IMPLICIT
 %token IN
 %token INCLUDE
 %token <string> INFIXOP0
@@ -1177,20 +1178,23 @@ parse_any_longident:
 
 (* Functor arguments appear in module expressions and module types. *)
 
-%inline functor_args:
-  reversed_nonempty_llist(functor_arg)
+%inline functor_params:
+  reversed_nonempty_llist(functor_param)
     { $1 }
     (* Produce a reversed list on purpose;
        later processed using [fold_left]. *)
 ;
 
-functor_arg:
+functor_param:
     (* An anonymous and untyped argument. *)
     LPAREN RPAREN
       { Unit }
   | (* An argument accompanied with an explicit type. *)
     LPAREN x = mkrhs(module_name) COLON mty = module_type RPAREN
       { Named (x, mty) }
+  | (* An implicit argument accompanied with an explicit type. *)
+    LBRACE x = mkrhs(module_name) COLON mty = module_type RBRACE
+      { Implicit (x, mty) }
 ;
 
 module_name:
@@ -1216,7 +1220,8 @@ module_expr:
       { mkmod ~loc:$sloc ~attrs (Pmod_structure s) }
   | STRUCT attributes structure error
       { unclosed "struct" $loc($1) "end" $loc($4) }
-  | FUNCTOR attrs = attributes args = functor_args MINUSGREATER me = module_expr
+  | FUNCTOR attrs = attributes args = functor_params MINUSGREATER
+    me = module_expr
       { wrap_mod_attrs ~loc:$sloc attrs (
           List.fold_left (fun acc arg ->
             mkmod ~loc:$sloc (Pmod_functor (arg, acc))
@@ -1233,8 +1238,9 @@ module_expr:
     | (* In a functor application, the actual argument must be parenthesized. *)
       me1 = module_expr me2 = paren_module_expr
         { Pmod_apply(me1, Pfa_applicative me2) }
-    | (* Application to unit is sugar for application to an empty structure. *)
-      me1 = module_expr LPAREN RPAREN
+    | me1 = module_expr LBRACE me2 = module_expr RBRACE
+        { Pmod_apply(me1, Pfa_implicit me2) }
+    | me1 = module_expr LPAREN RPAREN
         { (* TODO review mkmod location *)
           Pmod_apply(me1, Pfa_unit) }
     | (* An extension. *)
@@ -1357,8 +1363,13 @@ structure_item:
     { $1 }
 ;
 
+%inline implicit_flag:
+  | (* *)    { Nonimplicit }
+  | IMPLICIT { Asttypes.Implicit }
+
 (* A single module binding. *)
 %inline module_binding:
+  impl = implicit_flag
   MODULE
   ext = ext attrs1 = attributes
   name = mkrhs(module_name)
@@ -1367,7 +1378,7 @@ structure_item:
     { let docs = symbol_docs $sloc in
       let loc = make_loc $sloc in
       let attrs = attrs1 @ attrs2 in
-      let body = Mb.mk name body ~attrs ~loc ~docs in
+      let body = Mb.mk name body ~impl ~attrs ~loc ~docs in
       Pstr_module body, ext }
 ;
 
@@ -1378,7 +1389,7 @@ module_binding_body:
   | mkmod(
       COLON mty = module_type EQUAL me = module_expr
         { Pmod_constraint(me, mty) }
-    | arg = functor_arg body = module_binding_body
+    | arg = functor_param body = module_binding_body
         { Pmod_functor(arg, body) }
   ) { $1 }
 ;
@@ -1386,11 +1397,22 @@ module_binding_body:
 (* A group of recursive module bindings. *)
 %inline rec_module_bindings:
   xlist(rec_module_binding, and_module_binding)
-    { $1 }
+    { 
+      (* FIXME: either propagate the implicit flag through all the bindings, or
+         move the position of the flag in the grammar to:
+         {[
+           module implicit M = ...
+           module rec implicit M = ..
+           and N = ..
+           and implicit O = ..
+           and P = ..
+         ]} *)
+      $1 }
 ;
 
 (* The first binding in a group of recursive module bindings. *)
 %inline rec_module_binding:
+  impl = implicit_flag
   MODULE
   ext = ext
   attrs1 = attributes
@@ -1403,7 +1425,7 @@ module_binding_body:
     let attrs = attrs1 @ attrs2 in
     let docs = symbol_docs $sloc in
     ext,
-    Mb.mk name body ~attrs ~loc ~docs
+    Mb.mk name body ~impl ~attrs ~loc ~docs
   }
 ;
 
@@ -1508,7 +1530,7 @@ module_type:
       { mkmty ~loc:$sloc ~attrs (Pmty_signature s) }
   | SIG attributes signature error
       { unclosed "sig" $loc($1) "end" $loc($4) }
-  | FUNCTOR attrs = attributes args = functor_args
+  | FUNCTOR attrs = attributes args = functor_params
     MINUSGREATER mty = module_type
       %prec below_WITH
       { wrap_mty_attrs ~loc:$sloc attrs (
@@ -1619,7 +1641,7 @@ module_declaration_body:
     COLON mty = module_type
       { mty }
   | mkmty(
-      arg = functor_arg body = module_declaration_body
+      arg = functor_param body = module_declaration_body
         { Pmty_functor(arg, body) }
     )
     { $1 }
@@ -2517,6 +2539,9 @@ strict_binding:
       { let (l, o, p) = $1 in ghexp ~loc:$sloc (Pexp_fun(l, o, p, $2)) }
   | LPAREN TYPE lident_list RPAREN fun_binding
       { mk_newtypes ~loc:$sloc $3 $5 }
+  | LBRACE id = UIDENT COLON mty = module_type RBRACE body = fun_binding
+      { let pkg = package_type_of_module_type mty in
+        ghexp ~loc:$sloc (Pexp_implicit_fun(id, pkg, body)) }
 ;
 %inline match_cases:
   xs = preceded_or_separated_nonempty_llist(BAR, match_case)
