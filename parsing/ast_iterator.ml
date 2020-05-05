@@ -239,7 +239,8 @@ end
 
 let iter_functor_param sub = function
   | Unit -> ()
-  | Named (name, mty) ->
+  | Named (name, mty)
+  | Implicit (name, mty) ->
     iter_loc sub name;
     sub.module_type sub mty
 

@@ -326,8 +326,8 @@ module Str:
 (** Module declarations *)
 module Md:
   sig
-    val mk: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
-      str_opt -> module_type -> module_declaration
+    val mk: ?loc:loc -> ?impl:implicit_flag -> ?attrs:attrs -> ?docs:docs ->
+      ?text:text -> str_opt -> module_type -> module_declaration
   end
 
 (** Module substitutions *)
@@ -347,8 +347,8 @@ module Mtd:
 (** Module bindings *)
 module Mb:
   sig
-    val mk: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
-      str_opt -> module_expr -> module_binding
+    val mk: ?loc:loc -> ?impl:implicit_flag -> ?attrs:attrs -> ?docs:docs ->
+      ?text:text -> str_opt -> module_expr -> module_binding
   end
 
 (** Opens *)

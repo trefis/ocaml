@@ -700,6 +700,10 @@ and module_type i ppf x =
       line i ppf "Pmty_functor %a\n" fmt_str_opt_loc s;
       module_type i ppf mt1;
       module_type i ppf mt2;
+  | Pmty_functor (Implicit (s, mt1), mt2) ->
+      line i ppf "Pmty_functor {%a}\n" fmt_str_opt_loc s;
+      module_type i ppf mt1;
+      module_type i ppf mt2;
   | Pmty_with (mt, l) ->
       line i ppf "Pmty_with\n";
       module_type i ppf mt;
@@ -804,6 +808,10 @@ and module_expr i ppf x =
       module_expr i ppf me;
   | Pmod_functor (Named (s, mt), me) ->
       line i ppf "Pmod_functor %a\n" fmt_str_opt_loc s;
+      module_type i ppf mt;
+      module_expr i ppf me;
+  | Pmod_functor (Implicit (s, mt), me) ->
+      line i ppf "Pmod_functor {%a}\n" fmt_str_opt_loc s;
       module_type i ppf mt;
       module_expr i ppf me;
   | Pmod_apply (me1, me2) ->

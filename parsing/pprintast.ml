@@ -1190,6 +1190,10 @@ and module_expr ctxt f x =
         pp f "functor@ (%s@ :@ %a)@;->@;%a"
           (Option.value s.txt ~default:"_")
           (module_type ctxt) mt (module_expr ctxt) me
+    | Pmod_functor (Implicit (s, mt), me) ->
+        pp f "functor@ {%s@ :@ %a}@;->@;%a"
+          (Option.value s.txt ~default:"_")
+          (module_type ctxt) mt (module_expr ctxt) me
     | Pmod_apply (me, Pfa_unit) ->
         pp f "(%a)()" (module_expr ctxt) me
     | Pmod_apply (me1, Pfa_implicit me2) ->
@@ -1323,6 +1327,9 @@ and structure_item ctxt f x =
             | Unit -> pp f "()"
             | Named (s, mt) ->
               pp f "(%s:%a)" (Option.value s.txt ~default:"_")
+                (module_type ctxt) mt
+            | Implicit (s, mt) ->
+              pp f "{%s:%a}" (Option.value s.txt ~default:"_")
                 (module_type ctxt) mt
             end;
             module_helper me'
