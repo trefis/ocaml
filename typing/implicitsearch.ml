@@ -1150,8 +1150,7 @@ let pack_implicit inst path =
                     param, mty_param
               in
               let coercion =
-                (* FIXME: location *)
-                Includemod.modtypes ~loc:Location.none env marg.mod_type mty_param
+                Includemod.modtypes ~loc env marg.mod_type mty_param
               in
               let mty_appl =
                 match param with
