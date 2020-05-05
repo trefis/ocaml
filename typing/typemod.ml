@@ -1317,7 +1317,7 @@ and transl_signature env sg =
             in
             let md = {
               md_type=tmty.mty_type;
-              md_implicit = Nonimplicit; (* FIXME *)
+              md_implicit = pmd.pmd_implicit;
               md_attributes=pmd.pmd_attributes;
               md_loc=pmd.pmd_loc;
               md_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
@@ -1399,7 +1399,7 @@ and transl_signature env sg =
             mksig (Tsig_recmodule (List.map fst tdecls)) env loc :: trem,
             map_rec (fun rs (id, md, uid) ->
                 let d = {Types.md_type = md.md_type.mty_type;
-                         md_implicit = Nonimplicit (* FIXME *);
+                         md_implicit = md.md_implicit;
                          md_attributes = md.md_attributes;
                          md_loc = md.md_loc;
                          md_uid = uid;
@@ -1591,7 +1591,7 @@ and transl_recmodule_modtypes env sdecls =
       (fun id pmd ->
          let md =
            { md_type = approx_modtype approx_env pmd.pmd_type;
-             md_implicit = Nonimplicit (* FIXME *);
+             md_implicit = pmd.pmd_implicit;
              md_loc = pmd.pmd_loc;
              md_attributes = pmd.pmd_attributes;
              md_uid = Uid.mk ~current_unit:(Env.get_unit_name ()) }
@@ -2358,7 +2358,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
                    let mdecl =
                      {
                        md_type = md.md_type.mty_type;
-                       md_implicit = Nonimplicit (* FIXME *);
+                       md_implicit = md.md_implicit;
                        md_attributes = md.md_attributes;
                        md_loc = md.md_loc;
                        md_uid = uid;
@@ -2380,7 +2380,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         map_rec (fun rs (id, mb, uid) ->
             Sig_module(id, Mp_present, {
                 md_type=mb.mb_expr.mod_type;
-                md_implicit = Nonimplicit (* FIXME *);
+                md_implicit = mb.mb_implicit;
                 md_attributes=mb.mb_attributes;
                 md_loc=mb.mb_loc;
                 md_uid = uid;
