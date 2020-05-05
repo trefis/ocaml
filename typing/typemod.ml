@@ -309,13 +309,20 @@ let iterator_with_env env =
       let env_before = !env in
       begin match param with
       | Unit -> ()
-      | Named (param, mty_arg)
+      | Named (param, mty_arg) ->
+        self.Btype.it_module_type self mty_arg;
+        begin match param with
+        | None -> ()
+        | Some id ->
+          env := lazy (Env.add_module ~arg:true id Mp_present Nonimplicit
+                       mty_arg (Lazy.force env_before))
+        end
       | Implicit (param, mty_arg) ->
         self.Btype.it_module_type self mty_arg;
         match param with
         | None -> ()
         | Some id ->
-          env := lazy (Env.add_module ~arg:true id Mp_present
+          env := lazy (Env.add_module ~arg:true id Mp_present Implicit
                        mty_arg (Lazy.force env_before))
       end;
       self.Btype.it_module_type self mty_body;
@@ -709,7 +716,8 @@ let rec approx_modtype env smty =
             let rarg = Mtype.scrape_for_functor_arg env arg in
             let scope = Ctype.create_scope () in
             let (id, newenv) =
-              Env.enter_module ~scope ~arg:true name Mp_present rarg env
+              Env.enter_module ~scope ~arg:true name Mp_present Nonimplicit
+                rarg env
             in
             Types.Named (Some id, arg), newenv
           end
@@ -721,7 +729,8 @@ let rec approx_modtype env smty =
             let rarg = Mtype.scrape_for_functor_arg env arg in
             let scope = Ctype.create_scope () in
             let (id, newenv) =
-              Env.enter_module ~scope ~arg:true name Mp_present rarg env
+              Env.enter_module ~scope ~arg:true name Mp_present Implicit
+                rarg env
             in
             Types.Implicit (Some id, arg), newenv
           end
@@ -1665,9 +1674,10 @@ let rec closed_modtype env = function
         | Unit
         | Named (None, _)
         | Implicit (None, _) -> env
-        | Named (Some id, param) 
+        | Named (Some id, param) ->
+            Env.add_module ~arg:true id Mp_present Nonimplicit param env
         | Implicit (Some id, param) ->
-            Env.add_module ~arg:true id Mp_present param env
+            Env.add_module ~arg:true id Mp_present Implicit param env
       in
       closed_modtype env body
 
@@ -1759,19 +1769,19 @@ let check_recmodule_inclusion env bindings =
       (* Generate fresh names Y_i for the rec. bound module idents X_i *)
       let bindings1 =
         List.map
-          (fun (id, _name, _mty_decl, _impl, _modl, mty_actual, _attrs, _loc,
+          (fun (id, _name, _mty_decl, impl, _modl, mty_actual, _attrs, _loc,
                 _uid) ->
              let ids =
                Option.map
                  (fun id -> (id, Ident.create_scoped ~scope (Ident.name id))) id
              in
-             (ids, mty_actual))
+             (ids, impl, mty_actual))
           bindings in
       (* Enter the Y_i in the environment with their actual types substituted
          by the input substitution s *)
       let env' =
         List.fold_left
-          (fun env (ids, mty_actual) ->
+          (fun env (ids, impl, mty_actual) ->
              match ids with
              | None -> env
              | Some (id, id') ->
@@ -1780,12 +1790,12 @@ let check_recmodule_inclusion env bindings =
                  then mty_actual
                  else subst_and_strengthen env scope s (Some id) mty_actual
                in
-               Env.add_module ~arg:false id' Mp_present mty_actual' env)
+               Env.add_module ~arg:false id' Mp_present impl mty_actual' env)
           env bindings1 in
       (* Build the output substitution Y_i <- X_i *)
       let s' =
         List.fold_left
-          (fun s (ids, _mty_actual) ->
+          (fun s (ids, _impl,  _mty_actual) ->
              match ids with
              | None -> s
              | Some (id, id') -> Subst.add_module id (Pident id') s)
@@ -2014,6 +2024,7 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
       | Mty_functor (Unit, _) ->
           raise (Error (sfunct.pmod_loc, env, Apply_generative));
       | Mty_functor (Named (param, mty_param), mty_res) as mty_functor ->
+          (* FIXME: what about implicit! *)
           let coercion =
             try
               Includemod.modtypes ~loc:sarg.pmod_loc env arg.mod_type mty_param
@@ -2035,8 +2046,8 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
                   | None -> env, mty_res
                   | Some param ->
                       let env =
-                        Env.add_module ~arg:true param Mp_present arg.mod_type
-                          env
+                        Env.add_module ~arg:true param Mp_present Nonimplicit 
+                          arg.mod_type env
                       in
                       check_well_formed_module env smod.pmod_loc
                         "the signature of this functor application" mty_res;

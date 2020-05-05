@@ -197,7 +197,8 @@ let rec nondep_mty_with_presence env va ids pres mty =
       let res_env =
         match param with
         | None -> env
-        | Some param -> Env.add_module ~arg:true param Mp_present arg env
+        | Some param ->
+            Env.add_module ~arg:true param Mp_present Nonimplicit arg env
       in
       let mty =
         Mty_functor(Named (param, nondep_mty env var_inv ids arg),
@@ -210,7 +211,8 @@ let rec nondep_mty_with_presence env va ids pres mty =
       let res_env =
         match param with
         | None -> env
-        | Some param -> Env.add_module ~arg:true param Mp_present arg env
+        | Some param ->
+            Env.add_module ~arg:true param Mp_present Implicit arg env
       in
       let mty =
         Mty_functor(Implicit (param, nondep_mty env var_inv ids arg),
@@ -506,7 +508,8 @@ and remove_aliases_sig env args sg =
             remove_aliases_mty env args pres mty
       in
       Sig_module(id, pres, {md with md_type = mty} , rs, priv) ::
-      remove_aliases_sig (Env.add_module id pres mty env) args rem
+      remove_aliases_sig (Env.add_module id pres md.md_implicit mty env) args
+        rem
   | Sig_modtype(id, mtd, priv) :: rem ->
       Sig_modtype(id, mtd, priv) ::
       remove_aliases_sig (Env.add_modtype id mtd env) args rem

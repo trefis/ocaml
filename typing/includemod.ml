@@ -321,30 +321,38 @@ and try_modtypes ~loc env ~mark cxt subst mty1 mty2 =
     end
   | (Mty_functor(Named (param1, arg1) as arg, res1),
      Mty_functor(Named (param2, arg2), res2)) ->
-      let arg2' = Subst.modtype Keep subst arg2 in
-      let cc_arg =
-        modtypes ~loc env ~mark:(negate_mark mark)
-          (Arg arg::cxt) Subst.identity arg2' arg1
-      in
-      let env, subst =
-        match param1, param2 with
-        | Some p1, Some p2 ->
-            Env.add_module p1 Mp_present arg2' env,
-            Subst.add_module p2 (Path.Pident p1) subst
-        | None, Some p2 ->
-            Env.add_module p2 Mp_present arg2' env, subst
-        | Some p1, None ->
-            Env.add_module p1 Mp_present arg2' env, subst
-        | None, None ->
-            env, subst
-      in
-      let cc_res = modtypes ~loc env ~mark (Body arg::cxt) subst res1 res2 in
-      begin match (cc_arg, cc_res) with
-          (Tcoerce_none, Tcoerce_none) -> Tcoerce_none
-        | _ -> Tcoerce_functor(cc_arg, cc_res)
-      end
+      functor_ ~loc env ~mark cxt subst Asttypes.Nonimplicit arg
+        param1 arg1 param2 arg2 res1 res2
+  | (Mty_functor(Implicit (param1, arg1) as arg, res1),
+     Mty_functor(Implicit (param2, arg2), res2)) ->
+      functor_ ~loc env ~mark cxt subst Asttypes.Implicit arg
+        param1 arg1 param2 arg2 res1 res2
   | (_, _) ->
       raise Dont_match
+
+and functor_ ~loc env ~mark cxt subst
+    implicit_flag arg param1 arg1 param2 arg2 res1 res2 =
+  let arg2' = Subst.modtype Keep subst arg2 in
+  let cc_arg =
+    modtypes ~loc env ~mark:(negate_mark mark)
+      (Arg arg::cxt) Subst.identity arg2' arg1
+  in
+  let env, subst =
+    match param1, param2 with
+    | Some p1, Some p2 ->
+        Env.add_module p1 Mp_present implicit_flag arg2' env,
+        Subst.add_module p2 (Path.Pident p1) subst
+    | None, Some p2 ->
+        Env.add_module p2 Mp_present implicit_flag arg2' env, subst
+    | Some p1, None ->
+        Env.add_module p1 Mp_present implicit_flag arg2' env, subst
+    | None, None ->
+        env, subst
+  in
+  let cc_res = modtypes ~loc env ~mark (Body arg::cxt) subst res1 res2 in
+  match (cc_arg, cc_res) with
+    (Tcoerce_none, Tcoerce_none) -> Tcoerce_none
+  | _ -> Tcoerce_functor(cc_arg, cc_res)
 
 and strengthened_modtypes ~loc ~aliasable env ~mark cxt subst mty1 path1 mty2 =
   match mty1, mty2 with

@@ -3843,7 +3843,7 @@ and type_implicit_function ?in_function loc attrs env ty_expected_explained
   let scope = Ctype.create_scope () in
   let ident, env =
     Env.enter_module ~scope ~arg:false (* FIXME: true? *)
-      name Mp_present package_type.pack_type env
+      name Mp_present Implicit package_type.pack_type env
   in
   begin_def ();
   let ty_res = 

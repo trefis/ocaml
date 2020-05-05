@@ -649,8 +649,8 @@ let strengthen =
   ref ((fun ~aliasable:_ _env _mty _path -> assert false) :
          aliasable:bool -> t -> module_type -> Path.t -> module_type)
 
-let md md_type = (* FIXME? *)
-  {md_type; md_implicit=Nonimplicit; md_attributes=[]; md_loc=Location.none
+let md md_implicit md_type =
+  {md_type; md_implicit; md_attributes=[]; md_loc=Location.none
   ;md_uid = Uid.internal_not_actually_unique}
 
 (* Print addresses *)
@@ -892,8 +892,9 @@ let find_module ~alias path env =
       EnvLazy.force subst_modtype_maker data.mda_declaration
   | Papply(p1, p2, i) ->
       let fc = find_functor_components p1 env in
-      if alias then md (fc.fcomp_res)
-      else md (modtype_of_functor_appl fc p1 p2 i)
+      md Nonimplicit
+        (if alias then fc.fcomp_res
+         else modtype_of_functor_appl fc p1 p2 i)
 
 let find_value_full path env =
   match path with
@@ -1909,8 +1910,8 @@ and add_class id ty env =
 and add_cltype id ty env =
   store_cltype id ty env
 
-let add_module ?arg id presence mty env =
-  add_module_declaration ~check:false ?arg id presence (md mty) env
+let add_module ?arg id presence implicit_ mty env =
+  add_module_declaration ~check:false ?arg id presence (md implicit_ mty) env
 
 let add_local_type path info env =
   { env with
@@ -1956,8 +1957,8 @@ let enter_cltype ~scope name desc env =
   let env = store_cltype id desc env in
   (id, env)
 
-let enter_module ~scope ?arg s presence mty env =
-  enter_module_declaration ~scope ?arg s presence (md mty) env
+let enter_module ~scope ?arg s presence implicit_ mty env =
+  enter_module_declaration ~scope ?arg s presence (md implicit_ mty) env
 
 (* Insertion of all components of a signature *)
 
@@ -2496,7 +2497,7 @@ and lookup_module ~errors ~use ~loc lid env =
       let p1, fc, arg = lookup_functor_components ~errors ~use ~loc l1 env in
       let p2, md2 = lookup_module ~errors ~use ~loc l2 env in
       !check_functor_application ~errors ~loc env md2.md_type p2 arg p1;
-      let md = md (modtype_of_functor_appl fc p1 p2 i) in
+      let md = md Nonimplicit (modtype_of_functor_appl fc p1 p2 i) in
       Papply(p1, p2, i), md
 
 and lookup_dot_module ~errors ~use ~loc l s env =

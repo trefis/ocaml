@@ -216,7 +216,7 @@ and transl_type_aux env policy styp =
       let scope = create_scope () in
       (* FIXME: presence?? *)
       let pkg_ty = newty (Tpackage (p, lis, tys)) in
-      let (id, new_env) = Env.enter_module ~scope name Mp_absent mty env in
+      let (id, new_env) = Env.enter_module ~scope name Mp_present Implicit mty env in
       let cty = transl_type new_env policy cty in
       let ty = newty (Timplicit_arrow (id, pkg_ty, cty.ctyp_type, Cok)) in
       { (ctyp (Ttyp_implicit_arrow (id, pkg_t, cty)) ty)

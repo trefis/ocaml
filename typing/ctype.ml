@@ -2236,7 +2236,7 @@ let rec mcomp type_pairs env t1 t2 =
             mcomp type_pairs env t1 t2;
             let mty = modtype_of_tpackage env t1 in
             (* FIXME: presence? *)
-            let env = Env.add_module id1 Mp_present mty env in
+            let env = Env.add_module id1 Mp_present Implicit mty env in
             let subst = Subst.add_module id2 (Path.Pident id1) Subst.identity in
             mcomp type_pairs env u1 (Subst.type_expr subst u2);
         | (Tarrow (l1, t1, u1, _), Tarrow (l2, t2, u2, _))
@@ -2479,7 +2479,7 @@ let complete_type_list ?(allow_absent=false) env nl1 lv2 mty2 nl2 tl2 =
      It'd be nice if we avoided creating such temporary dummy modules and broken
      environments though. *)
   let id2 = Ident.create_local "Pkg" in
-  let env' = Env.add_module id2 Mp_present mty2 env in
+  let env' = Env.add_module id2 Mp_present Nonimplicit mty2 env in
   let rec complete nl1 ntl2 =
     match nl1, ntl2 with
       [], _ -> ntl2

@@ -349,8 +349,10 @@ module Constraints = struct
         with Not_found ->
           target
       in
-      (* FIXME: module presence *)
-      let env = Env.add_module target.target_id Mp_present target.target_type env in
+      (* FIXME: module presence, implicit flag *)
+      let env =
+        Env.add_module target.target_id Mp_present Implicit target.target_type env
+      in
       (target :: targets, env)
     in
     let rtargets, _env = List.fold_left constraint_target ([],env) targets in
@@ -856,13 +858,15 @@ end = struct
             Printtyp.ident sub_target.target_id
             Printtyp.modtype sub_target.target_type;
           Ident.Map.add sub_target.target_id state.eq_var eq_table,
-          (* FIXME: module presence *)
-          Env.add_module sub_target.target_id Mp_present sub_target.target_type
-            env)
+          (* FIXME: module presence, implicit flag *)
+          Env.add_module sub_target.target_id Mp_present Implicit
+            sub_target.target_type env)
         (state.eq_table, state.env) sub_targets
     in
-    (* FIXME: module presence *)
-    let env = Env.add_module target.target_id Mp_present candidate_mty env in
+    (* FIXME: module presence, implicit flag *)
+    let env =
+      Env.add_module target.target_id Mp_present Implicit candidate_mty env
+    in
     Ctype.with_equality_equations eq_table
       (fun () ->
         let tyl, tvl = List.split target.target_hkt in
