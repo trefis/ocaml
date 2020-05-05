@@ -45,7 +45,10 @@ module U = struct end;;
 module M = F(struct end);; (* ok *)
 [%%expect{|
 module U : sig end
-module M : S
+Line 2, characters 11-12:
+2 | module M = F(struct end);; (* ok *)
+               ^
+Error: This is a generative functor. It can only be applied to ()
 |}];;
 module M = F(U);; (* fail *)
 [%%expect{|
