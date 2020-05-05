@@ -436,6 +436,7 @@ and module_binding =
      mb_name: string option loc;
      mb_presence: Types.module_presence;
      mb_expr: module_expr;
+     mb_implicit: implicit_flag;
      mb_attributes: attributes;
      mb_loc: Location.t;
     }
@@ -513,6 +514,7 @@ and module_declaration =
      md_name: string option loc;
      md_presence: Types.module_presence;
      md_type: module_type;
+     md_implicit: implicit_flag;
      md_attributes: attributes;
      md_loc: Location.t;
     }

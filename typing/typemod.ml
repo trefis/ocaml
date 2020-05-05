@@ -703,7 +703,7 @@ let rec approx_modtype env smty =
         | Unit -> Types.Unit, env
         | Named (param, sarg) ->
           let arg = approx_modtype env sarg in
-          match param.txt with
+          begin match param.txt with
           | None -> Types.Named (None, arg), env
           | Some name ->
             let rarg = Mtype.scrape_for_functor_arg env arg in
@@ -712,6 +712,19 @@ let rec approx_modtype env smty =
               Env.enter_module ~scope ~arg:true name Mp_present rarg env
             in
             Types.Named (Some id, arg), newenv
+          end
+        | Implicit (param, sarg) ->
+          let arg = approx_modtype env sarg in
+          begin match param.txt with
+          | None -> Types.Implicit (None, arg), env
+          | Some name ->
+            let rarg = Mtype.scrape_for_functor_arg env arg in
+            let scope = Ctype.create_scope () in
+            let (id, newenv) =
+              Env.enter_module ~scope ~arg:true name Mp_present rarg env
+            in
+            Types.Implicit (Some id, arg), newenv
+          end
       in
       let res = approx_modtype newenv sres in
       Mty_functor(param, res)
@@ -739,6 +752,7 @@ let rec approx_modtype env smty =
 and approx_module_declaration env pmd =
   {
     Types.md_type = approx_modtype env pmd.pmd_type;
+    md_implicit = pmd.pmd_implicit;
     md_attributes = pmd.pmd_attributes;
     md_loc = pmd.pmd_loc;
     md_uid = Uid.internal_not_actually_unique;
@@ -1144,29 +1158,35 @@ and transl_modtype_aux env smty =
         smty.pmty_attributes
   | Pmty_functor(sarg_opt, sres) ->
       let t_arg, ty_arg, newenv =
+        let mk_arg param sarg implicit_flag =
+          let arg = transl_modtype_functor_arg env sarg in
+          match param.txt with
+          | None -> None, env, arg
+          | Some name ->
+            let scope = Ctype.create_scope () in
+            let id, newenv =
+              let arg_md =
+                { md_type = arg.mty_type;
+                  md_implicit = implicit_flag;
+                  md_attributes = [];
+                  md_loc = param.loc;
+                  md_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
+                }
+              in
+              Env.enter_module_declaration ~scope ~arg:true name Mp_present
+                arg_md env
+            in
+            Some id, newenv, arg
+        in
         match sarg_opt with
         | Unit -> Unit, Types.Unit, env
         | Named (param, sarg) ->
-          let arg = transl_modtype_functor_arg env sarg in
-          let (id, newenv) =
-            match param.txt with
-            | None -> None, env
-            | Some name ->
-              let scope = Ctype.create_scope () in
-              let id, newenv =
-                let arg_md =
-                  { md_type = arg.mty_type;
-                    md_attributes = [];
-                    md_loc = param.loc;
-                    md_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
-                  }
-                in
-                Env.enter_module_declaration ~scope ~arg:true name Mp_present
-                  arg_md env
-              in
-              Some id, newenv
-          in
-          Named (id, param, arg), Types.Named (id, arg.mty_type), newenv
+            let id, newenv, arg = mk_arg param sarg Nonimplicit in
+            Named (id, param, arg), Types.Named (id, arg.mty_type), newenv
+        | Implicit (param, sarg) ->
+            let id, newenv, arg = mk_arg param sarg Implicit in
+            Implicit_param (id, param, arg), Types.Implicit (id, arg.mty_type),
+            newenv
       in
       let res = transl_modtype newenv sres in
       mkmty (Tmty_functor (t_arg, res))
@@ -1297,6 +1317,7 @@ and transl_signature env sg =
             in
             let md = {
               md_type=tmty.mty_type;
+              md_implicit = Nonimplicit; (* FIXME *)
               md_attributes=pmd.pmd_attributes;
               md_loc=pmd.pmd_loc;
               md_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
@@ -1315,6 +1336,7 @@ and transl_signature env sg =
             let (trem, rem, final_env) = transl_sig newenv srem in
             mksig (Tsig_module {md_id=id; md_name=pmd.pmd_name;
                                 md_presence=pres; md_type=tmty;
+                                md_implicit=pmd.pmd_implicit;
                                 md_loc=pmd.pmd_loc;
                                 md_attributes=pmd.pmd_attributes})
               env loc :: trem,
@@ -1334,6 +1356,7 @@ and transl_signature env sg =
                 md
               else
                 { md_type = Mty_alias path;
+                  md_implicit = Nonimplicit;
                   md_attributes = pms.pms_attributes;
                   md_loc = pms.pms_loc;
                   md_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
@@ -1376,6 +1399,7 @@ and transl_signature env sg =
             mksig (Tsig_recmodule (List.map fst tdecls)) env loc :: trem,
             map_rec (fun rs (id, md, uid) ->
                 let d = {Types.md_type = md.md_type.mty_type;
+                         md_implicit = Nonimplicit (* FIXME *);
                          md_attributes = md.md_attributes;
                          md_loc = md.md_loc;
                          md_uid = uid;
@@ -1567,6 +1591,7 @@ and transl_recmodule_modtypes env sdecls =
       (fun id pmd ->
          let md =
            { md_type = approx_modtype approx_env pmd.pmd_type;
+             md_implicit = Nonimplicit (* FIXME *);
              md_loc = pmd.pmd_loc;
              md_attributes = pmd.pmd_attributes;
              md_uid = Uid.mk ~current_unit:(Env.get_unit_name ()) }
@@ -1595,6 +1620,7 @@ and transl_recmodule_modtypes env sdecls =
       let tmd =
         {md_id=id; md_name=id_loc; md_type=mty;
          md_presence=Mp_present;
+         md_implicit=pmd.pmd_implicit;
          md_loc=pmd.pmd_loc;
          md_attributes=pmd.pmd_attributes}
       in
@@ -1733,7 +1759,8 @@ let check_recmodule_inclusion env bindings =
       (* Generate fresh names Y_i for the rec. bound module idents X_i *)
       let bindings1 =
         List.map
-          (fun (id, _name, _mty_decl, _modl, mty_actual, _attrs, _loc, _uid) ->
+          (fun (id, _name, _mty_decl, _impl, _modl, mty_actual, _attrs, _loc,
+                _uid) ->
              let ids =
                Option.map
                  (fun id -> (id, Ident.create_scoped ~scope (Ident.name id))) id
@@ -1769,7 +1796,7 @@ let check_recmodule_inclusion env bindings =
       (* Base case: check inclusion of s(mty_actual) in s(mty_decl)
          and insert coercion if needed *)
       let check_inclusion
-            (id, name, mty_decl, modl, mty_actual, attrs, loc, uid) =
+            (id, name, mty_decl, impl, modl, mty_actual, attrs, loc, uid) =
         let mty_decl' = Subst.modtype (Rescope scope) s mty_decl.mty_type
         and mty_actual' = subst_and_strengthen env scope s id mty_actual in
         let coercion =
@@ -1791,6 +1818,7 @@ let check_recmodule_inclusion env bindings =
             mb_name = name;
             mb_presence = Mp_present;
             mb_expr = modl';
+            mb_implicit = impl;
             mb_attributes = attrs;
             mb_loc = loc;
           }
@@ -1924,29 +1952,35 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
         Tmodtype_implicit
   | Pmod_functor(arg_opt, sbody) ->
       let t_arg, ty_arg, newenv, funct_body =
+        let mk_arg param smty implicit_flag =
+          let mty = transl_modtype_functor_arg env smty in
+          let scope = Ctype.create_scope () in
+          match param.txt with
+          | None -> None, env, mty
+          | Some name ->
+            let arg_md =
+              { md_type = mty.mty_type;
+                md_implicit = implicit_flag;
+                md_attributes = [];
+                md_loc = param.loc;
+                md_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
+              }
+            in
+            let id, newenv =
+              Env.enter_module_declaration ~scope ~arg:true name Mp_present
+                arg_md env
+            in
+            Some id, newenv, mty
+        in
         match arg_opt with
         | Unit -> Unit, Types.Unit, env, false
         | Named (param, smty) ->
-          let mty = transl_modtype_functor_arg env smty in
-          let scope = Ctype.create_scope () in
-          let (id, newenv) =
-            match param.txt with
-            | None -> None, env
-            | Some name ->
-              let arg_md =
-                { md_type = mty.mty_type;
-                  md_attributes = [];
-                  md_loc = param.loc;
-                  md_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
-                }
-              in
-              let id, newenv =
-                Env.enter_module_declaration ~scope ~arg:true name Mp_present
-                  arg_md env
-              in
-              Some id, newenv
-          in
-          Named (id, param, mty), Types.Named (id, mty.mty_type), newenv, true
+            let (id, newenv, mty) = mk_arg param smty Nonimplicit in
+            Named (id, param, mty), Types.Named (id, mty.mty_type), newenv, true
+        | Implicit (param, smty) ->
+            let (id, newenv, mty) = mk_arg param smty Implicit in
+            Implicit_param (id, param, mty), Types.Implicit (id, mty.mty_type),
+            newenv, true
       in
       let body = type_module sttn funct_body None newenv sbody in
       { mod_desc = Tmod_functor(t_arg, body);
@@ -2225,7 +2259,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
                     Exported)],
         newenv
     | Pstr_module {pmb_name = name; pmb_expr = smodl; pmb_attributes = attrs;
-                   pmb_loc;
+                   pmb_loc; pmb_implicit;
                   } ->
         let outer_scope = Ctype.get_current_level () in
         let scope = Ctype.create_scope () in
@@ -2244,6 +2278,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         let md_uid = Uid.mk ~current_unit:(Env.get_unit_name ()) in
         let md =
           { md_type = enrich_module_type anchor name.txt modl.mod_type env;
+            md_implicit = pmb_implicit;
             md_attributes = attrs;
             md_loc = pmb_loc;
             md_uid;
@@ -2260,13 +2295,15 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
             Some id, e,
             [Sig_module(id, pres,
                         {md_type = modl.mod_type;
+                         md_implicit = pmb_implicit;
                          md_attributes = attrs;
                          md_loc = pmb_loc;
                          md_uid;
                         }, Trec_not, Exported)]
         in
-        Tstr_module {mb_id=id; mb_name=name; mb_expr=modl;
-                     mb_presence=pres; mb_attributes=attrs;  mb_loc=pmb_loc; },
+        Tstr_module {mb_id=id; mb_name=name; mb_expr=modl; mb_presence=pres;
+                     mb_implicit=pmb_implicit; mb_attributes=attrs; 
+                     mb_loc=pmb_loc; },
         sg,
         newenv
     | Pstr_recmodule sbind ->
@@ -2275,10 +2312,11 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
             (function
               | {pmb_name = name;
                  pmb_expr = {pmod_desc=Pmod_constraint(expr, typ)};
+                 pmb_implicit = impl;
                  pmb_attributes = attrs;
                  pmb_loc = loc;
                 } ->
-                  name, typ, expr, attrs, loc
+                  name, typ, expr, impl, attrs, loc
               | mb ->
                   raise (Error (mb.pmb_expr.pmod_loc, env,
                                 Recursive_module_require_explicit_type))
@@ -2287,8 +2325,8 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         in
         let (decls, newenv) =
           transl_recmodule_modtypes env
-            (List.map (fun (name, smty, _smodl, attrs, loc) ->
-                 {pmd_name=name; pmd_type=smty;
+            (List.map (fun (name, smty, _smodl, impl, attrs, loc) ->
+                 {pmd_name=name; pmd_type=smty; pmd_implicit=impl;
                   pmd_attributes=attrs; pmd_loc=loc}) sbind
             ) in
         List.iter
@@ -2297,7 +2335,8 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
           decls;
         let bindings1 =
           List.map2
-            (fun ({md_id=id; md_type=mty}, uid) (name, _, smodl, attrs, loc) ->
+            (fun ({md_id=id; md_type=mty; md_implicit=impl}, uid)
+              (name, _, smodl, _impl, attrs, loc) ->
                let modl =
                  Builtin_attributes.warning_scope attrs
                    (fun () ->
@@ -2308,7 +2347,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
                let mty' =
                  enrich_module_type anchor name.txt modl.mod_type newenv
                in
-               (id, name, mty, modl, mty', attrs, loc, uid))
+               (id, name, mty, impl, modl, mty', attrs, loc, uid))
             decls sbind in
         let newenv = (* allow aliasing recursive modules from outside *)
           List.fold_left
@@ -2319,6 +2358,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
                    let mdecl =
                      {
                        md_type = md.md_type.mty_type;
+                       md_implicit = Nonimplicit (* FIXME *);
                        md_attributes = md.md_attributes;
                        md_loc = md.md_loc;
                        md_uid = uid;
@@ -2340,6 +2380,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr scope =
         map_rec (fun rs (id, mb, uid) ->
             Sig_module(id, Mp_present, {
                 md_type=mb.mb_expr.mod_type;
+                md_implicit = Nonimplicit (* FIXME *);
                 md_attributes=mb.mb_attributes;
                 md_loc=mb.mb_loc;
                 md_uid = uid;
@@ -2754,6 +2795,7 @@ let package_signatures units =
       let sg = Subst.signature Make_local subst sg in
       let md =
         { md_type=Mty_signature sg;
+          md_implicit = Nonimplicit;
           md_attributes=[];
           md_loc=Location.none;
           md_uid = Uid.mk ~current_unit:(Env.get_unit_name ());

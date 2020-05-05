@@ -501,6 +501,7 @@ and signature_item =
 and module_declaration =
   {
     md_type: module_type;
+    md_implicit: implicit_flag;
     md_attributes: Parsetree.attributes;
     md_loc: Location.t;
     md_uid: Uid.t;

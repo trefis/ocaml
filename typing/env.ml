@@ -396,7 +396,7 @@ type t = {
   cltypes: (cltype_data, cltype_data) IdTbl.t;
   functor_args: unit Ident.tbl;
   implicit_instances:
-    (Path.t * (Ident.t * module_type) list * module_type) list;
+    (Path.t * (Ident.t option * module_type) list * module_type) list;
   summary: summary;
   local_constraints: type_declaration Path.Map.t;
   flags: int;
@@ -649,8 +649,8 @@ let strengthen =
   ref ((fun ~aliasable:_ _env _mty _path -> assert false) :
          aliasable:bool -> t -> module_type -> Path.t -> module_type)
 
-let md md_type =
-  {md_type; md_attributes=[]; md_loc=Location.none
+let md md_type = (* FIXME? *)
+  {md_type; md_implicit=Nonimplicit; md_attributes=[]; md_loc=Location.none
   ;md_uid = Uid.internal_not_actually_unique}
 
 (* Print addresses *)
@@ -740,6 +740,7 @@ let sign_of_cmi ~freshen { Persistent_env.Persistent_signature.cmi; _ } =
   in
   let md =
     { md_type =  Mty_signature sign;
+      md_implicit = Nonimplicit;
       md_loc = Location.none;
       md_attributes = [];
       md_uid = Uid.of_compilation_unit_id id;
@@ -1452,6 +1453,24 @@ let prefix_idents root freshening_sub prefixing_sub sg =
   in
   prefix_idents root [] freshening_sub prefixing_sub sg
 
+let register_if_implicit path md env =
+  match md.md_implicit with
+  | Nonimplicit -> env
+  | Implicit ->
+      (* FIXME? aliasable:false? *)
+      let mty = !strengthen ~aliasable:true env md.md_type path in
+      let rec add acc params mty =
+        (* TODO: understand this *)
+        let acc = (path, List.rev params, mty) :: acc in
+        match scrape_alias env None mty with
+        | Mty_functor (Implicit(id, param), res) ->
+            let params = (id, param) :: params in
+            add acc params res
+        | _ -> acc
+      in
+      let implicit_instances = add env.implicit_instances [] mty in
+      {env with implicit_instances}
+
 (* Compute structure descriptions *)
 
 let add_to_tbl id decl tbl =
@@ -1785,9 +1804,13 @@ and store_module ~check ~freshening_sub id addr presence md env =
       mda_components = comps;
       mda_address = addr }
   in
-  { env with
-    modules = IdTbl.add id (Mod_local mda) env.modules;
-    summary = Env_module(env.summary, id, presence, md) }
+  let env =
+    { env with
+      modules = IdTbl.add id (Mod_local mda) env.modules;
+      summary = Env_module(env.summary, id, presence, md) }
+  in
+  (* FIXME? md hasn't been freshened. *)
+  register_if_implicit (Pident id) md env
 
 and store_modtype id info env =
   { env with

@@ -442,4 +442,4 @@ val check_value_name: string -> Location.t -> unit
 val print_address : Format.formatter -> address -> unit
 
 val implicit_instances : t ->
-    (Path.t * (Ident.t * module_type) list * module_type) list
+    (Path.t * (Ident.t option * module_type) list * module_type) list

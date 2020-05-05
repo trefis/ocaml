@@ -803,7 +803,9 @@ end = struct
   let make_candidate path params mty =
     let rec loop path res s acc = function
       | [] -> path, List.rev acc, Subst.modtype Keep s res
-      | (id, param) :: rest ->
+      | (None, _) :: _ ->
+          failwith "Implicitsearch.make_candidate: None | TODO"
+      | (Some id, param) :: rest ->
           let param' = Subst.modtype Keep s param in
           let id' =
             Ident.create_scoped ~scope:(Ident.scope id) (Ident.name id)

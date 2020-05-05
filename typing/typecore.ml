@@ -3393,6 +3393,7 @@ and type_expect_
       let scope = create_scope () in
       let md =
         { md_type = modl.mod_type; md_attributes = []; md_loc = name.loc;
+          md_implicit = Nonimplicit; (* FIXME: [let implicit module ...] *)
           md_uid = Uid.mk ~current_unit:(Env.get_unit_name ()); }
       in
       let (id, new_env) =
@@ -4680,6 +4681,7 @@ and type_unpacks ?in_function env unpacks sbody expected_ty =
       let scope = create_scope () in
       let md =
         { md_type = modl.mod_type; md_attributes = []; md_loc = name.loc;
+          md_implicit = Nonimplicit;
           md_uid = uid; }
       in
       let (id, env) =

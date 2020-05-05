@@ -518,6 +518,7 @@ and signature_item s comp =
 and module_declaration scoping s decl =
   {
     md_type = modtype scoping s decl.md_type;
+    md_implicit = decl.md_implicit;
     md_attributes = attrs s decl.md_attributes;
     md_loc = loc s decl.md_loc;
     md_uid = decl.md_uid;

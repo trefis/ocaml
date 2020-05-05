@@ -736,6 +736,9 @@ and functor_parameter =
   | Named of string option loc * module_type
         (* (X : MT)          Some X, MT
            (_ : MT)          None, MT *)
+  | Implicit of string option loc * module_type
+        (* {X : MT}          Some X, MT
+           {_ : MT}          None, MT *)
 
 and functor_argument =
   | Pfa_unit
@@ -791,6 +794,7 @@ and module_declaration =
     {
      pmd_name: string option loc;
      pmd_type: module_type;
+     pmd_implicit: implicit_flag;
      pmd_attributes: attributes; (* ... [@@id1] [@@id2] *)
      pmd_loc: Location.t;
     }
@@ -943,6 +947,7 @@ and module_binding =
     {
      pmb_name: string option loc;
      pmb_expr: module_expr;
+     pmb_implicit: implicit_flag;
      pmb_attributes: attributes;
      pmb_loc: Location.t;
     }
