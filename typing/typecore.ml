@@ -3792,6 +3792,8 @@ and type_implicit_function ?in_function loc attrs env ty_expected_explained
     match in_function with Some p -> p
     | None -> (loc, instance ty_expected)
   in
+  (* FIXME?! *)
+  let scope = Ctype.get_current_level () in
   let separate = !Clflags.principal || Env.has_local_constraints env in
   if separate then begin_def ();
   let expected =
@@ -3840,20 +3842,20 @@ and type_implicit_function ?in_function loc attrs env ty_expected_explained
         generalize_structure pkg;
         generalize_structure ty_res;
   end;
-  let scope = Ctype.create_scope () in
-  let ident, env =
+(*   let scope = Ctype.create_scope () in *)
+  let ident, body_env =
     Env.enter_module ~scope ~arg:false (* FIXME: true? *)
       name Mp_present Implicit package_type.pack_type env
   in
   begin_def ();
-  let ty_res = 
-    match expected with
-    | None -> newvar ()
-    | Some (_, _, ty_res) -> ty_res
-  in
   let exp = 
-    type_expect ~in_function:(loc_fun, ty_fun)
-      env sbody (mk_expected ty_res)
+    match expected with
+    | None -> type_exp body_env sbody
+    | Some (id', _, ty_res) ->
+        let subst = Subst.add_module id' (Path.Pident ident) Subst.identity in
+        let ty_res' = Subst.type_expr subst ty_res in
+        type_expect ~in_function:(loc_fun, ty_fun)
+          env sbody (mk_expected ty_res')
   in
   let package_ty =
     newty (
@@ -3864,14 +3866,20 @@ and type_implicit_function ?in_function loc attrs env ty_expected_explained
       )
     )
   in
-  re {
-    exp_desc = Texp_implicit_function (ident, package_type, exp);
-    exp_loc = loc; exp_extra = [];
-    exp_type =
-      instance (
-        newgenty (Timplicit_arrow(ident, package_ty, ty_res, Cok)));
-    exp_attributes = attrs;
-    exp_env = env }
+  let exp =
+    re {
+      exp_desc = Texp_implicit_function (ident, package_type, exp);
+      exp_loc = loc; exp_extra = [];
+      exp_type =
+        instance (
+          newgenty (Timplicit_arrow(ident, package_ty, exp.exp_type, Cok)));
+      exp_attributes = attrs;
+      exp_env = env }
+  in
+  end_def ();
+  Typeimplicit.generalize_implicits (); (* generalize any implicits *)
+  unify_exp env exp (instance ty_expected);
+  exp
 
 and type_label_access env srecord lid =
   if !Clflags.principal then begin_def ();
