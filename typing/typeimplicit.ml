@@ -82,7 +82,13 @@ let unlink env unlink_on =
       | None -> ()
         (* Identifier is shadowed, skip unlinking *)
       | Some _register when Ident.mem ident shadow_tbl ->
-        (*assert false*) ()
+          (* FIXME: this was:
+             {[
+               (*assert false*) ()
+             ]}
+             but [unlink_on] looks at the stamp, not the name, so this can't
+             happen.  *)
+          assert false
       | Some register ->
         let ty' = newvar ~name:"imp#" () in
         (* Swap `ty' with a fresh variable *)
