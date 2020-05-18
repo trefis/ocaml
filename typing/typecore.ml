@@ -2300,6 +2300,7 @@ let list_labels env ty =
 (* Check that all univars are safe in a type. Both exp.exp_type and
    ty_expected should already be generalized. *)
 let check_univars env kind exp ty_expected vars =
+  Typeimplicit.generalize_implicits (); (* WHY?? *)
   let ty, complete = polyfy env exp.exp_type vars in
   let ty_expected = instance ty_expected in
   if not complete then
@@ -2760,6 +2761,7 @@ and type_expect_
       begin_def ();
       let arg = type_exp env sarg in
       end_def ();
+      Typeimplicit.generalize_implicits ();
       if maybe_expansive arg then lower_contravariant env arg.exp_type;
       generalize arg.exp_type;
       let cases, partial =
@@ -4195,6 +4197,7 @@ and type_label_exp create env loc ty_expected
       begin_def ();
       let arg = type_exp env sarg in
       end_def ();
+      Typeimplicit.generalize_implicits ();
       lower_contravariant env arg.exp_type;
       begin_def ();
       let arg = {arg with exp_type = instance arg.exp_type} in
@@ -5200,6 +5203,7 @@ and type_let
     (List.map2 (fun (attrs, _) (e, _) -> attrs, e) spatl exp_list);
   let pvs = List.map (fun pv -> { pv with pv_type = instance pv.pv_type}) pvs in
   end_def();
+  Typeimplicit.generalize_implicits ();
   List.iter2
     (fun pat (exp, _) ->
        if maybe_expansive exp then
@@ -5316,6 +5320,7 @@ let type_expression env sexp =
   begin_def();
   let exp = type_exp env sexp in
   end_def();
+  Typeimplicit.generalize_implicits ();
   if maybe_expansive exp then lower_contravariant env exp.exp_type;
   generalize exp.exp_type;
   match sexp.pexp_desc with
