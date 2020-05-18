@@ -712,16 +712,37 @@ let apply_label_of_arg_label = function
 
 let arg_equals_app arg_lbl app_lbl =
   match arg_lbl, app_lbl with
-  | _, Papp_implicit -> false
-  | Nolabel, Papp_nolabel -> true
-  | Labelled l1, Papp_labelled l2
-  | Optional l1, Papp_optional l2 -> l1 = l2
+  | `Implicit _, Papp_implicit -> true
+  | `Normal Nolabel, Papp_nolabel -> true
+  | `Normal Labelled l1, Papp_labelled l2
+  | `Normal Optional l1, Papp_optional l2 -> l1 = l2
   | _ -> false
 
 let arg_can_be_used arg_lbl app_lbl =
   match arg_lbl, app_lbl with
   | Labelled _, Papp_nolabel when !Clflags.classic -> true
-  | _ -> arg_equals_app arg_lbl app_lbl
+  | _ -> arg_equals_app (`Normal arg_lbl) app_lbl
+
+let extraction_match arr app =
+  match arr, app with
+  | `Normal (Labelled s | Optional s), (Papp_labelled s' | Papp_optional s')
+    when s = s' ->
+      (* The bad case [Labelled s, Papp_optional s] (applying an optional
+         argument to a labelled one) will be handled by the caller: a warning is
+         emitted, and the optional argument will be interpreted as a labelled
+         one. *)
+      true
+  | _ -> arg_equals_app arr app
+
+let rec extract_application_aux hd arr = function
+  | [] -> None
+  | (app, t as p) :: ls ->
+      if extraction_match arr app then
+        Some (app, t, hd <> [], List.rev_append hd ls)
+      else
+        extract_application_aux (p::hd) arr ls
+
+let extract_application arr ls = extract_application_aux [] arr ls
 
 let rec extract_label_aux hd l = function
   | [] -> None

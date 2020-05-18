@@ -4329,8 +4329,13 @@ and type_application env funct sargs =
     let (ty_arg, ty_res) =
       let ty_fun = expand_head env ty_fun in
       match ty_fun.desc with
-      | Tvar _ ->
-          let t1 = newvar () and t2 = newvar () in
+      | Tvar name ->
+          let name =
+            match name with
+            | Some "imp#" -> name
+            | _ -> None
+          in
+          let t1 = newvar ?name () and t2 = newvar ?name () in
           let lbl =
             match app_lbl with
             | Papp_implicit ->
@@ -4342,7 +4347,8 @@ and type_application env funct sargs =
             | Papp_optional l -> Optional l
           in
           if ty_fun.level >= t1.level &&
-             not (is_prim ~name:"%identity" funct)
+             not (is_prim ~name:"%identity" funct) &&
+             name <> Some "imp#"
           then
             Location.prerr_warning sarg.pexp_loc Warnings.Unused_argument;
           unify env ty_fun (newty (Tarrow(lbl,t1,t2,Clink(ref Cunknown))));
@@ -4473,8 +4479,20 @@ and type_application env funct sargs =
           end else
             (* Arguments can be commuted, try to fetch the argument
                corresponding to the first parameter. *)
-            match extract_label name sargs with
+            match extract_application l sargs with
             | Some (l', sarg, commuted, remaining_sargs) ->
+                begin match Sys.getenv "DBG" with
+                | exception _ -> ()
+                | _ ->
+                    match l with
+                    | `Implicit id ->
+                        Format.eprintf "found arg for %a@.\
+                                        body ty = %a@."
+                          Ident.print_with_scope id
+                          Printtyp.raw_type_expr ty_fun
+                    | _ ->
+                        ()
+                end;
                 if commuted then begin
                   may_warn sarg.pexp_loc
                     (Warnings.Not_principal "commuting this argument")
@@ -4487,6 +4505,18 @@ and type_application env funct sargs =
                         | `Normal l -> Printtyp.string_of_label l));
                 remaining_sargs, use_arg sarg l'
             | None ->
+                begin match Sys.getenv "DBG" with
+                | exception _ -> ()
+                | _ ->
+                    match l with
+                    | `Implicit id ->
+                        Format.eprintf "didn't find arg for implicit %a@.\
+                                        body ty = %a@."
+                          Ident.print_with_scope id
+                          Printtyp.raw_type_expr ty_fun
+                    | _ ->
+                        ()
+                end;
                 sargs,
                 if optional && List.mem_assoc Papp_nolabel sargs then
                   eliminate_optional_arg ()
@@ -4499,10 +4529,24 @@ and type_application env funct sargs =
                   None
                 end
         in
-        let arg () : argument =
+        let arg : unit -> argument =
+          begin match Sys.getenv "DBG" with
+          | exception _ -> ()
+          | _ -> Format.eprintf "Quoi@."
+          end;
           match l with
-          | `Normal l -> Normal (l, Option.map (fun f -> f ()) arg)
+          | `Normal l -> (fun () -> Normal (l, Option.map (fun f -> f ()) arg))
           | `Implicit id ->
+              begin match Sys.getenv "DBG" with
+              | exception _ -> ()
+              | _ ->
+                  Format.eprintf "instantiating with id = %a@.\
+                                  ty (ty_arg) = %a@.\
+                                  ty_fun (ty_res) = %a@."
+                    Ident.print_with_scope id
+                    Printtyp.raw_type_expr ty
+                    Printtyp.raw_type_expr ty_fun
+              end;
               let inst =
                 Typeimplicit.instantiate_one_implicit funct.exp_loc env id ty
                   [ty_fun;ty_fun0]
@@ -4516,14 +4560,15 @@ and type_application env funct sargs =
                    [Typeimplicit.reunify_constraint]).
               *)
               pending_implicits := inst :: !pending_implicits;
-              Option.iter (fun f ->
-                let arg = f () in
-                try Typeimplicit.Link.to_expr inst arg
-                with Unify trace ->
-                  raise(Error(funct.exp_loc, env,
-                              Expr_type_clash(trace,None,None)))
-              ) arg;
-              Implicit inst.Typeimplicit.implicit_argument
+              fun () ->
+                Option.iter (fun f ->
+                    let arg = f () in
+                    try Typeimplicit.Link.to_expr inst arg
+                    with Unify trace ->
+                      raise(Error(funct.exp_loc, env,
+                                  Expr_type_clash(trace,None,None)))
+                  ) arg;
+                Implicit inst.Typeimplicit.implicit_argument
         in
         type_args (arg::args) ty_fun ty_fun0 remaining_sargs
     | _ ->

@@ -210,6 +210,10 @@ val arg_can_be_used : arg_label -> apply_label -> bool
 (* Returns the label name with first character '?' or '~' as appropriate. *)
 val prefixed_label_name : arg_label -> label
 
+val extract_application:
+  [ `Normal of arg_label | `Implicit of Ident.t ] -> (apply_label * 'a) list ->
+  (apply_label * 'a * bool * (apply_label * 'a) list) option
+
 val extract_label :
     label -> (apply_label * 'a) list ->
     (apply_label * 'a * bool * (apply_label * 'a) list) option
