@@ -2663,7 +2663,25 @@ and unify3 env t1 t1' t2 t2' =
     end;
     try
       begin match (d1, d2) with
-        (Tarrow (l1, t1, u1, c1), Tarrow (l2, t2, u2, c2)) when l1 = l2 ||
+      | Timplicit_arrow (id1, t1, u1, c1),
+        Timplicit_arrow (id2, t2, u2, c2) ->
+          unify env t1 t2;
+          let mty = modtype_of_tpackage !env t1 in
+          let env' = Env.add_module id1 Mp_present Implicit mty !env in
+          (* TODO:
+             - forbid implicit occur
+             - set implicit level (??) *)
+          env := env';
+          let subst = Subst.add_module id2 (Path.Pident id1) Subst.identity in
+          let u2 = Subst.type_expr subst u2 in
+          unify env u1 u2;
+          t2'.desc <- Timplicit_arrow (id1, t2, u2, c2);
+          begin match commu_repr c1, commu_repr c2 with
+            Clink r, c2 -> set_commu r c2
+          | c1, Clink r -> set_commu r c1
+          | _ -> ()
+          end
+      | (Tarrow (l1, t1, u1, c1), Tarrow (l2, t2, u2, c2)) when l1 = l2 ||
         (!Clflags.classic || !umode = Pattern) &&
         not (is_optional l1 || is_optional l2) ->
           unify  env t1 t2; unify env  u1 u2;
