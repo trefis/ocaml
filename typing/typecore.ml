@@ -5802,7 +5802,9 @@ let report_error ~loc env = function
 
 let report_error ~loc env err =
   Printtyp.wrap_printing_env ~error:true env
-    (fun () -> report_error ~loc env err)
+    (fun () ->
+       Typeimplicit.reunify_constraints ();
+       report_error ~loc env err)
 
 let () =
   Location.register_error_of_exn
