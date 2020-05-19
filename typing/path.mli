@@ -27,6 +27,8 @@ val exists_free: Ident.t list -> t -> bool
 val scope: t -> int
 val flatten : t -> [ `Contains_apply | `Ok of Ident.t * string list ]
 
+val is_application : t -> bool
+
 val name: ?paren:(string -> bool) -> t -> string
     (* [paren] tells whether a path suffix needs parentheses *)
 val head: t -> Ident.t

@@ -3591,6 +3591,14 @@ let rec eqtype rename type_pairs subst env t1 t2 =
                 then raise (Unify []);
                 subst := (t1', t2') :: !subst
               end
+          | (Timplicit_arrow (id1, t1, u1, _c1),
+             Timplicit_arrow (id2, t2, u2, _c2)) ->
+              eqtype rename type_pairs subst env t1 t2;
+              let mty = modtype_of_tpackage env t1 in
+              let env = Env.add_module id1 Mp_present Implicit mty env in
+              let s = Subst.add_module id2 (Path.Pident id1) Subst.identity in
+              let u2 = Subst.type_expr s u2 in
+              eqtype rename type_pairs subst env u1 u2
           | (Tarrow (l1, t1, u1, _), Tarrow (l2, t2, u2, _)) when l1 = l2
             || !Clflags.classic && not (is_optional l1 || is_optional l2) ->
               eqtype rename type_pairs subst env t1 t2;
@@ -3621,10 +3629,77 @@ let rec eqtype rename type_pairs subst env t1 t2 =
                 (eqtype rename type_pairs subst env)
           | (Tunivar _, Tunivar _) ->
               unify_univar t1' t2' !univar_pairs
+          | Tconstr (p1, tl1, _), Tconstr (p2, tl2, _)
+            when (not (Path.is_application p1)) &&
+                 (not (Path.is_application p2)) &&
+                 Ident.Map.mem (Path.head p1) !equality_equations &&
+                 Ident.Map.mem (Path.head p2) !equality_equations ->
+              let (tl, tr) =
+                (* Base-kinded have priority *)
+                if (tl1 = [] && tl2 <> []) then
+                  (t1', t2')
+                else if (tl2 = [] && tl1 <> []) then
+                  (t2', t1')
+                else if p1 < p2 (* FIXME: ?? *) then
+                  (t1', t2')
+                else
+                  (t2', t1')
+              in
+              eqtype_modulo_equation rename type_pairs subst env tl tr
+          | Tconstr (p, _, _), _
+            when (not (Path.is_application p)) &&
+                 Ident.Map.mem (Path.head p) !equality_equations ->
+              eqtype_modulo_equation rename type_pairs subst env t1' t2'
+          | _, Tconstr (p, _, _)
+            when (not (Path.is_application p)) &&
+                 Ident.Map.mem (Path.head p) !equality_equations ->
+              eqtype_modulo_equation rename type_pairs subst env t2' t1'
           | (_, _) ->
               raise (Unify [])
         end
   with Unify trace ->  raise ( Unify (Trace.diff t1 t2 :: trace) )
+
+and eqtype_modulo_equation rename type_pairs subst env lhs rhs =
+  match lhs.desc with
+  (* Ground types *)
+  | Tconstr (path, [], _) ->
+    let equations =
+      try Ident.Map.find (Path.head path) !equality_equations
+      with Not_found -> assert false
+    in
+    begin try
+      let same { eq_lhs_path ; eq_lhs_params } =
+        let result = eq_lhs_path = path in
+        if result then assert (eq_lhs_params = []);
+        result
+      in
+      let ty = List.find same !equations in
+      (* An equation already apply to this path *)
+      eqtype rename type_pairs subst env ty.eq_rhs rhs
+    with Not_found ->
+      (* Not yet any equation on this path *)
+      let equation = {
+        eq_lhs = lhs;
+        eq_lhs_params = [];
+        eq_lhs_path = path;
+        eq_rhs = rhs;
+      } in
+      equations := equation :: !equations
+    end
+  (* Parametric types *)
+  | Tconstr (path, params, _) ->
+    let equations =
+      try Ident.Map.find (Path.head path) !equality_equations
+      with Not_found -> assert false
+    in
+    let equation = {
+      eq_lhs = lhs;
+      eq_lhs_params = params;
+      eq_lhs_path = path;
+      eq_rhs = rhs;
+    } in
+    equations := equation :: !equations
+  | _ -> assert false
 
 and eqtype_list rename type_pairs subst env tl1 tl2 =
   if List.length tl1 <> List.length tl2 then

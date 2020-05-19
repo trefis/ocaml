@@ -105,6 +105,11 @@ let is_uident s =
   | 'A'..'Z' -> true
   | _ -> false
 
+let rec is_application = function
+  | Pdot (p, _) -> is_application p
+  | Pident _ -> false
+  | Papply _ -> true
+
 type typath =
   | Regular of t
   | Ext of t * string
