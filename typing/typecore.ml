@@ -4315,10 +4315,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
 and type_application env funct sargs =
   (* funct.exp_type may be generic *)
   let result_type omitted ty_fun =
-    List.fold_left (fun ty_fun (l,ty,lv) ->
-        match l with
-        | `Normal l -> newty2 lv (Tarrow(l,ty,ty_fun,Cok))
-        | `Implicit id -> newty2 lv (Timplicit_arrow(id,ty,ty_fun,Cok)))
+    List.fold_left (fun ty_fun (l,ty,lv) -> newty2 lv (Tarrow(l,ty,ty_fun,Cok)))
       ty_fun omitted
   in
   let has_label l ty_fun =
@@ -4327,6 +4324,11 @@ and type_application env funct sargs =
   in
   let eliminated_optional_arguments = ref [] in
   let omitted_parameters = ref [] in
+  let register_omited_parameter ty lv = function
+    | `Implicit _ -> () (* One can't omit an implicit. It will be elaborated. *)
+    | `Normal l ->
+        omitted_parameters := (l, ty, lv) :: !omitted_parameters
+  in
   let pending_implicits = ref [] in
   let type_unknown_arg (ty_fun, typed_args) (app_lbl, sarg) =
     let (ty_arg, ty_res) =
@@ -4451,6 +4453,11 @@ and type_application env funct sargs =
           )
         in
         let eliminate_optional_arg () =
+          let l =
+            match l with
+            | `Normal l -> l
+            | `Implicit _ -> assert false
+          in
           may_warn funct.exp_loc
             (Warnings.Without_principality "eliminated optional argument");
           eliminated_optional_arguments :=
@@ -4528,7 +4535,7 @@ and type_application env funct sargs =
                      it. *)
                   may_warn funct.exp_loc
                     (Warnings.Without_principality "commuted an argument");
-                  omitted_parameters := (l,ty,lv) :: !omitted_parameters;
+                  register_omited_parameter ty lv l;
                   None
                 end
         in
