@@ -4,7 +4,7 @@ open Types
 open Typedtree
 
 let printf_output =
-  if (try Sys.getenv "DEBUG" = "1" with Not_found -> false) then
+  if (try Sys.getenv "DBG" = "true" with Not_found -> false) then
     Format.std_formatter
   else
     Format.make_formatter (fun _ _ _ -> ()) (fun () -> ())
