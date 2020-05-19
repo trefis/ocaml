@@ -15,7 +15,7 @@ let printf x = Format.fprintf printf_output x
 
 let type_implicit_instance
   : (Env.t -> Typedtree.module_expr -> Path.t -> Longident.t list ->
-     type_expr list -> Typedtree.module_expr * type_expr list) ref
+     Typedtree.module_expr * type_expr list) ref
   = ref (fun _ -> assert false)
 
 (* Instantiate implicits in a function type

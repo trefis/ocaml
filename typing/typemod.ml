@@ -2667,6 +2667,67 @@ let type_package env m p nl =
   assert (List.length nl = List.length tl');
   modl, tl'
 
+let type_implicit_instance env modl p nl =
+  (* Same as type_package *)
+  Ctype.begin_def ();
+  let scope = Ctype.create_scope () in
+  let nl', tl', env =
+    match nl with
+    | [] -> [], [], env
+    | nl ->
+      let type_path, env =
+        match modl.mod_desc with
+        | Tmod_ident (mp,_)
+        | Tmod_constraint
+            ({mod_desc=Tmod_ident (mp,_)}, _, Tmodtype_implicit, _) ->
+          (* We special case these because interactions between
+             strengthening of module types and packages can cause
+             spurious escape errors. See examples from PR#6982 in the
+             testsuite. This can be removed when such issues are
+             fixed. *)
+          extend_path mp, env
+        | _ ->
+          let sg = extract_sig_open env modl.mod_loc modl.mod_type in
+          let sg, env = Env.enter_signature ~scope sg env in
+          lookup_type_in_sig sg, env
+      in
+      let nl', tl' =
+        List.fold_right
+          (fun lid (nl, tl) ->
+             match type_path lid with
+             | exception Not_found -> (nl, tl)
+             | path -> begin
+                 match Env.find_type path env with
+                 | exception Not_found -> (nl, tl)
+                 | decl ->
+                     if decl.type_arity > 0 then begin
+                       (nl, tl)
+                     end else begin
+                       let t = Btype.newgenty (Tconstr (path,[],ref Mnil)) in
+                       (lid :: nl, t :: tl)
+                     end
+               end)
+          nl ([], [])
+      in
+      nl', tl', env
+  in
+  (* go back to original level *)
+  Ctype.end_def ();
+  let mty =
+    if nl = [] then (Mty_ident p)
+    else modtype_of_package env modl.mod_loc p nl' tl'
+  in
+  List.iter2
+    (fun n ty ->
+      try Ctype.unify env ty (Ctype.newvar ())
+      with Ctype.Unify _ ->
+        raise (Error(modl.mod_loc, env, Scoping_pack (n,ty))))
+    nl' tl';
+  let modl = wrap_constraint env true modl mty Tmodtype_implicit in
+  (* Dropped exports should have produced an error above *)
+  assert (List.length nl = List.length tl');
+  modl, tl'
+
 (* Fill in the forward declarations *)
 
 let type_open_decl ?used_slot env od =
@@ -2685,6 +2746,7 @@ let () =
   Typecore.type_open := type_open_ ?toplevel:None;
   Typecore.type_open_decl := type_open_decl;
   Typecore.type_package := type_package;
+  Typeimplicit.type_implicit_instance := type_implicit_instance;
   Typeclass.type_open_descr := type_open_descr;
   type_module_type_of_fwd := type_module_type_of
 

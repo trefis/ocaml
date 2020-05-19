@@ -1129,7 +1129,7 @@ let find_pending_instance inst =
    Return the correct package if any.
 *)
 let pack_implicit inst path =
-  let { implicit_type = p,nl,tl;
+  let { implicit_type = p,nl, _tl;
         implicit_env  = env;
         implicit_loc  = loc } = inst in
   let rec translpath = function
@@ -1199,7 +1199,7 @@ let pack_implicit inst path =
           loop mfun mfun.mod_type
   in
   let modl = translpath path in
-  let (modl, tl') = !type_implicit_instance env modl p nl tl in
+  let (modl, tl') = !type_implicit_instance env modl p nl (* tl *) in
   {
     exp_desc = Texp_pack modl;
     exp_loc = loc; exp_extra = [];
