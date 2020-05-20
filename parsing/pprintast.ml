@@ -609,6 +609,18 @@ and expression ctxt f x =
         pp f "@[<2>fun@;%a->@;%a@]"
           (label_exp ctxt) (l, e0, p)
           (expression ctxt) e
+    | Pexp_implicit_fun (l, pkg, e) ->
+        let aux f (s, ct) =
+          pp f "type %a@ =@ %a" longident_loc s (core_type ctxt) ct  in
+        let pp_pkg f (lid, cstrs) =
+          match cstrs with
+          | [] -> pp f "@[<hov2>%a@]" longident_loc lid
+          | _ ->
+              pp f "@[<hov2>%a@ with@ %a@]" longident_loc lid
+                (list aux  ~sep:"@ and@ ")  cstrs
+        in
+        pp f "@[<2>fun@;{%s:%a}@;->@;%a@]"
+          l pp_pkg pkg (expression ctxt) e
     | Pexp_newtype (lid, e) ->
         pp f "@[<2>fun@;(type@;%s)@;->@;%a@]" lid.txt
           (expression ctxt) e
