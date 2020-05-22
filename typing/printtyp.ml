@@ -972,9 +972,9 @@ let rec tree_of_typexp sch ty =
             | _ -> Otyp_stuff "<hidden>"
           else tree_of_typexp sch ty1 in
         Otyp_arrow (lab, t1, tree_of_typexp sch ty2)
-    | Timplicit_arrow (id, _pkg, ty, _) ->
-        Otyp_arrow
-          (Ident.name id, Otyp_stuff "<implicit>", tree_of_typexp sch ty)
+    | Timplicit_arrow (id, ty1, ty2, _) ->
+        Otyp_implicit_arrow
+          (Ident.name id, tree_of_typexp sch ty1, tree_of_typexp sch ty2)
     | Ttuple tyl ->
         Otyp_tuple (tree_of_typlist sch tyl)
     | Tconstr(p, tyl, _abbrev) ->

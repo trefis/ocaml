@@ -279,6 +279,21 @@ and print_out_type_1 ppf =
       pp_print_space ppf ();
       print_out_type_1 ppf ty2;
       pp_close_box ppf ()
+  | Otyp_implicit_arrow (lab, Otyp_module pkg, ty2) ->
+      pp_open_box ppf 0;
+      print_package ~implicit_:lab ppf pkg;
+      pp_print_string ppf " ->";
+      pp_print_space ppf ();
+      print_out_type_1 ppf ty2;
+      pp_close_box ppf ()
+  | Otyp_implicit_arrow (lab, ty1, ty2) ->
+      pp_open_box ppf 0;
+      fprintf ppf "{%s:" lab;
+      print_out_type_2 ppf ty1;
+      pp_print_string ppf "} ->";
+      pp_print_space ppf ();
+      print_out_type_1 ppf ty2;
+      pp_close_box ppf ()
   | ty -> print_out_type_2 ppf ty
 and print_out_type_2 ppf =
   function
@@ -319,7 +334,8 @@ and print_simple_out_type ppf =
          else if tags = None then "> " else "? ")
         print_fields row_fields
         print_present tags
-  | Otyp_alias _ | Otyp_poly _ | Otyp_arrow _ | Otyp_tuple _ as ty ->
+  | Otyp_alias _ | Otyp_poly _ | Otyp_arrow _ | Otyp_implicit_arrow _
+  | Otyp_tuple _ as ty ->
       pp_open_box ppf 1;
       pp_print_char ppf '(';
       print_out_type ppf ty;
@@ -328,18 +344,24 @@ and print_simple_out_type ppf =
   | Otyp_abstract | Otyp_open
   | Otyp_sum _ | Otyp_manifest (_, _) -> ()
   | Otyp_record lbls -> print_record_decl ppf lbls
-  | Otyp_module (p, n, tyl) ->
-      fprintf ppf "@[<1>(module %a" print_ident p;
-      let first = ref true in
-      List.iter2
-        (fun s t ->
-          let sep = if !first then (first := false; "with") else "and" in
-          fprintf ppf " %s type %s = %a" sep s print_out_type t
-        )
-        n tyl;
-      fprintf ppf ")@]"
+  | Otyp_module pkg -> print_package ppf pkg
   | Otyp_attribute (t, attr) ->
       fprintf ppf "@[<1>(%a [@@%s])@]" print_out_type t attr.oattr_name
+and print_package ?implicit_ ppf (p, n, tyl) =
+  begin match implicit_ with
+  | None -> fprintf ppf "@[<1>(module %a" print_ident p
+  | Some id -> fprintf ppf "@[<1>{%s:@;%a" id print_ident p
+  end;
+  let first = ref true in
+  List.iter2
+    (fun s t ->
+      let sep = if !first then (first := false; "with") else "and" in
+      fprintf ppf " %s type %s = %a" sep s print_out_type t
+    )
+    n tyl;
+  match implicit_ with
+  | None -> fprintf ppf ")@]"
+  | Some _ -> fprintf ppf "}@]"
 and print_record_decl ppf lbls =
   fprintf ppf "{%a@;<1 -2>}"
     (print_list_init print_out_label (fun ppf -> fprintf ppf "@ ")) lbls

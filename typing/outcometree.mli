@@ -61,6 +61,7 @@ type out_type =
   | Otyp_open
   | Otyp_alias of out_type * string
   | Otyp_arrow of string * out_type * out_type
+  | Otyp_implicit_arrow of string * out_type * out_type
   | Otyp_class of bool * out_ident * out_type list
   | Otyp_constr of out_ident * out_type list
   | Otyp_manifest of out_type * out_type
@@ -73,8 +74,10 @@ type out_type =
   | Otyp_variant of
       bool * out_variant * bool * (string list) option
   | Otyp_poly of string list * out_type
-  | Otyp_module of out_ident * string list * out_type list
+  | Otyp_module of out_package
   | Otyp_attribute of out_type * out_attribute
+
+and out_package = out_ident * string list * out_type list
 
 and out_variant =
   | Ovar_fields of (string * bool * out_type list) list
