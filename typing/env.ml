@@ -1458,10 +1458,8 @@ let register_if_implicit path md env =
   match md.md_implicit with
   | Nonimplicit -> env
   | Implicit ->
-      (* FIXME? aliasable:false? *)
       let mty = !strengthen ~aliasable:true env md.md_type path in
       let rec add acc params mty =
-        (* TODO: understand this *)
         let acc = (path, List.rev params, mty) :: acc in
         match scrape_alias env None mty with
         | Mty_functor (Implicit(id, param), res) ->
