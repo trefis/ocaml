@@ -142,6 +142,8 @@ val copy_row:
     bool -> row_desc -> bool -> type_expr -> row_desc
 val copy_kind: field_kind -> field_kind
 
+val copy_commu : commutable -> commutable
+
 module For_copy : sig
 
   type copy_scope

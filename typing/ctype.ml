@@ -1139,6 +1139,15 @@ let rec copy ?partial ?keep_names scope ty =
                               Mcons _ -> Mlink !abbreviations
                             | abbrev  -> abbrev))
           end
+      | Timplicit_arrow (id, t1, t2, commu) -> (* FIXME: do we want this? *)
+          let fresh_id =
+            Ident.create_scoped ~scope:(Ident.scope id) (Ident.name id)
+          in
+          let subst = Subst.add_module id (Pident fresh_id) Subst.identity in
+          Timplicit_arrow (fresh_id,
+                           copy t1,
+                           copy (Subst.type_expr subst t2),
+                           copy_commu commu)
       | Tvariant row0 ->
           let row = row_repr row0 in
           let more = repr row.row_more in
