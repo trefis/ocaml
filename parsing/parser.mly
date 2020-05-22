@@ -334,9 +334,9 @@ let bigarray_set ~loc arr arg newval =
                         Papp_nolabel, ghexp(Pexp_array coords);
                         Papp_nolabel, newval]))
 
-let lapply ~loc p1 p2 =
+let lapply ~loc p1 p2 implicit_flag =
   if !Clflags.applicative_functors
-  then Lapply(p1, p2, Nonimplicit)
+  then Lapply(p1, p2, implicit_flag)
   else raise (Syntaxerr.Error(
                   Syntaxerr.Applicative_path (make_loc loc)))
 
@@ -2220,6 +2220,9 @@ expr:
         Pexp_fun(l, o, p, $4), $2 }
   | FUN ext_attributes LPAREN TYPE lident_list RPAREN fun_def
       { (mk_newtypes ~loc:$sloc $5 $7).pexp_desc, $2 }
+  | FUN ext_attributes LBRACE UIDENT COLON module_type RBRACE fun_def
+      { let pkg = package_type_of_module_type $6 in
+        Pexp_implicit_fun($4, pkg, $8), $2 }
   | MATCH ext_attributes seq_expr WITH match_cases
       { Pexp_match($3, $5), $2 }
   | TRY ext_attributes seq_expr WITH match_cases
@@ -2429,6 +2432,19 @@ labeled_simple_expr:
   | TILDE label = LIDENT
       { let loc = $loc(label) in
         (Papp_labelled label, mkexpvar ~loc label) }
+  | LBRACE mid = mkrhs(mod_longident) RBRACE
+      { let md = mkmod ~loc:$loc(mid) (Pmod_ident mid) in
+        (Papp_implicit, mkexp ~loc:$sloc (Pexp_pack md)) }
+  | LBRACE funct = mod_longident rev_args = mod_ext_arguments RBRACE
+      { let mid_loc = ($startpos(funct), $endpos(rev_args)) in
+        let mid =
+          List.fold_left (fun acc (arg, impl_flag) ->
+            lapply ~loc:mid_loc acc arg impl_flag
+          ) funct rev_args
+        in
+        let mid = mkrhs mid mid_loc in
+        let md = mkmod ~loc:mid_loc (Pmod_ident mid) in
+        (Papp_implicit, mkexp ~loc:$sloc (Pexp_pack md)) }
   | QUESTION label = LIDENT
       { let loc = $loc(label) in
         (Papp_optional label, mkexpvar ~loc label) }
@@ -2569,6 +2585,9 @@ fun_def:
       }
   | LPAREN TYPE lident_list RPAREN fun_def
       { mk_newtypes ~loc:$sloc $3 $5 }
+  | LBRACE UIDENT COLON module_type RBRACE fun_def
+      { let pkg = package_type_of_module_type $4 in
+        ghexp ~loc:$sloc (Pexp_implicit_fun($2, pkg, $6)) }
 ;
 %inline expr_comma_list:
   es = separated_nontrivial_llist(COMMA, expr)
@@ -3237,20 +3256,30 @@ alias_type:
    - proper function types:               int -> int
                                           foo: int -> int
                                           ?foo: int -> int
+                                          {M:S} -> int
  *)
 function_type:
   | ty = tuple_type
     %prec MINUSGREATER
       { ty }
-  | mktyp(
-      label = arg_label
-      domain = extra_rhs(tuple_type)
-      MINUSGREATER
-      codomain = function_type
-        { Ptyp_arrow(label, domain, codomain) }
-    )
-    { $1 }
+  | mktyp(arrow_type_desc)
+      { $1 }
 ;
+arrow_type_desc:
+  | LBRACE
+    id = UIDENT
+    COLON
+    mty = module_type
+    RBRACE
+    MINUSGREATER
+    codomain = function_type
+      { Ptyp_implicit_arrow(id, package_type_of_module_type mty, codomain) }
+  | label = arg_label
+    domain = extra_rhs(tuple_type)
+    MINUSGREATER
+    codomain = function_type
+      { Ptyp_arrow(label, domain, codomain) }
+
 %inline arg_label:
   | label = optlabel
       { Optional label }
@@ -3534,9 +3563,23 @@ mod_longident:
 mod_ext_longident:
     mk_longident(mod_ext_longident, UIDENT) { $1 }
   | mod_ext_longident LPAREN mod_ext_longident RPAREN
-      { lapply ~loc:$sloc $1 $3 }
+      { lapply ~loc:$sloc $1 $3 Nonimplicit }
+  | mod_ext_longident LBRACE mod_ext_longident RBRACE
+      { lapply ~loc:$sloc $1 $3 Nonimplicit }
   | mod_ext_longident LPAREN error
       { expecting $loc($3) "module path" }
+  | mod_ext_longident LBRACE error
+      { expecting $loc($3) "module path" }
+;
+mod_ext_arguments:
+  | LPAREN arg = mod_ext_longident RPAREN
+      { [arg, Asttypes.Nonimplicit] }
+  | LBRACE arg = mod_ext_longident RBRACE
+      { [arg, Asttypes.Implicit] }
+  | args = mod_ext_arguments LPAREN arg = mod_ext_longident RPAREN
+      { (arg, Asttypes.Nonimplicit) :: args }
+  | args = mod_ext_arguments LBRACE arg = mod_ext_longident RBRACE
+      { (arg, Asttypes.Implicit) :: args }
 ;
 mty_longident:
     mk_longident(mod_ext_longident,ident) { $1 }
