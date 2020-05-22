@@ -50,13 +50,13 @@ let rec strengthen ~aliasable env mty p =
                     (Papply(p, Pident param, Nonimplicit)))
   | Mty_functor(Implicit (Some param, arg), res)
     when !Clflags.applicative_functors ->
-      Mty_functor(Named (Some param, arg),
+      Mty_functor(Implicit (Some param, arg),
                   strengthen ~aliasable:false env res
                     (Papply(p, Pident param, Implicit)))
   | Mty_functor(Implicit (None, arg), res)
     when !Clflags.applicative_functors ->
       let param = Ident.create_scoped ~scope:(Path.scope p) "Arg" in
-      Mty_functor(Named (Some param, arg),
+      Mty_functor(Implicit (Some param, arg),
                   strengthen ~aliasable:false env res
                     (Papply(p, Pident param, Implicit)))
   | mty ->
