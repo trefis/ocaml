@@ -214,11 +214,17 @@ and transl_type_aux env policy styp =
       in
       let mty = !modtype_of_package env loc p lis tys in
       let scope = create_scope () in
-      (* FIXME: presence?? *)
       let pkg_ty = newty (Tpackage (p, lis, tys)) in
       let (id, new_env) = Env.enter_module ~scope name Mp_present Implicit mty env in
       let cty = transl_type new_env policy cty in
-      let ty = newty (Timplicit_arrow (id, pkg_ty, cty.ctyp_type, Cok)) in
+      let ty =
+        (* Remove the scope on id *)
+        (* FIXME: add a new kind of ident? *)
+        let unscoped_id = Ident.create_scoped ~scope:0 (Ident.name id) in
+        let subst = Subst.add_module id (Pident unscoped_id) Subst.identity in
+        let res_ty = Subst.type_expr subst cty.ctyp_type in
+        newty (Timplicit_arrow (unscoped_id, pkg_ty, res_ty, Cok))
+      in
       { (ctyp (Ttyp_implicit_arrow (id, pkg_t, cty)) ty)
         with ctyp_env = new_env }
   | Ptyp_tuple stl ->
