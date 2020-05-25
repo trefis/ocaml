@@ -3857,7 +3857,7 @@ and type_implicit_function ?in_function loc attrs env ty_expected_explained
         let subst = Subst.add_module id' (Path.Pident ident) Subst.identity in
         let ty_res' = Subst.type_expr subst ty_res in
         type_expect ~in_function:(loc_fun, ty_fun)
-          env sbody (mk_expected ty_res')
+          body_env sbody (mk_expected ty_res')
   in
   let package_ty =
     newty (
