@@ -13,5 +13,5 @@ let f : {A: T} -> {B: T} -> A.a * B.a -> unit =
   fun {A : T} {B : T} (x : A.a * B.a) -> ()
 ;;
 [%%expect{|
-val f : {A : T} -> {B : T} -> A.a * B.a -> unit = <fun>
+val f : {A: T} -> {B: T} -> A.a * B.a -> unit = <fun>
 |}];;

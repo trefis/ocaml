@@ -3868,13 +3868,20 @@ and type_implicit_function ?in_function loc attrs env ty_expected_explained
       )
     )
   in
+  let ty =
+    (* TODO: dedup with typetexp *)
+    (* Remove the scope on id *)
+    (* FIXME: add a new kind of ident? *)
+    let unscoped_id = Ident.create_scoped ~scope:0 (Ident.name ident) in
+    let subst = Subst.add_module ident (Pident unscoped_id) Subst.identity in
+    let exp_ty = Subst.type_expr subst exp.exp_type in
+    instance (newgenty (Timplicit_arrow(unscoped_id, package_ty, exp_ty, Cok)))
+  in
   let exp =
     re {
       exp_desc = Texp_implicit_function (ident, package_type, exp);
       exp_loc = loc; exp_extra = [];
-      exp_type =
-        instance (
-          newgenty (Timplicit_arrow(ident, package_ty, exp.exp_type, Cok)));
+      exp_type = ty;
       exp_attributes = attrs;
       exp_env = env }
   in
