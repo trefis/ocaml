@@ -1199,7 +1199,7 @@ let pack_implicit inst path =
           loop mfun mfun.mod_type
   in
   let modl = translpath path in
-  let (modl, tl') = !type_implicit_instance env modl p nl (* tl *) in
+  let (modl, tl') = !type_implicit_instance env modl p nl in
   {
     exp_desc = Texp_pack modl;
     exp_loc = loc; exp_extra = [];
