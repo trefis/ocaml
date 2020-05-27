@@ -38,7 +38,7 @@ module Eq :
     type (_, _) eq
     val refl : ('a, 'a) eq
     val cast : ('a, 'b) eq -> 'a -> 'b
-    val lift : ('a, 'b) eq -> {T : T1} -> ('a T.t, 'b T.t) eq
+    val lift : ('a, 'b) eq -> {T: T1} -> ('a T.t, 'b T.t) eq
     val symm : ('a, 'b) eq -> ('b, 'a) eq
     val trans : ('a, 'b) eq -> ('b, 'c) eq -> ('a, 'c) eq
   end

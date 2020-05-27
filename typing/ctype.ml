@@ -1139,8 +1139,13 @@ let rec copy ?partial ?keep_names scope ty =
                               Mcons _ -> Mlink !abbreviations
                             | abbrev  -> abbrev))
           end
+      (* trefis: the following seems needed, if we don't some idents end up
+         being copied.
+         But if we do, then we break [instance_parametrized_type] and such... *)
+          (*
       | Timplicit_arrow (id, t1, t2, commu) -> (* FIXME: do we want this? *)
           let fresh_id =
+            assert (Ident.scope id = 0);
             Ident.create_scoped ~scope:(Ident.scope id) (Ident.name id)
           in
           let subst = Subst.add_module id (Pident fresh_id) Subst.identity in
@@ -1148,6 +1153,7 @@ let rec copy ?partial ?keep_names scope ty =
                            copy t1,
                            copy (Subst.type_expr subst t2),
                            copy_commu commu)
+             *)
       | Tvariant row0 ->
           let row = row_repr row0 in
           let more = repr row.row_more in
