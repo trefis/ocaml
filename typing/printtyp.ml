@@ -29,6 +29,14 @@ module String = Misc.Stdlib.String
 
 (* Print a long identifier *)
 
+module Ident = struct
+  include Ident
+  let name =
+    match Sys.getenv "DBG" with
+    | exception _ -> name
+    | _ -> unique_name
+end
+
 let rec longident ppf = function
   | Lident s -> pp_print_string ppf s
   | Ldot(p, s) -> fprintf ppf "%a.%s" longident p s

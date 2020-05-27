@@ -59,8 +59,12 @@ let rename = function
       Misc.fatal_errorf "Ident.rename %s" (name id)
 
 let unique_name = function
-  | Local { name; stamp }
-  | Scoped { name; stamp } -> name ^ "_" ^ Int.to_string stamp
+  | Local { name; stamp } -> name ^ "_" ^ Int.to_string stamp
+  | Scoped { name; stamp; scope } ->
+      begin match Sys.getenv "DBG" with
+      | exception _ -> name ^ "_" ^ Int.to_string stamp
+      | _ -> Printf.sprintf "%s_%d[%d]" name stamp scope
+      end
   | Global name ->
       (* we're adding a fake stamp, because someone could have named his unit
          [Foo_123] and since we're using unique_name to produce symbol names,
