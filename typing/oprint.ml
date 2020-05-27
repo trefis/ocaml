@@ -288,7 +288,7 @@ and print_out_type_1 ppf =
       pp_close_box ppf ()
   | Otyp_implicit_arrow (lab, ty1, ty2) ->
       pp_open_box ppf 0;
-      fprintf ppf "{%s:" lab;
+      fprintf ppf "{%a:" print_ident lab;
       print_out_type_2 ppf ty1;
       pp_print_string ppf "} ->";
       pp_print_space ppf ();
@@ -350,7 +350,7 @@ and print_simple_out_type ppf =
 and print_package ?implicit_ ppf (p, n, tyl) =
   begin match implicit_ with
   | None -> fprintf ppf "@[<1>(module %a" print_ident p
-  | Some id -> fprintf ppf "@[<1>{%s:@;%a" id print_ident p
+  | Some id -> fprintf ppf "@[<1>{%a:@;%a" print_ident id print_ident p
   end;
   let first = ref true in
   List.iter2

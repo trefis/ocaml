@@ -17,5 +17,5 @@ let f (x : {X : S} -> X.t) () = (x :> {X : T} -> unit X.t);;
 Line 1, characters 32-58:
 1 | let f (x : {X : S} -> X.t) () = (x :> {X : T} -> unit X.t);;
                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Type {X: S} -> X/1.t is not a subtype of {X: T} -> unit X/2.t
+Error: Type {X/1: S} -> X/1.t is not a subtype of {X/2: T} -> unit X/2.t
 |}];;
