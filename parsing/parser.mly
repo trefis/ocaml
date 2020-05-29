@@ -2438,9 +2438,9 @@ labeled_simple_expr:
   | LBRACE funct = mod_longident rev_args = mod_ext_arguments RBRACE
       { let mid_loc = ($startpos(funct), $endpos(rev_args)) in
         let mid =
-          List.fold_left (fun acc (arg, impl_flag) ->
+          List.fold_right (fun (arg, impl_flag) acc ->
             lapply ~loc:mid_loc acc arg impl_flag
-          ) funct rev_args
+          ) rev_args funct
         in
         let mid = mkrhs mid mid_loc in
         let md = mkmod ~loc:mid_loc (Pmod_ident mid) in

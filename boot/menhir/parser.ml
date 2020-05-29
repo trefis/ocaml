@@ -15298,9 +15298,9 @@ module Tables = struct
 # 2439 "parsing/parser.mly"
       ( let mid_loc = (_startpos_funct_, _endpos_rev_args_) in
         let mid =
-          List.fold_left (fun acc (arg, impl_flag) ->
+          List.fold_right (fun (arg, impl_flag) acc ->
             lapply ~loc:mid_loc acc arg impl_flag
-          ) funct rev_args
+          ) rev_args funct
         in
         let mid = mkrhs mid mid_loc in
         let md = mkmod ~loc:mid_loc (Pmod_ident mid) in
