@@ -69,7 +69,9 @@ let a = (return 5) >>= fun x -> return x;;
 Line 1, characters 19-22:
 1 | let a = (return 5) >>= fun x -> return x;;
                        ^^^
-Error: No instance found for implicit M.
+Error: No instance found for implicit M where:
+  - type ex1 M.t = imp#
+  - type ex2 M.t = imp#/2
 |}];;
 
 let l : 'a list = (return 5) >>= fun x -> return x;;
@@ -77,7 +79,9 @@ let l : 'a list = (return 5) >>= fun x -> return x;;
 Line 1, characters 29-32:
 1 | let l : 'a list = (return 5) >>= fun x -> return x;;
                                  ^^^
-Error: No instance found for implicit M.
+Error: No instance found for implicit M where:
+  - type ex1 M.t = a list
+  - type ex2 M.t = imp#
 |}];;
 
 let o : 'a option = (return 5) >>= fun x -> return x;;
@@ -85,7 +89,9 @@ let o : 'a option = (return 5) >>= fun x -> return x;;
 Line 1, characters 31-34:
 1 | let o : 'a option = (return 5) >>= fun x -> return x;;
                                    ^^^
-Error: No instance found for implicit M.
+Error: No instance found for implicit M where:
+  - type ex1 M.t = a option
+  - type ex2 M.t = imp#
 |}];;
 
 let m = [1; 2; 3] >>= fun x -> return x;;
@@ -93,7 +99,9 @@ let m = [1; 2; 3] >>= fun x -> return x;;
 Line 1, characters 18-21:
 1 | let m = [1; 2; 3] >>= fun x -> return x;;
                       ^^^
-Error: No instance found for implicit M.
+Error: No instance found for implicit M where:
+  - type ex1 M.t = imp#
+  - type ex2 M.t = int list
 |}];;
 
 let n = return 5 >>= fun x -> [x; 2; 3];;
@@ -101,7 +109,9 @@ let n = return 5 >>= fun x -> [x; 2; 3];;
 Line 1, characters 17-20:
 1 | let n = return 5 >>= fun x -> [x; 2; 3];;
                      ^^^
-Error: No instance found for implicit M.
+Error: No instance found for implicit M where:
+  - type ex1 M.t = int list
+  - type int M.t = imp#
 |}];;
 
 (* Various implementations of sequence to test the handling of recursion *)

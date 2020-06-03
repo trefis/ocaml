@@ -99,5 +99,8 @@ add (S Z) Z;;
 Line 1, characters 0-3:
 1 | add (S Z) Z;;
     ^^^
-Error: No instance found for implicit Add.
+Error: No instance found for implicit Add where:
+  - type Add.c = imp#
+  - type Add.b = z
+  - type Add.a = z s
 |}];;

@@ -5807,8 +5807,25 @@ let report_error ~loc env = function
         (function ppf ->
           fprintf ppf "but bindings were expected of type")
   | No_instance_found inst ->
-      Location.errorf ~loc "No instance found for implicit %s."
-        (Ident.name inst.Typeimplicit.implicit_id)
+      begin match inst.Typeimplicit.implicit_constraints with
+      | [] ->
+          Location.errorf ~loc
+            "No instance found for implicit %s"
+            (Ident.name inst.Typeimplicit.implicit_id)
+      | constrs ->
+          let print_constraint fmt (ty1, ty2) =
+            Format.fprintf fmt "type %a = %a"
+              Printtyp.type_expr ty1
+              Printtyp.type_expr ty2
+          in
+          Location.errorf ~loc
+            "No instance found for implicit %s where:@.  - %a"
+            (Ident.name inst.Typeimplicit.implicit_id)
+            (Format.pp_print_list
+               ~pp_sep:(fun fmt () -> Format.fprintf fmt "@.  - ")
+               print_constraint)
+            constrs
+      end
   | Ambiguous_implicit (inst, p1, p2) ->
       Location.errorf ~loc
         "Ambiguous implicit %s:@ %a@ and %a@ are both solutions."
