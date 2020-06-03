@@ -1613,20 +1613,22 @@ and label_x_expression_param ctxt f (l,e) =
     | {pexp_desc=Pexp_ident {txt=Lident l;_};
        pexp_attributes=[]} -> Some l
     | _ -> None
-  in match l with
-  | Papp_nolabel  -> expression2 ctxt f e (* level 2*)
-  | Papp_optional str ->
+  in match l, e.pexp_desc with
+  | Papp_nolabel, _  -> expression2 ctxt f e (* level 2*)
+  | Papp_optional str, _ ->
       if Some str = simple_name then
         pp f "?%s" str
       else
         pp f "?%s:%a" str (simple_expr ctxt) e
-  | Papp_labelled lbl ->
+  | Papp_labelled lbl, _ ->
       if Some lbl = simple_name then
         pp f "~%s" lbl
       else
         pp f "~%s:%a" lbl (simple_expr ctxt) e
-  | Papp_implicit ->
-        pp f "{%a}" (expression2 ctxt) e
+  | Papp_implicit, Pexp_pack me ->
+        pp f "{%a}" (module_expr ctxt) me
+  | Papp_implicit, _ ->
+      Misc.fatal_error "Pprintast.label_x_expression"
 
 and directive_argument f x =
   match x.pdira_desc with

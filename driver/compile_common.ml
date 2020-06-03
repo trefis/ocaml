@@ -61,6 +61,8 @@ let typecheck_intf info ast =
     ast
     |> Typemod.type_interface info.env
     |> print_if info.ppf_dump Clflags.dump_typedtree Printtyped.interface
+    |> print_if info.ppf_dump Clflags.dump_elaborated
+        (fun fmt sg -> Pprintast.signature fmt (Untypeast.untype_signature sg))
   in
   let sg = tsg.Typedtree.sig_type in
   if !Clflags.print_types then
@@ -107,6 +109,9 @@ let typecheck_impl i parsetree =
        i.source_file i.output_prefix i.module_name i.env)
   |> print_if i.ppf_dump Clflags.dump_typedtree
     Printtyped.implementation_with_coercion
+  |> print_if i.ppf_dump Clflags.dump_elaborated
+    (fun fmt (str, _) ->
+       Pprintast.structure fmt (Untypeast.untype_structure str))
 
 let implementation info ~backend =
   Profile.record_call info.source_file @@ fun () ->

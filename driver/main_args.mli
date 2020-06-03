@@ -64,6 +64,7 @@ module type Core_options = sig
   val _dlocations : unit -> unit
   val _dsource : unit -> unit
   val _dparsetree : unit -> unit
+  val _delaborated : unit -> unit
   val _dtypedtree : unit -> unit
   val _drawlambda : unit -> unit
   val _dlambda : unit -> unit
