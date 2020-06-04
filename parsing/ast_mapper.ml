@@ -655,8 +655,9 @@ let default_mapper =
       );
 
     module_binding =
-      (fun this {pmb_name; pmb_expr; pmb_attributes; pmb_loc} ->
+      (fun this {pmb_name; pmb_implicit; pmb_expr; pmb_attributes; pmb_loc} ->
          Mb.mk (map_loc this pmb_name) (this.module_expr this pmb_expr)
+           ~impl:pmb_implicit
            ~attrs:(this.attributes this pmb_attributes)
            ~loc:(this.location this pmb_loc)
       );

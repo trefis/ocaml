@@ -69,49 +69,27 @@ let a = (return 5) >>= fun x -> return x;;
 Line 1, characters 19-22:
 1 | let a = (return 5) >>= fun x -> return x;;
                        ^^^
-Error: No instance found for implicit M where:
-  - type ex1 M.t = imp#
-  - type ex2 M.t = imp#/2
+Error: Ambiguous implicit M: OptionMonad and ListMonad are both solutions.
 |}];;
 
 let l : 'a list = (return 5) >>= fun x -> return x;;
 [%%expect{|
-Line 1, characters 29-32:
-1 | let l : 'a list = (return 5) >>= fun x -> return x;;
-                                 ^^^
-Error: No instance found for implicit M where:
-  - type ex1 M.t = a list
-  - type ex2 M.t = imp#
+val l : int list = [5]
 |}];;
 
 let o : 'a option = (return 5) >>= fun x -> return x;;
 [%%expect{|
-Line 1, characters 31-34:
-1 | let o : 'a option = (return 5) >>= fun x -> return x;;
-                                   ^^^
-Error: No instance found for implicit M where:
-  - type ex1 M.t = a option
-  - type ex2 M.t = imp#
+val o : int option = Some 5
 |}];;
 
 let m = [1; 2; 3] >>= fun x -> return x;;
 [%%expect{|
-Line 1, characters 18-21:
-1 | let m = [1; 2; 3] >>= fun x -> return x;;
-                      ^^^
-Error: No instance found for implicit M where:
-  - type ex1 M.t = imp#
-  - type ex2 M.t = int list
+val m : int ListMonad.t = [1; 2; 3]
 |}];;
 
 let n = return 5 >>= fun x -> [x; 2; 3];;
 [%%expect{|
-Line 1, characters 17-20:
-1 | let n = return 5 >>= fun x -> [x; 2; 3];;
-                     ^^^
-Error: No instance found for implicit M where:
-  - type ex1 M.t = int list
-  - type int M.t = imp#
+val n : int list = [5; 2; 3]
 |}];;
 
 (* Various implementations of sequence to test the handling of recursion *)
