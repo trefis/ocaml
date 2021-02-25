@@ -336,7 +336,8 @@ val enter_cltype:
    in the process. *)
 val enter_signature: scope:int -> signature -> t -> signature * t
 
-val enter_unbound_value : string -> value_unbound_reason -> t -> t
+val enter_unbound_value : string -> value_unbound_reason -> t -> Ident.t * t
+val add_unbound_value : Ident.t -> value_unbound_reason -> t -> t
 
 val enter_unbound_module : string -> module_unbound_reason -> t -> t
 

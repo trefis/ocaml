@@ -1989,11 +1989,14 @@ let enter_signature ~scope sg env =
 
 (* Add "unbound" bindings *)
 
-let enter_unbound_value name reason env =
-  let id = Ident.create_local name in
+let add_unbound_value id reason env =
   { env with
     values = IdTbl.add id (Val_unbound reason) env.values;
-    summary = Env_value_unbound(env.summary, name, reason) }
+    summary = Env_value_unbound(env.summary, Ident.name id, reason) }
+
+let enter_unbound_value name reason env =
+  let id = Ident.create_local name in
+  id, add_unbound_value id reason env
 
 let enter_unbound_module name reason env =
   let id = Ident.create_local name in

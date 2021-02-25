@@ -88,7 +88,7 @@ let rec env_from_summary sum subst =
           Env.add_persistent_structure id env
       | Env_value_unbound (s, str, reason) ->
           let env = env_from_summary s subst in
-          Env.enter_unbound_value str reason env
+          snd @@ Env.enter_unbound_value str reason env
       | Env_module_unbound (s, str, reason) ->
           let env = env_from_summary s subst in
           Env.enter_unbound_module str reason env

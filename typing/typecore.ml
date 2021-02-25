@@ -412,7 +412,7 @@ let maybe_add_pattern_variables_ghost loc_let env pv =
        let name = Ident.name pv_id in
        if Env.bound_value name env then env
        else begin
-         Env.enter_unbound_value name
+         Env.add_unbound_value pv_id
            (Val_unbound_ghost_recursive loc_let) env
        end
     ) pv env
@@ -2112,8 +2112,7 @@ let type_self_pattern cl_num privty val_env met_env par_env spat =
     List.fold_right
       (fun {pv_id; pv_type; pv_loc; pv_as_var; pv_attributes}
            (val_env, met_env, par_env) ->
-         let name = Ident.name pv_id in
-         (Env.enter_unbound_value name Val_unbound_self val_env,
+         (Env.add_unbound_value pv_id Val_unbound_self val_env,
           Env.add_value pv_id
             {val_type = pv_type;
              val_kind = Val_self (meths, vars, cl_num, privty);
@@ -2124,7 +2123,7 @@ let type_self_pattern cl_num privty val_env met_env par_env spat =
             ~check:(fun s -> if pv_as_var then Warnings.Unused_var s
                              else Warnings.Unused_var_strict s)
             met_env,
-          Env.enter_unbound_value name Val_unbound_self par_env))
+          Env.add_unbound_value pv_id Val_unbound_self par_env))
       pv (val_env, met_env, par_env)
   in
   (pat, meths, vars, val_env, met_env, par_env)
