@@ -220,7 +220,7 @@ let execute_phrase print_outcome ppf phr =
       if !Clflags.dump_typedtree then Printtyped.implementation ppf str;
       if !Clflags.dump_shape then Shape.print ppf shape;
       let sg' = Typemod.Signature_names.simplify newenv names sg in
-      ignore (Includemod.signatures oldenv ~mark:Mark_positive sg sg' shape);
+      ignore (Includemod.signatures oldenv ~mark:Mark_positive sg sg');
       Typecore.force_delayed_checks ();
       let module_ident, res, required_globals, size =
         if Config.flambda then
