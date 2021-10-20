@@ -130,25 +130,35 @@ and desc =
   | Comp_unit of string
 
 let print fmt =
+  let print_uid_opt =
+    Format.pp_print_option (fun fmt -> Format.fprintf fmt "<%a>" Uid.print)
+  in
   let rec aux fmt { uid; desc } =
-    match uid with
-    | None -> print_desc fmt desc
-    | Some uid ->
-        Format.fprintf fmt "%a:@ %a"
-          Uid.print uid
-          print_desc desc
-  and print_desc fmt = function
-    | Var id -> Format.fprintf fmt "%a" Ident.print id
+    match desc with
+    | Var id ->
+        Format.fprintf fmt "%a%a" Ident.print id print_uid_opt uid
     | Abs (id, t) ->
-        Format.fprintf fmt "Abs(@[%a,@ @[%a@]@])"
-          Ident.print id aux t
-    | App (t1, t2) -> Format.fprintf fmt "@[%a(@,%a)@]" aux t1 aux t2
-    | Leaf -> Format.fprintf fmt "·"
+        Format.fprintf fmt "Abs@[%a@,(@[%a,@ @[%a@]@])@]"
+          print_uid_opt uid Ident.print id aux t
+    | App (t1, t2) ->
+        Format.fprintf fmt "@[%a(@,%a)%a@]" aux t1 aux t2
+          print_uid_opt uid
+    | Leaf ->
+        Format.fprintf fmt "<%a>" (Format.pp_print_option Uid.print) uid
     | Proj (t, (name, ns)) ->
-        Format.fprintf fmt "@[%a@ .@ %S[%s]@]"
-          aux t
-          name
-          (Sig_component_kind.to_string ns)
+        begin match uid with
+        | None ->
+            Format.fprintf fmt "@[%a@ .@ %S[%s]@]"
+              aux t
+              name
+              (Sig_component_kind.to_string ns)
+        | Some uid ->
+            Format.fprintf fmt "@[(%a@ .@ %S[%s])<%a>@]"
+              aux t
+              name
+              (Sig_component_kind.to_string ns)
+              Uid.print uid
+        end
     | Comp_unit name -> Format.fprintf fmt "CU %s" name
     | Struct map ->
         let print_map fmt =
@@ -159,7 +169,7 @@ let print fmt =
                 aux t
             )
         in
-        Format.fprintf fmt "{@[<v>%a@]}" print_map map
+        Format.fprintf fmt "{@[<v>%a@,%a@]}" print_uid_opt uid print_map map
   in
   Format.fprintf fmt"@[%a@]@." aux
 
