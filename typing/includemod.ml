@@ -451,7 +451,10 @@ and try_modtypes ~in_eq ~loc env ~mark subst mty1 mty2 orig_shape =
         functor_param ~in_eq ~loc env ~mark:(negate_mark mark)
           subst param1 param2
       in
-      (* TODO @ulysse FIXME is it ok to use a placeholder uid here ? *)
+      (* Using a fresh variable with a placeholder uid here is fine: users will
+         never try to jump to the definition of that variable.
+         If they try to jump to the parameter from inside the functor, they will
+         use the variable shape that is stored in the local environment.  *)
       let var, shape_var = Shape.fresh_var Uid.internal_not_actually_unique in
       let cc_res =
         let res_shape = Shape.app orig_shape ~arg:shape_var in
