@@ -221,13 +221,33 @@ and subst var ~arg t =
   match t.desc with
   | Var id when var = id -> arg
   | Abs (v, e) ->
-      abs ?uid:t.uid v (subst var ~arg e)
+      let e' = subst var ~arg e in
+      if e == e'
+      then t
+      else abs ?uid:t.uid v e'
   | App (f, e) ->
-      app ?uid:t.uid (subst var ~arg f) ~arg:(subst var ~arg e)
+      let f' = subst var ~arg f in
+      let e' = subst var ~arg e in
+      if f == f' && e == e'
+      then t
+      else app ?uid:t.uid f' ~arg:e'
   | Struct m ->
-      { t with desc = Struct (Item.Map.map (fun s -> subst var ~arg s) m) }
-  | Proj (t, item) ->
-      proj ?uid:t.uid (subst var ~arg t) item
+      let unchanged = ref true in
+      let m' =
+        Item.Map.map (fun s ->
+          let s'= subst var ~arg s in
+          unchanged := !unchanged && s == s';
+          s'
+        ) m
+      in
+      if !unchanged
+      then t
+      else { t with desc = Struct m' }
+  | Proj (s, item) ->
+      let s' = subst var ~arg s in
+      if s == s'
+      then t
+      else proj ?uid:t.uid s' item
   | Comp_unit _ | Leaf | Var _ ->
       t
 
