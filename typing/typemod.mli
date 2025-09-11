@@ -137,5 +137,6 @@ type error =
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
-
+exception Errors of Env.t * Typing_recovery.Error_set.t
+                      
 val report_error: Env.t -> loc:Location.t -> error -> Location.error

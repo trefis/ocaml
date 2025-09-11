@@ -1,0 +1,25 @@
+File "_none_", line 1:
+Error: File "typing_recovery_literal_overflow.ml", line 18, characters 17-18:
+       18 | let s : string = r
+                             ^
+       Error: The value r has type int64
+              but an expression was expected of type string
+
+
+File "typing_recovery_literal_overflow.ml", line 12, characters 8-68:
+12 | let k = 99999999999999999999999999999999999999999999999999999999999L
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: Integer literal exceeds the range of representable integers of type int64
+
+
+File "typing_recovery_literal_overflow.ml", line 11, characters 8-68:
+11 | let u = 99999999999999999999999999999999999999999999999999999999999l
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: Integer literal exceeds the range of representable integers of type int32
+
+
+File "typing_recovery_literal_overflow.ml", line 10, characters 8-67:
+10 | let t = 99999999999999999999999999999999999999999999999999999999999
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: Integer literal exceeds the range of representable integers of type int
+

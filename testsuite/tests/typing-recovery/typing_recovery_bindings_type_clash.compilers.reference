@@ -1,0 +1,15 @@
+File "_none_", line 1:
+Error: File "typing_recovery_bindings_type_clash.ml", lines 31-32, characters 9-14:
+       31 | .........x = 1
+       32 |     and+ y = 2
+       Error: These bindings have type int * int
+              but bindings were expected of type int
+
+
+File "typing_recovery_bindings_type_clash.ml", lines 19-21, characters 9-14:
+19 | .........x = 1
+20 |     and+ y = 2
+21 |     and+ z = 3...
+Error: These bindings have type (int * int) * int
+       but bindings were expected of type bool
+

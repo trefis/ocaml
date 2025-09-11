@@ -1,0 +1,14 @@
+File "_none_", line 1:
+Error: File "typing_recovery_unrefuted_pattern.ml", line 36, characters 17-18:
+       36 | let u : string = x
+                             ^
+       Error: The value x has type int but an expression was expected of type
+                string
+
+
+File "typing_recovery_unrefuted_pattern.ml", line 33, characters 5-6:
+33 |    | _ -> .   (* error *)
+          ^
+Error: This match case could not be refuted.
+       Here is an example of a value that would reach it: (Tint, Tvar Zero)
+

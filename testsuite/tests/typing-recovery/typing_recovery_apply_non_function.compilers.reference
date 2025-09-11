@@ -1,0 +1,21 @@
+File "_none_", line 1:
+Error: File "typing_recovery_apply_non_function.ml", line 21, characters 17-19:
+       21 | let e : string = 10
+                             ^^
+       Error: The constant 10 has type int
+              but an expression was expected of type string
+
+
+File "typing_recovery_apply_non_function.ml", line 16, characters 8-9:
+16 | let _ = y 2
+             ^
+Error: This expression has type int
+       This is not a function; it cannot be applied.
+
+
+File "typing_recovery_apply_non_function.ml", line 12, characters 8-9:
+12 | let _ = x 1
+             ^
+Error: This expression has type int
+       This is not a function; it cannot be applied.
+

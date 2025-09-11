@@ -1,0 +1,38 @@
+File "_none_", line 1:
+Error: File "typing_recovery_coercion_failure.ml", line 25, characters 17-19:
+       25 | let t : string = 10
+                             ^^
+       Error: The constant 10 has type int
+              but an expression was expected of type string
+
+
+File "typing_recovery_coercion_failure.ml", line 22, characters 19-21:
+22 |   let t : string = 10
+                        ^^
+Error: The constant 10 has type int but an expression was expected of type
+         string
+
+
+File "typing_recovery_coercion_failure.ml", line 18, characters 13-17:
+18 |     let x = ([`B] :> [`A]) in
+                  ^^^^
+Error: This expression cannot be coerced to type [ `A ]; it has type
+         [> `B ] list
+       but is here used with type [< `A ]
+
+
+File "typing_recovery_coercion_failure.ml", line 13, characters 11-15:
+13 |   let x = ([`B] :> [`A]) in
+                ^^^^
+Error: This expression cannot be coerced to type [ `A ]; it has type
+         [> `B ] list
+       but is here used with type [< `A ]
+
+
+File "typing_recovery_coercion_failure.ml", line 10, characters 9-13:
+10 | let x = ([`B] :> [`A])
+              ^^^^
+Error: This expression cannot be coerced to type [ `A ]; it has type
+         [> `B ] list
+       but is here used with type [< `A ]
+

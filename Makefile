@@ -153,6 +153,7 @@ typing_SOURCES = \
   typing/includemod.mli typing/includemod.ml \
   typing/signature_matching.mli typing/signature_matching.ml \
   typing/includemod_errorprinter.mli typing/includemod_errorprinter.ml \
+  typing/typing_recovery.mli typing/typing_recovery.ml \
   typing/typetexp.mli typing/typetexp.ml \
   typing/printpat.mli typing/printpat.ml \
   typing/patterns.mli typing/patterns.ml \

@@ -443,8 +443,24 @@ let type_open :
   ref (fun ?used_slot:_ _ -> assert false)
 
 let rec transl_type env ~policy ?(aliased=false) ~row_context styp =
-  Builtin_attributes.warning_scope styp.ptyp_attributes
-    (fun () -> transl_type_aux env ~policy ~aliased ~row_context styp)
+  let delayed () =
+    Builtin_attributes.warning_scope styp.ptyp_attributes
+      (fun () -> transl_type_aux env ~policy ~aliased ~row_context styp)
+  in
+  if !Clflags.typing_recovery then
+    Typing_recovery.with_saved_types (fun () ->
+        try delayed ()
+        with Error _ as exn ->
+          let ty = new_global_var () in
+          Typing_recovery.erroneous_type_register ty;
+          Typing_recovery.raise_error exn;
+          { ctyp_desc = Ttyp_any;
+            ctyp_type = ty;
+            ctyp_env = env;
+            ctyp_loc = styp.ptyp_loc;
+            ctyp_attributes = [];
+          })
+  else delayed ()
 
 and transl_type_aux env ~row_context ~aliased ~policy styp =
   let loc = styp.ptyp_loc in

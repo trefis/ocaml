@@ -1,0 +1,29 @@
+File "_none_", line 1:
+Error: File "typing_recovery_undefined_method.ml", line 35, characters 14-18:
+       35 | let t : int = true
+                          ^^^^
+       Error: This expression should not be a boolean literal,
+              the expected type is int
+
+
+File "typing_recovery_undefined_method.ml", line 32, characters 11-12:
+32 |   let b = (a # bar) + (a # foo) in
+                ^
+Error: This expression has type < foo : int >
+       It has no method bar
+
+
+File "typing_recovery_undefined_method.ml", line 18, characters 26-27:
+18 |   let c = x # baz and y = x # foobar in
+                               ^
+Error: This expression has type t
+       It has no method foobar
+
+
+File "typing_recovery_undefined_method.ml", line 18, characters 10-11:
+18 |   let c = x # baz and y = x # foobar in
+               ^
+Error: This expression has type t
+       It has no method baz
+Hint:      Did you mean bar?
+

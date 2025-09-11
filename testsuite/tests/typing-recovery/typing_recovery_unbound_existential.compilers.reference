@@ -1,0 +1,27 @@
+File "_none_", line 1:
+Error: File "typing_recovery_unbound_existential.ml", line 20, characters 17-18:
+       20 | let t : string = c
+                             ^
+       Error: The value c has type int but an expression was expected of type
+                string
+
+
+File "typing_recovery_unbound_existential.ml", line 16, characters 19-20:
+16 |   let () = ignore (x : a) in
+                        ^
+Error: Unbound value x
+
+
+File "typing_recovery_unbound_existential.ml", line 15, characters 36-53:
+15 | let b = function C (type a) (x, f : a * (a -> a list)) ->
+                                         ^^^^^^^^^^^^^^^^^
+Error: This type does not bind all existentials in the constructor:
+         type a. a * (a -> a list)
+
+
+File "typing_recovery_unbound_existential.ml", line 14, characters 38-39:
+14 | let a = function Dyn (type a) (w, x : _) -> 100
+                                           ^
+Error: This type does not bind all existentials in the constructor:
+         type a. 'a ty * 'a
+

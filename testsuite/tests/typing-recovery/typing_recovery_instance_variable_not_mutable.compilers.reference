@@ -1,0 +1,19 @@
+File "_none_", line 1:
+Error: File "typing_recovery_instance_variable_not_mutable.ml", line 28, characters 17-19:
+       28 | let x : string = 11
+                             ^^
+       Error: The constant 11 has type int
+              but an expression was expected of type string
+
+
+File "typing_recovery_instance_variable_not_mutable.ml", line 22, characters 15-22:
+22 |       let () = x <- 11 in
+                    ^^^^^^^
+Error: The instance variable x is not mutable
+
+
+File "typing_recovery_instance_variable_not_mutable.ml", line 15, characters 4-11:
+15 |     y <- 11
+         ^^^^^^^
+Error: The instance variable y is not mutable
+

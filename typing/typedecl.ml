@@ -1234,7 +1234,11 @@ let transl_type_decl env rec_flag sdecl_list =
     (fun sdecl (tdecl, _shape) ->
       let decl = tdecl.typ_type in
        match Ctype.closed_type_decl decl with
-         Some ty -> raise(Error(sdecl.ptype_loc, Unbound_type_var(ty,decl)))
+         Some ty ->
+           let err = Error(sdecl.ptype_loc, Unbound_type_var(ty,decl)) in
+           if !Clflags.typing_recovery && Typing_recovery.erroneous_type_check ty then
+             () (* do not report spurious error, we're in a recovered context *)
+           else raise(err)
        | None   -> ())
     sdecl_list tdecls;
   (* Check that constraints are enforced *)
