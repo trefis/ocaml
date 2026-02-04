@@ -268,15 +268,18 @@ let deep_copy () =
               Tobject (copy t1, ref r)
           | Tfield (s,fk,t1,t2) -> Tfield (s, fk, copy t1, copy t2)
           | Tpoly (t,tl) -> Tpoly (copy t, List.map copy tl)
-          | Tpackage {pack_path; pack_constraints} ->
-              Tpackage
-                {pack_path;
-                 pack_constraints =
-                   List.map (fun (l, tl) -> l, copy tl) pack_constraints}
+          | Tpackage package ->
+              Tpackage (copy_package package)
+          | Tfunctor (l, id, package, type_expr) ->
+              Tfunctor (l, id, copy_package package, copy type_expr)
           | Tlink _ | Tsubst _ -> assert false
         in
         Transient_expr.(set_desc (repr ty') desc);
         ty'
+  and copy_package {pack_path; pack_constraints} =
+    {pack_path;
+     pack_constraints =
+       List.map (fun (l, tl) -> l, copy tl) pack_constraints}
   in
   copy
 
@@ -3256,8 +3259,12 @@ let collect_unknown_apply_args env funct ty_fun0 rev_args sargs =
                            previous_arg_loc = previous_arg_loc rev_args ~funct;
                            extra_arg_loc = sarg.pexp_loc; }))
               with Error _ as exn when !Clflags.typing_recovery ->
+                let var = match td with
+                  |  Tfunctor (l, id, pack, _) -> `Functor (l, id, pack)
+                  | _ -> `Arrow (newvar ())
+                in
                 raise_error exn;
-                newvar (), ty_fun
+                var, ty_fun
         in
         let arg, ty_res = match arg_kind with
           | `Arrow ty_arg -> Unknown_arg { sarg; ty_arg }, ty_res
@@ -4308,9 +4315,9 @@ and type_expect ?recarg env sexp ty_expected_explained =
     Typing_recovery.with_saved_types (fun () ->
         try delayed ()
         with exn ->
+          let { ty; _} = ty_expected_explained in
           let () =
-            Typing_recovery.erroneous_type_register
-              ty_expected_explained.ty;
+            Typing_recovery.erroneous_type_register ty;
             raise_error exn
           in
           let loc = sexp.pexp_loc in
@@ -4319,7 +4326,7 @@ and type_expect ?recarg env sexp ty_expected_explained =
               (Path.Pident (Ident.create_local "*type-error*"),
                Location.mkloc (Longident.Lident "*type-error*") loc,
                Types.{
-                 val_type = ty_expected_explained.ty;
+                 val_type = ty;
                  val_kind = Val_reg;
                  val_loc = loc;
                  val_attributes = [];
@@ -4329,7 +4336,7 @@ and type_expect ?recarg env sexp ty_expected_explained =
           { exp_desc = exp;
             exp_loc = loc;
             exp_extra = [];
-            exp_type = ty_expected_explained.ty;
+            exp_type = ty;
             exp_env = env;
             exp_attributes =
               Typing_recovery.recovery_attributes sexp.pexp_attributes })
