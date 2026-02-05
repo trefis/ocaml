@@ -4303,7 +4303,7 @@ let rec type_exp ?recarg env sexp =
    at [generic_level] (but its variables no higher than [!current_level]).
 *)
 
-and type_expect ?recarg env sexp ty_expected_explained =
+and type_expect ?recarg env sexp (ty_expected_explained : type_expected) =
   let delayed () = 
     Builtin_attributes.warning_scope sexp.pexp_attributes
       (fun () ->
@@ -4313,9 +4313,8 @@ and type_expect ?recarg env sexp ty_expected_explained =
     Typing_recovery.with_saved_types (fun () ->
         try delayed ()
         with exn ->
-          let { ty; _} = ty_expected_explained in
           let () =
-            Typing_recovery.erroneous_type_register ty;
+            Typing_recovery.erroneous_type_register ty_expected_explained.ty;
             raise_error exn
           in
           let loc = sexp.pexp_loc in
@@ -4324,7 +4323,7 @@ and type_expect ?recarg env sexp ty_expected_explained =
               (Path.Pident (Ident.create_local "*type-error*"),
                Location.mkloc (Longident.Lident "*type-error*") loc,
                Types.{
-                 val_type = ty;
+                 val_type = ty_expected_explained.ty;
                  val_kind = Val_reg;
                  val_loc = loc;
                  val_attributes = [];
@@ -4334,7 +4333,7 @@ and type_expect ?recarg env sexp ty_expected_explained =
           { exp_desc = exp;
             exp_loc = loc;
             exp_extra = [];
-            exp_type = ty;
+            exp_type = ty_expected_explained.ty;
             exp_env = env;
             exp_attributes =
               Typing_recovery.recovery_attributes sexp.pexp_attributes })
