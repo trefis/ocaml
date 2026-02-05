@@ -2148,7 +2148,7 @@ and type_pat_aux
   | Ppat_tuple (spl, closed) ->
       assert (closed = Open || List.length spl >= 2);
       Option.iter
-        (fun l -> raise (Error (loc, !!penv, Repeated_tuple_pat_label l)))
+        (fun l -> raise_error (error (loc, !!penv, Repeated_tuple_pat_label l)))
         (Misc.repeated_label spl);
       let args =
         match get_desc (expand_head !!penv expected_ty) with
@@ -4708,7 +4708,7 @@ and type_expect_
   | Pexp_tuple sexpl ->
       assert (List.length sexpl >= 2);
       Option.iter
-        (fun l -> raise (Error (loc, env, Repeated_tuple_exp_label l)))
+        (fun l -> raise_error (error (loc, env, Repeated_tuple_exp_label l)))
         (Misc.repeated_label sexpl);
       let labeled_subtypes = List.map (fun (l, _) -> l, newgenvar ()) sexpl in
       let to_unify = newgenty (Ttuple labeled_subtypes) in
