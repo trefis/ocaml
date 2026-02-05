@@ -3213,95 +3213,93 @@ let collect_unknown_apply_args env funct ty_fun0 rev_args sargs =
     match sargs with
     | [] -> ty_fun, List.rev rev_args
     | (lbl, sarg) :: rest ->
-        let ty_fun = expand_head env ty_fun in
-        let (arg_kind, ty_res) =
-          match get_desc ty_fun with
-          | Tvar _ ->
-              let ty_arg = newvar () in
-              let ty_param = newmono ty_arg in
-              let ty_res = newvar () in
-              if get_level ty_fun >= get_level ty_param &&
-                 not (is_prim ~name:"%identity" funct) &&
-                 (not !Clflags.typing_recovery
-                  || not (Typing_recovery.erroneous_expr_check funct))
-              then
-                Location.prerr_warning sarg.pexp_loc
-                  Warnings.Ignored_extra_argument;
-              unify env ty_fun
-                (newty (Tarrow(lbl,ty_param,ty_res,commu_var ())));
-              (`Arrow ty_arg, ty_res)
-          | Tarrow (l, ty_param, ty_res, _)
-              when labels_match ~param:l ~arg:lbl ->
-              (`Arrow (tpoly_get_mono ty_param), ty_res)
-          | Tfunctor (l, id, pack, ty_res)
-            when labels_match ~param:l ~arg:lbl ->
-              (`Functor (l, id, pack), ty_res)
-          | td ->
-              try
-                let ty_fun =
-                  match td with Tarrow _ | Tfunctor _ -> newty td | _ -> ty_fun
-                in
-                let ty_res = remaining_function_type_for_error ty_fun rev_args in
-                match get_desc ty_res with
-                | Tarrow _ | Tfunctor _ ->
-                    if !Clflags.classic || not (has_label lbl ty_fun) then
-                      raise (error (sarg.pexp_loc, env,
-                                   Apply_wrong_label(lbl, ty_res, false)))
-                    else
+        let arg, ty_res =
+          try
+            let ty_fun = expand_head env ty_fun in
+            let (arg_kind, ty_res) =
+              match get_desc ty_fun with
+              | Tvar _ ->
+                  let ty_arg = newvar () in
+                  let ty_param = newmono ty_arg in
+                  let ty_res = newvar () in
+                  if get_level ty_fun >= get_level ty_param &&
+                     not (is_prim ~name:"%identity" funct) &&
+                     (not !Clflags.typing_recovery
+                      || not (Typing_recovery.erroneous_expr_check funct))
+                  then
+                    Location.prerr_warning sarg.pexp_loc
+                      Warnings.Ignored_extra_argument;
+                  unify env ty_fun
+                    (newty (Tarrow(lbl,ty_param,ty_res,commu_var ())));
+                  (`Arrow ty_arg, ty_res)
+              | Tarrow (l, ty_param, ty_res, _)
+                when labels_match ~param:l ~arg:lbl ->
+                  (`Arrow (tpoly_get_mono ty_param), ty_res)
+              | Tfunctor (l, id, pack, ty_res)
+                when labels_match ~param:l ~arg:lbl ->
+                  (`Functor (l, id, pack), ty_res)
+              | td ->
+                  let ty_fun =
+                    match td with Tarrow _ | Tfunctor _ -> newty td | _ -> ty_fun
+                  in
+                  let ty_res = remaining_function_type_for_error ty_fun rev_args in
+                  match get_desc ty_res with
+                  | Tarrow _ | Tfunctor _ ->
+                      if !Clflags.classic || not (has_label lbl ty_fun) then
+                        raise (error (sarg.pexp_loc, env,
+                                      Apply_wrong_label(lbl, ty_res, false)))
+                      else
+                        raise
+                          (error (funct.exp_loc, env, Incoherent_label_order))
+                  | _ ->
                       raise
-                        (error (funct.exp_loc, env, Incoherent_label_order))
-                | _ ->
-                    raise
-                      (error (funct.exp_loc, env, Apply_non_function {
-                           funct;
-                           func_ty = expand_head env funct.exp_type;
-                           res_ty = expand_head env ty_res;
-                           previous_arg_loc = previous_arg_loc rev_args ~funct;
-                           extra_arg_loc = sarg.pexp_loc; }))
-              with Error _ as exn when !Clflags.typing_recovery ->
-                let var = match td with
-                  |  Tfunctor (l, id, pack, _) -> `Functor (l, id, pack)
-                  | _ -> `Arrow (newvar ())
-                in
-                raise_error exn;
-                var, ty_fun
-        in
-        let arg, ty_res = match arg_kind with
-          | `Arrow ty_arg -> Unknown_arg { sarg; ty_arg }, ty_res
-          | `Functor (l, id_us, pack) ->
-              match extract_packing sarg with
-              | Some (me, optyp) ->
-                let modl, texp =
-                  type_tfunctor_module_arg ~env ~sarg ~me ~optyp ~pack
-                                           ~pack0:pack in
-                let arg = Typed_arg { targ = texp } in
-                let ty_res =
-                  match path_of_module modl with
-                  | Some path ->
-                    let ty_res =
-                        instance_funct ~id_in:(Ident.of_unscoped id_us)
-                          ~p_out:path ~fixed:false ty_res
-                    in
-                    ty_res
+                        (error (funct.exp_loc, env, Apply_non_function {
+                             funct;
+                             func_ty = expand_head env funct.exp_type;
+                             res_ty = expand_head env ty_res;
+                             previous_arg_loc = previous_arg_loc rev_args ~funct;
+                             extra_arg_loc = sarg.pexp_loc; }))
+            in
+            let arg, ty_res = match arg_kind with
+              | `Arrow ty_arg -> Unknown_arg { sarg; ty_arg }, ty_res
+              | `Functor (l, id_us, pack) ->
+                  match extract_packing sarg with
+                  | Some (me, optyp) ->
+                      let modl, texp =
+                        type_tfunctor_module_arg ~env ~sarg ~me ~optyp ~pack
+                          ~pack0:pack in
+                      let arg = Typed_arg { targ = texp } in
+                      let ty_res =
+                        match path_of_module modl with
+                        | Some path ->
+                            let ty_res =
+                              instance_funct ~id_in:(Ident.of_unscoped id_us)
+                                ~p_out:path ~fixed:false ty_res
+                            in
+                            ty_res
+                        | None ->
+                            let me = remove_module_constraint modl in
+                            let tfun = { Types.id_us; pack; ty = ty_res } in
+                            try instance_funct_nondep env l tfun me.mod_type
+                            with Unify trace ->
+                              let loc = beginning_function_loc rev_args ~funct in
+                              raise (Error (loc, env,
+                                            Cannot_unify_tfunctor_to_tarrow trace))
+                      in
+                      (arg, ty_res)
                   | None ->
-                    let me = remove_module_constraint modl in
-                    let tfun = { Types.id_us; pack; ty = ty_res } in
-                    try instance_funct_nondep env l tfun me.mod_type
-                    with Unify trace ->
-                      let loc = beginning_function_loc rev_args ~funct in
-                      raise (Error (loc, env,
-                                    Cannot_unify_tfunctor_to_tarrow trace))
-                in
-                (arg, ty_res)
-              | None ->
-                match
-                  filter_arrow env ~in_apply:true ty_fun l ~param_hole:false
-                with
-                | Ok { ty_param = ty_arg; ty_ret } ->
-                  Unknown_arg { sarg; ty_arg }, ty_ret
-                | Error failure ->
-                  dependent_app_error env failure ~rev_args ~funct
-                    ~sarg pack pack
+                      match
+                        filter_arrow env ~in_apply:true ty_fun l ~param_hole:false
+                      with
+                      | Ok { ty_param = ty_arg; ty_ret } ->
+                          Unknown_arg { sarg; ty_arg }, ty_ret
+                      | Error failure ->
+                          dependent_app_error env failure ~rev_args ~funct
+                            ~sarg pack pack
+            in arg, ty_res
+          with Error _ as exn when !Clflags.typing_recovery ->
+            raise_error exn;
+            Unknown_arg {sarg; ty_arg = newvar ()}, ty_fun
         in
         loop ty_res ((lbl, Arg arg) :: rev_args) rest
   in
