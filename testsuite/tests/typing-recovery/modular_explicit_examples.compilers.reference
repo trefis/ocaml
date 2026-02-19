@@ -37,18 +37,6 @@ Error: This expression should not be a function, the expected type is
        (module Typ)
 
 
-File "modular_explicit_examples.ml", line 60, characters 2-6:
-60 |   f ~a (fun x -> x)
-       ^^^^
-Error: This expression has type (module M : Typ) -> M.t
-       but an expression was expected of type (module Typ) -> 'a
-       The module M would escape its scope
-This function is module-dependent. The dependency is preserved
-when the function is passed a static module argument (module M : S)
-or (module M). Its argument here is not static, so the type-checker
-tried instead to change the function type to be non-dependent.
-
-
 File "modular_explicit_examples.ml", line 62, characters 17-19:
 62 | let c : string = 10 
                       ^^
