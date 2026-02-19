@@ -256,7 +256,15 @@ type error =
   | Cannot_unify_tfunctor_to_tarrow of Errortrace.unification_error
   | Cannot_omit_tfunctor_argument of Ident.Unscoped.t * type_expr
 
-exception Error of Location.t * Env.t * error
+module Error : sig
+  type recoverable = private In_context of Location.t * Env.t * error
+
+  exception Error of recoverable
+
+  val log_or_raise : Location.t -> Env.t -> error -> unit
+  val log_and_raise : Location.t -> Env.t -> error -> 'a
+end
+
 exception Error_forward of Location.error
 
 val report_error: loc:Location.t -> Env.t -> error -> Location.error

@@ -1824,7 +1824,7 @@ let check_coercions env { id; id_loc; clty; ty_id; cltydef; obj_id; obj_abbr;
       in
       begin try Ctype.subtype env cl_ty obj_ty ()
       with Ctype.Subtype err ->
-        raise(Typecore.Error(loc, env, Typecore.Not_subtype err))
+        Typecore.Error.log_and_raise loc env (Typecore.Not_subtype err)
       end;
       if not (Ctype.opened_object cl_ty) then
         raise(Error(loc, env, Cannot_coerce_self obj_ty))

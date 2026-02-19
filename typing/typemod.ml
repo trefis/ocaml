@@ -2548,8 +2548,8 @@ and type_module_aux ~alias ~strengthen ~funct_body anchor env smod =
                 (not_principal "this module unpacking");
             modtype_of_package env smod.pmod_loc pack
         | Tvar _ ->
-            raise (Typecore.Error
-                     (smod.pmod_loc, env, Typecore.Cannot_infer_signature))
+            Typecore.Error.log_and_raise
+                     smod.pmod_loc env Typecore.Cannot_infer_signature
         | _ ->
             raise (Error(smod.pmod_loc, env, Not_a_packed_module exp.exp_type))
       in
