@@ -4350,8 +4350,14 @@ and type_expect ?recarg env sexp (ty_expected_explained : type_expected) =
   if !Clflags.typing_recovery then
     Typing_recovery.with_saved_types (fun () ->
         try delayed ()
-        with Error.Error _ ->
+        with (Error.Error _ | Env.Error _) as exn ->
           Typing_recovery.erroneous_type_register ty_expected_explained.ty;
+          let () =
+            (* FIXME: remove once Env logs errors *)
+            match exn with
+            | Env.Error _ -> Typing_recovery.log_or_raise exn
+            | _ -> ()
+          in
           let loc = sexp.pexp_loc in
           let exp =
             Texp_ident
@@ -6229,7 +6235,13 @@ and type_label_access env srecord usage lid =
     (record, label, expected_type)
   in
   try suspended ()
-  with Error.Error _ when !Clflags.typing_recovery ->
+  with (Env.Error _ | Error.Error _) as exn when !Clflags.typing_recovery ->
+    let () =
+      (* FIXME: eventually Env should also be logging when it raises... *)
+      match exn with
+      | Env.Error _ -> Typing_recovery.log_or_raise exn
+      | _ -> ()
+    in
     (* FIXME: do we want to [erroneous_type_register]? *)
     let fake_label = {
       lbl_name = "";
