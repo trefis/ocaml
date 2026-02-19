@@ -224,7 +224,132 @@ type error =
 let not_principal fmt =
   Format_doc.Doc.kmsg (fun x -> Warnings.Not_principal x) fmt
 
-exception Error of Location.t * Env.t * error
+module Error : sig
+  type recoverable = private In_context of Location.t * Env.t * error
+
+  exception Error of recoverable
+
+  val raise : Location.t -> Env.t -> error -> unit
+end = struct
+  type recoverable = In_context of Location.t * Env.t * error
+
+  exception Error of recoverable
+
+  (* Typing_recovery: deep copy types in errors, to keep them meaningful after
+     backtracking *)
+  let deep_copy () =
+    let table = TypeHash.create 7 in
+    let rec copy ty : type_expr =
+      try TypeHash.find table ty with
+      | Not_found ->
+          let ty' =
+            let ({Types. level; id; desc; _} as texp) = Transient_expr.repr ty in
+            let scope = Transient_expr.get_scope texp in
+            create_expr ~level ~id ~scope desc
+          in
+          let () = TypeHash.add table ty ty' in
+          let desc =
+            match get_desc ty with
+            | Tvar _ | Tnil | Tunivar _ as desc -> desc
+            | Tvariant _ as desc -> (* fixme *) desc
+            | Tarrow (l,t1,t2,c) -> Tarrow (l, copy t1, copy t2, c)
+            | Ttuple tl ->
+                Ttuple (List.map (fun (lbl, t) -> lbl, copy t) tl)
+            | Tconstr (p, tl, _) -> Tconstr (p, List.map copy tl, ref Mnil)
+            | Tobject (t1, r) ->
+                let r = match !r with
+                  | None -> None
+                  | Some (p,tl) -> Some (p, List.map copy tl)
+                in
+                Tobject (copy t1, ref r)
+            | Tfield (s,fk,t1,t2) -> Tfield (s, fk, copy t1, copy t2)
+            | Tpoly (t,tl) -> Tpoly (copy t, List.map copy tl)
+            | Tpackage package ->
+                Tpackage (copy_package package)
+            | Tfunctor (l, id, package, type_expr) ->
+                Tfunctor (l, id, copy_package package, copy type_expr)
+            | Tlink _ | Tsubst _ -> assert false
+          in
+          Transient_expr.(set_desc (repr ty') desc);
+          ty'
+    and copy_package {pack_path; pack_constraints} =
+      {pack_path;
+       pack_constraints =
+         List.map (fun (l, tl) -> l, copy tl) pack_constraints}
+    in
+    copy
+
+  let trace_copy_raw ?(copy=deep_copy ())
+        (trace : Errortrace.unification Errortrace.error) =
+    Errortrace.map_types copy trace
+
+  let trace_copy ?copy
+        ({ trace } : Errortrace.unification_error) =
+    Errortrace.unification_error ~trace:(trace_copy_raw ?copy trace)
+
+  let trace_subtype_copy ?(copy=deep_copy ())
+        (error_trace : Errortrace.Subtype.error_trace) =
+    Errortrace.Subtype.map_types copy error_trace
+
+  let copy_expanded_type copy ({ ty; expanded } : Errortrace.expanded_type) =
+    Errortrace.{ ty = copy ty; expanded = copy expanded }
+
+  (* if typing recovery is activated, we apply deep copy
+     to keep them meaningful after backtracking. *)
+  let freeze_error (loc, env, err) =
+    let err = match err with
+      | Label_mismatch (li, unification_error) ->
+          Label_mismatch (li, trace_copy unification_error)
+      | Pattern_type_clash (trace, popt) ->
+          Pattern_type_clash (trace_copy trace, popt)
+      | Or_pattern_type_clash (i, trace) ->
+          Or_pattern_type_clash (i, trace_copy trace)
+      | Expr_type_clash (trace, ctx_opt, eopt) ->
+          Expr_type_clash (trace_copy trace, ctx_opt, eopt)
+      | Apply_non_function t ->
+          Apply_non_function
+            { t with
+              func_ty = deep_copy () t.func_ty;
+              res_ty = deep_copy () t.res_ty }
+      | Apply_wrong_label (l, t, b) ->
+          Apply_wrong_label (l, deep_copy () t, b)
+      | Wrong_name (s1, t, wn) ->
+          Wrong_name (s1, { t with ty = deep_copy () t.ty }, wn)
+      | Undefined_method (t, s, l) ->
+          Undefined_method (deep_copy () t, s, l)
+      | Private_type t ->
+          Private_type (deep_copy () t)
+      | Private_label (li, t) ->
+          Private_label (li, deep_copy () t)
+      | Not_subtype { trace; unification_trace} ->
+          let copy = deep_copy () in
+          let trace = trace_subtype_copy ~copy trace in
+          let unification_trace = trace_copy_raw ~copy unification_trace in
+          Not_subtype (Errortrace.Subtype.error ~trace ~unification_trace)
+      | Coercion_failure (exptype, ts, b) ->
+          let copy = deep_copy () in
+          Coercion_failure (copy_expanded_type copy exptype, trace_copy ~copy ts, b)
+      | Too_many_arguments (t, ctx_opt) ->
+          Too_many_arguments (deep_copy () t, ctx_opt)
+      | Abstract_wrong_label ({ expected_type; _} as awl) ->
+          Abstract_wrong_label
+            { awl with expected_type = deep_copy () expected_type }
+      | Less_general (s, tr) ->
+          Less_general (s, trace_copy tr)
+      | Not_a_packed_module t ->
+          Not_a_packed_module (deep_copy () t)
+      | err -> err
+    in
+    In_context (loc, env, err)
+
+  let raise loc env err =
+    if !Clflags.typing_recovery then
+      Typing_recovery.raise_error (Error (freeze_error (loc, env, err)))
+    else
+      raise (Error (In_context (loc, env, err)))
+
+end
+
 exception Error_forward of Location.error
 
 let error_of_filter_arrow_failure ~explanation ~first ty_fun
@@ -238,118 +363,6 @@ let error_of_filter_arrow_failure ~explanation ~first ty_fun
       then Not_a_function(ty_fun, explanation)
       else Too_many_arguments(ty_fun, explanation)
     end
-
-(* Typing_recovery: deep copy types in errors, to keep them meaningful after
-   backtracking *)
-let deep_copy () =
-  let table = TypeHash.create 7 in
-  let rec copy ty : type_expr =
-    try TypeHash.find table ty with
-    | Not_found ->
-        let ty' =
-          let ({Types. level; id; desc; _} as texp) = Transient_expr.repr ty in
-          let scope = Transient_expr.get_scope texp in
-          create_expr ~level ~id ~scope desc
-        in
-        let () = TypeHash.add table ty ty' in
-        let desc =
-          match get_desc ty with
-          | Tvar _ | Tnil | Tunivar _ as desc -> desc
-          | Tvariant _ as desc -> (* fixme *) desc
-          | Tarrow (l,t1,t2,c) -> Tarrow (l, copy t1, copy t2, c)
-          | Ttuple tl ->
-              Ttuple (List.map (fun (lbl, t) -> lbl, copy t) tl)
-          | Tconstr (p, tl, _) -> Tconstr (p, List.map copy tl, ref Mnil)
-          | Tobject (t1, r) ->
-              let r = match !r with
-                | None -> None
-                | Some (p,tl) -> Some (p, List.map copy tl)
-              in
-              Tobject (copy t1, ref r)
-          | Tfield (s,fk,t1,t2) -> Tfield (s, fk, copy t1, copy t2)
-          | Tpoly (t,tl) -> Tpoly (copy t, List.map copy tl)
-          | Tpackage package ->
-              Tpackage (copy_package package)
-          | Tfunctor (l, id, package, type_expr) ->
-              Tfunctor (l, id, copy_package package, copy type_expr)
-          | Tlink _ | Tsubst _ -> assert false
-        in
-        Transient_expr.(set_desc (repr ty') desc);
-        ty'
-  and copy_package {pack_path; pack_constraints} =
-    {pack_path;
-     pack_constraints =
-       List.map (fun (l, tl) -> l, copy tl) pack_constraints}
-  in
-  copy
-
-let trace_copy_raw ?(copy=deep_copy ())
-    (trace : Errortrace.unification Errortrace.error) =
-  Errortrace.map_types copy trace
-
-let trace_copy ?copy
-    ({ trace } : Errortrace.unification_error) =
-  Errortrace.unification_error ~trace:(trace_copy_raw ?copy trace)
-
-let trace_subtype_copy ?(copy=deep_copy ())
-    (error_trace : Errortrace.Subtype.error_trace) =
-  Errortrace.Subtype.map_types copy error_trace
-
-let copy_expanded_type copy ({ ty; expanded } : Errortrace.expanded_type) =
-  Errortrace.{ ty = copy ty; expanded = copy expanded }
-
-let make_error (loc, env, err) =
-  let err = match err with
-    | Label_mismatch (li, unification_error) ->
-        Label_mismatch (li, trace_copy unification_error)
-    | Pattern_type_clash (trace, popt) ->
-        Pattern_type_clash (trace_copy trace, popt)
-    | Or_pattern_type_clash (i, trace) ->
-        Or_pattern_type_clash (i, trace_copy trace)
-    | Expr_type_clash (trace, ctx_opt, eopt) ->
-        Expr_type_clash (trace_copy trace, ctx_opt, eopt)
-    | Apply_non_function t ->
-        Apply_non_function
-          { t with
-            func_ty = deep_copy () t.func_ty;
-            res_ty = deep_copy () t.res_ty }
-    | Apply_wrong_label (l, t, b) ->
-        Apply_wrong_label (l, deep_copy () t, b)
-    | Wrong_name (s1, t, wn) ->
-        Wrong_name (s1, { t with ty = deep_copy () t.ty }, wn)
-    | Undefined_method (t, s, l) ->
-        Undefined_method (deep_copy () t, s, l)
-    | Private_type t ->
-        Private_type (deep_copy () t)
-    | Private_label (li, t) ->
-        Private_label (li, deep_copy () t)
-    | Not_subtype { trace; unification_trace} ->
-        let copy = deep_copy () in
-        let trace = trace_subtype_copy ~copy trace in
-        let unification_trace = trace_copy_raw ~copy unification_trace in
-        Not_subtype (Errortrace.Subtype.error ~trace ~unification_trace)
-    | Coercion_failure (exptype, ts, b) ->
-        let copy = deep_copy () in
-        Coercion_failure (copy_expanded_type copy exptype, trace_copy ~copy ts, b)
-    | Too_many_arguments (t, ctx_opt) ->
-        Too_many_arguments (deep_copy () t, ctx_opt)
-    | Abstract_wrong_label ({ expected_type; _} as awl) ->
-        Abstract_wrong_label
-          { awl with expected_type = deep_copy () expected_type }
-    | Less_general (s, tr) ->
-        Less_general (s, trace_copy tr)
-    | Not_a_packed_module t ->
-        Not_a_packed_module (deep_copy () t)
-    | err -> err
-  in
-  Error (loc, env, err)
-
-let error (loc, env, err) =
-  if !Clflags.typing_recovery then
-    (* if typing recovery is activated, we apply deep copy
-       to keep them meaningful after backtracking. *)
-    make_error (loc, env, err)
-  else Error (loc, env, err)
 
 (* Forward declaration, to be filled in by Typemod.type_module *)
 
