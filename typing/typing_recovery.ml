@@ -55,6 +55,11 @@ let catch_errors warnings caught f =
       ref_errors := e;
       Warnings.restore w)
 
+let uncatch_errors f =
+  let e = !ref_errors in
+  ref_errors := None;
+  Misc.try_finally f ~always:(fun () -> ref_errors := e)
+
 let erroneous_type_check te =
   let te = Types.Transient_expr.coerce te in
   match !ref_errors with

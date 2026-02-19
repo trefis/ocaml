@@ -2923,9 +2923,6 @@ let check_counter_example_pat ~counter_example_args penv tp expected_ty =
 
 (* this function is passed to Partial.parmatch
    to type check gadt nonexhaustiveness *)
-(* FIXME: we want to locally disable the recovery here: we need typing to
-   actually fail on ill-typed counterexamples so as not incorrectly report a
-   match as partial. *)
 let partial_pred ~lev ~splitting_mode ?(explode=0) env expected_ty p =
   let penv = Pattern_env.make env
       ~equations_scope:lev ~in_counterexample:true in
@@ -2936,12 +2933,14 @@ let partial_pred ~lev ~splitting_mode ?(explode=0) env expected_ty p =
         explosion_fuel = explode;
       } in
   try
-    let typed_p =
-      check_counter_example_pat ~counter_example_args penv p expected_ty
-    in
-    set_state state penv;
-    (* types are invalidated but we don't need them here *)
-    Some typed_p
+    Typing_recovery.uncatch_errors (fun () ->
+      let typed_p =
+        check_counter_example_pat ~counter_example_args penv p expected_ty
+      in
+      set_state state penv;
+      (* types are invalidated but we don't need them here *)
+      Some typed_p
+    )
   with Error.Error _ | Empty_branch ->
     set_state state penv;
     None
