@@ -1091,7 +1091,7 @@ let reorder_pat loc penv patl closed labeled_tl expected_ty =
     | Some (pat, rem) -> (label, pat) :: taken, rem
     | None ->
         Typing_recovery.erroneous_type_register expected_ty;
-        raise (error (loc, !!penv, Missing_tuple_label(label, expected_ty)))      
+        raise (error (loc, !!penv, Missing_tuple_label(label, expected_ty)))
   in
   match List.fold_left take_next ([], patl) labeled_tl with
   | taken, [] ->
@@ -1995,7 +1995,7 @@ let rec type_pat
       penv: Pattern_env.t -> Parsetree.pattern -> type_expr ->
       k general_pattern
   = fun tps category ~no_existentials ~penv sp expected_ty ->
-    let delayed () = 
+    let delayed () =
       Builtin_attributes.warning_scope sp.ppat_attributes
         (fun () ->
            type_pat_aux tps category ~no_existentials ~penv sp expected_ty)
@@ -3592,11 +3592,11 @@ let annotate_recursive_bindings env valbinds =
     (fun ({vb_pat; vb_expr; vb_rec_kind = _; vb_attributes; vb_loc} as vb) ->
        match (Value_rec_check.is_valid_recursive_expression ids vb_expr) with
        | None ->
-           let () = 
+           let () =
              raise_error
                (error (vb_expr.exp_loc, env, Illegal_letrec_expr))
            in
-           vb  
+           vb
        | Some vb_rec_kind ->
          { vb_pat; vb_expr; vb_rec_kind; vb_attributes; vb_loc})
     valbinds
@@ -4304,7 +4304,7 @@ let rec type_exp ?recarg env sexp =
 *)
 
 and type_expect ?recarg env sexp (ty_expected_explained : type_expected) =
-  let delayed () = 
+  let delayed () =
     Builtin_attributes.warning_scope sexp.pexp_attributes
       (fun () ->
          type_expect_ ?recarg env sexp ty_expected_explained)
@@ -5082,7 +5082,7 @@ and type_expect_
         exp_extra = (exp_extra, loc, sexp.pexp_attributes) :: arg.exp_extra;
       }
   | Pexp_send (e, {txt=met}) ->
-      let suspended () = 
+      let suspended () =
         let (obj,meth,typ) =
           with_local_level_generalize_structure_if_principal
             (fun () -> type_send env loc explanation e met)
@@ -5129,7 +5129,7 @@ and type_expect_
                     Some (List.fold_left collect_fields [] fields)
                 | _ -> None
           in
-          let err = Undefined_method (obj.exp_type, met, valid_methods) in 
+          let err = Undefined_method (obj.exp_type, met, valid_methods) in
           let () =
             Typing_recovery.erroneous_type_register ty_expected;
             raise_error (error (e.pexp_loc, env, err))
@@ -5494,7 +5494,7 @@ and type_expect_
   | Pexp_struct_item (si, e) ->
       (* TODO: Maybe a missing opportunity for Typing Recovery here. *)
       let tv = newvar () in
-      let delayed () = 
+      let delayed () =
         let (_, si, exp) =
           with_local_level_generalize begin fun () ->
             let (si, newenv) = !type_str_item env si in
@@ -5933,11 +5933,11 @@ and type_function
          type for each new parameter. Now that functions are n-ary, we
          could possibly run this once.
       *)
-      let suspended () = 
+      let suspended () =
         with_explanation ty_fun.explanation (fun () ->
             unify_exp_types loc env exp_type (instance ty_expected))
       in
-      let () = 
+      let () =
         if !Clflags.typing_recovery then
           try suspended ()
           with _ -> Typing_recovery.erroneous_type_register ty_expected
@@ -7254,7 +7254,7 @@ and type_function_cases_expect
     let ty_fun =
       instance (newgenty (Tarrow (Nolabel, ty_param, ty_ret, commu_ok)))
     in
-    let delayed () = 
+    let delayed () =
       unify_exp_types loc env ty_fun (instance ty_expected);
       cases, partial, ty_fun
     in
