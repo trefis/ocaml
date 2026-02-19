@@ -20,6 +20,11 @@ val monitor_errors : unit -> bool ref
 (** Raise an error that can be caught: normal flow is resumed if a
     [catch_errors] handler was installed. *)
 val raise_error : exn -> unit
+[@@deprecated "use [log_and_raise] or [log_or_raise] instead"]
+
+val log_and_raise : exn -> 'a
+
+val log_or_raise : exn -> unit
 
 (** Any [raise_error] invoked inside catch_errors will be added to
     the list. *)

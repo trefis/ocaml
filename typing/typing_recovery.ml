@@ -32,11 +32,17 @@ let monitor_errors () =
   in
   !ref_monitor_errors
 
-let raise_error exn =
+let log_or_raise exn =
   let () = !ref_monitor_errors := true in
   match !ref_errors with
   | Some (l, _) -> l := exn :: !l
   | None -> raise exn
+
+let log_and_raise exn =
+  log_or_raise exn;
+  raise exn
+
+let raise_error = log_or_raise
 
 let catch_errors warnings caught f =
   let w = Warnings.backup () in
@@ -147,7 +153,7 @@ module Error_set = Set.Make (struct
       in
       if Int.equal ln 0 && Int.equal bol 0 && Int.equal cn 0 then 0
       else 1
-      
+
 
     let compare (a : t) (b : t) =
       (* If the errors are not different, a positive number is

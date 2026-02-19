@@ -229,7 +229,8 @@ module Error : sig
 
   exception Error of recoverable
 
-  val raise : Location.t -> Env.t -> error -> unit
+  val log_or_raise : Location.t -> Env.t -> error -> unit
+  val log_and_raise : Location.t -> Env.t -> error -> 'a
 end = struct
   type recoverable = In_context of Location.t * Env.t * error
 
@@ -342,12 +343,18 @@ end = struct
     in
     In_context (loc, env, err)
 
-  let raise loc env err =
+  let log_and_raise loc env err =
     if !Clflags.typing_recovery then
-      Typing_recovery.raise_error (Error (freeze_error (loc, env, err)))
+      Typing_recovery.log_and_raise (Error (freeze_error (loc, env, err)))
     else
       raise (Error (In_context (loc, env, err)))
 
+
+  let log_or_raise loc env err =
+    if !Clflags.typing_recovery then
+      Typing_recovery.log_or_raise (Error (freeze_error (loc, env, err)))
+    else
+      raise (Error (In_context (loc, env, err)))
 end
 
 exception Error_forward of Location.error
