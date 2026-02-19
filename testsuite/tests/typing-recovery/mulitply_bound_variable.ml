@@ -12,7 +12,7 @@ let (x, x) = (1, 2)
 let y = 10
 
 let f = function
-  | (x, x) -> x
+  | (x, x, y) -> x + y
   | _ -> 0
 
 

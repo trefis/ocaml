@@ -10,11 +10,11 @@ File "mulitply_bound_variable.ml", line 19, characters 10-12:
 19 | let z = f 10 + y
                ^^
 Error: The constant 10 has type int but an expression was expected of type
-         int * 'a
+         int * 'a * int
 
 
 File "mulitply_bound_variable.ml", line 15, characters 8-9:
-15 |   | (x, x) -> x
+15 |   | (x, x, y) -> x + y
              ^
 Error: Variable x is bound several times in this matching
 
