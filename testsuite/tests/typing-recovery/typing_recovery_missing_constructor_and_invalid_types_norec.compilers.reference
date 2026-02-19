@@ -1,5 +1,0 @@
-File "typing_recovery_missing_constructor_and_invalid_types_norec.ml", line 15, characters 4-5:
-15 |   | C -> 'a'
-         ^
-Error: This variant pattern is expected to have type t
-       There is no constructor C within type t

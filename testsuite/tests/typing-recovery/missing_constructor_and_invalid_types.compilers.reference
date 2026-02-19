@@ -1,0 +1,21 @@
+File "_none_", line 1:
+Error: File "missing_constructor_and_invalid_types.ml", line 16, characters 9-12:
+       16 |   | C -> 'a'
+                     ^^^
+       Error: The constant 'a' has type char
+              but an expression was expected of type unit
+
+
+File "missing_constructor_and_invalid_types.ml", line 15, characters 9-10:
+15 |   | B -> 3
+              ^
+Error: The constant 3 has type int but an expression was expected of type
+         unit
+
+
+File "missing_constructor_and_invalid_types.ml", line 16, characters 4-5:
+16 |   | C -> 'a'
+         ^
+Error: This variant pattern is expected to have type t
+       There is no constructor C within type t
+

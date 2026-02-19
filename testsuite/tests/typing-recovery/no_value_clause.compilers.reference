@@ -1,0 +1,27 @@
+File "_none_", line 1:
+Error: File "no_value_clause.ml", line 29, characters 17-38:
+       29 | let t : string = x + (g 10) + (R.g 11)
+                             ^^^^^^^^^^^^^^^^^^^^^
+       Error: This expression has type int
+              but an expression was expected of type string
+
+
+File "no_value_clause.ml", lines 23-25, characters 12-32:
+23 | ............match x with
+24 |       | exception Not_found -> 1
+25 |       | exception Failure _ -> 2
+Error: None of the patterns in this match expression match values.
+
+
+File "no_value_clause.ml", lines 16-18, characters 10-30:
+16 | ..........match x with
+17 |     | exception Not_found -> 1
+18 |     | exception Failure _ -> 2
+Error: None of the patterns in this match expression match values.
+
+
+File "no_value_clause.ml", lines 10-11, characters 10-29:
+10 | ..........match x with
+11 |   | exception Not_found -> 12
+Error: None of the patterns in this match expression match values.
+

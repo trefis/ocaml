@@ -1,0 +1,5 @@
+File "missing_constructor_in_function_norec.ml", line 10, characters 7-8:
+10 | let f (C : t) : int = ()
+            ^
+Error: This variant pattern is expected to have type t
+       There is no constructor C within type t

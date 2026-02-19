@@ -1,0 +1,26 @@
+File "_none_", line 1:
+Error: File "mulitply_bound_variable.ml", line 21, characters 17-19:
+       21 | let a : string = 10
+                             ^^
+       Error: The constant 10 has type int
+              but an expression was expected of type string
+
+
+File "mulitply_bound_variable.ml", line 19, characters 10-12:
+19 | let z = f 10 + y
+               ^^
+Error: The constant 10 has type int but an expression was expected of type
+         int * 'a
+
+
+File "mulitply_bound_variable.ml", line 15, characters 8-9:
+15 |   | (x, x) -> x
+             ^
+Error: Variable x is bound several times in this matching
+
+
+File "mulitply_bound_variable.ml", line 10, characters 8-9:
+10 | let (x, x) = (1, 2)
+             ^
+Error: Variable x is bound several times in this matching
+

@@ -1,0 +1,28 @@
+File "apply_wrong_label.ml", line 18, characters 8-15:
+18 | let _ = g ~y:10
+             ^^^^^^^
+Warning 5 [ignored-partial-application]: this function application is partial,
+  maybe some arguments are missing.
+
+File "_none_", line 1:
+Error: 
+File "apply_wrong_label.ml", line 24, characters 17-19:
+24 | let t : string = 10
+                      ^^
+Error: The constant 10 has type int but an expression was expected of type
+         string
+
+
+File "apply_wrong_label.ml", line 22, characters 13-14:
+22 | let _ = h ~y:5 10
+                  ^
+Error: The function applied to this argument has type ?x:int -> int
+This argument cannot be applied with label ~y
+
+
+File "apply_wrong_label.ml", line 18, characters 13-15:
+18 | let _ = g ~y:10
+                  ^^
+Error: The function applied to this argument has type x:int -> int
+This argument cannot be applied with label ~y
+

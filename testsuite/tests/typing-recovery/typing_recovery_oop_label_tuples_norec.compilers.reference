@@ -1,4 +1,0 @@
-File "typing_recovery_oop_label_tuples_norec.ml", line 21, characters 14-24:
-21 |     let y = g (module S) (x + 1) in
-                   ^^^^^^^^^^
-Error: The signature for this packaged module couldn't be inferred.

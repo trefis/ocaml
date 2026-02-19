@@ -1,0 +1,59 @@
+File "_none_", line 1:
+Error: File "oop_label_tuples.ml", line 49, characters 35-38:
+       49 |   | Foo {bar; _} -> (int_of_string bar) + 10
+                                               ^^^
+       Error: The value bar has type int
+              but an expression was expected of type string
+
+
+File "oop_label_tuples.ml", line 43, characters 47-51:
+43 | let u = fgh (1, 2, 3) + fgh (~a:11, ~b:300, ~c:3000) + fgh (~a:22, ~b:1, ~c:"30")
+                                                    ^^^^
+Error: The constant 3000 has type int but an expression was expected of type
+         string
+
+
+File "oop_label_tuples.ml", line 43, characters 12-21:
+43 | let u = fgh (1, 2, 3) + fgh (~a:11, ~b:300, ~c:3000) + fgh (~a:22, ~b:1, ~c:"30")
+                 ^^^^^^^^^
+Error: This expression has type 'a * 'b * 'c
+       but an expression was expected of type a:int * b:int * c:string
+       A label a was expected
+
+
+File "oop_label_tuples.ml", lines 32-36, characters 11-7:
+32 | ...........object
+33 |       method deal = String.to_seq
+34 |       method from = String.of_seq
+35 |       method finalize = 44
+36 |     end............
+Error: This expression has type
+         < deal : String.t -> char Seq.t; finalize : int;
+           from : char Seq.t -> String.t >
+       but an expression was expected of type
+         < deal : String.t -> char Seq.t; finalize : string;
+           from : char Seq.t -> string; .. >
+       The method finalize has type int, but the expected method type was
+       string
+
+
+File "oop_label_tuples.ml", lines 29-30, characters 69-9:
+29 | .....................................................................object
+30 |       end
+Error: This expression has type <  > but an expression was expected of type
+         < deal : 'a -> 'b; finalize : string; from : 'b -> string; .. >
+       The first object type has no method deal
+
+
+File "oop_label_tuples.ml", line 23, characters 8-13:
+23 |     y + 220.2
+             ^^^^^
+Error: The constant 220.2 has type float
+       but an expression was expected of type int
+
+
+File "oop_label_tuples.ml", line 22, characters 14-24:
+22 |     let y = g (module S) (x + 1) in
+                   ^^^^^^^^^^
+Error: The signature for this packaged module couldn't be inferred.
+
