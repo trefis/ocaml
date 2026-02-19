@@ -220,6 +220,14 @@ let not_principal fmt =
   Format_doc.Doc.kmsg (fun x -> Warnings.Not_principal x) fmt
 
 module Error : sig
+  (** For the purpose of error recvoery, we want to ensure that user facing
+      errors are always "logged" and never simply raised.
+
+      Ideally we'd do that by making the exception private, but that is
+      currently not possible, so we instead make its argument private. Thus
+      ensuring that these errors can only be reported using the functions
+      exposed here. *)
+
   type recoverable = private In_context of Location.t * Env.t * error
 
   exception Error of recoverable
