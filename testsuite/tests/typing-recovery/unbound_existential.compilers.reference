@@ -13,12 +13,6 @@ Error: This type does not bind all existentials in the constructor:
          type a. a * (a -> a list)
 
 
-File "unbound_existential.ml", line 16, characters 19-20:
-16 |   let () = ignore (x : a) in
-                        ^
-Error: Unbound value x
-
-
 File "unbound_existential.ml", line 20, characters 17-18:
 20 | let t : string = c
                       ^
