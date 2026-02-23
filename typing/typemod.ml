@@ -159,7 +159,7 @@ let initial_env ~loc ~initially_opened_module
     try
       snd (type_open_ Override env loc {txt;loc})
     with
-    | Typetexp.Error.Error _ ->
+    | Typetexp.Error.In_context _ ->
         env
     |  ( Env.Error _
        | Persistent_env.Error _) as exn ->

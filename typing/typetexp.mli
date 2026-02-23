@@ -97,7 +97,7 @@ type error =
   | Functor_optional_param of string
 
 module Error : sig
-    type exn += private Error of Location.t * Env.t * error
+    type exn += private In_context of Location.t * Env.t * error
 
   val log_or_raise : Location.t -> Env.t -> error -> unit
   val log_and_raise : Location.t -> Env.t -> error -> 'a
