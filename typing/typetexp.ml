@@ -54,26 +54,22 @@ exception Error_forward of Location.error
 
 
 module Error : sig
-  type recoverable = private In_context of Location.t * Env.t * error
-
-  exception Error of recoverable
+  type exn += private Error of Location.t * Env.t * error
 
   val log_or_raise : Location.t -> Env.t -> error -> unit
   val log_and_raise : Location.t -> Env.t -> error -> 'a
 end = struct
-  type recoverable = In_context of Location.t * Env.t * error
-
-  exception Error of recoverable
+  type exn += Error of Location.t * Env.t * error
 
   let log_and_raise loc env err =
-    let err = Error (In_context (loc, env, err)) in
+    let err = Error (loc, env, err) in
     if !Clflags.typing_recovery then
       Typing_recovery.log_and_raise err
     else 
       raise err
 
   let log_or_raise loc env err =
-    let err = Error (In_context (loc, env, err)) in
+    let err = Error (loc, env, err) in
     if !Clflags.typing_recovery then
       Typing_recovery.log_or_raise err
     else
@@ -480,7 +476,7 @@ let rec transl_type env ~policy ?(aliased=false) ~row_context styp =
   if !Clflags.typing_recovery then
     Typing_recovery.with_saved_types (fun () ->
         try delayed ()
-        with Error.(Error In_context (loc, env, err)) ->
+        with Error.(Error _) ->
           let ty = new_global_var () in
           Typing_recovery.erroneous_type_register ty;
           { ctyp_desc = Ttyp_any;
@@ -1138,7 +1134,7 @@ let report_error_doc loc env = function
 let () =
   Location.register_error_of_exn
     (function
-      | Error.Error In_context (loc, env, err) ->
+      | Error.Error (loc, env, err) ->
         Some (report_error_doc loc env err)
       | Error_forward err ->
         Some err
