@@ -85,26 +85,22 @@ exception Error_forward of Location.error
 exception Errors of Env.t * Typing_recovery.Error_set.t
 
 module Error : sig
-  type recoverable = private In_context of Location.t * Env.t * error
-
-  exception Error of recoverable
+  type exn += In_context of Location.t * Env.t * error
 
   val log_or_raise : Location.t -> Env.t -> error -> unit
   val log_and_raise : Location.t -> Env.t -> error -> 'a
 end = struct
-  type recoverable = In_context of Location.t * Env.t * error
-
-  exception Error of recoverable
+  type exn += In_context of Location.t * Env.t * error
 
   let log_and_raise loc env err =
-    let err = Error (In_context (loc, env, err)) in
+    let err = In_context (loc, env, err) in
     if !Clflags.typing_recovery then
       Typing_recovery.log_and_raise err
     else
       raise err
 
   let log_or_raise loc env err =
-    let err = Error (In_context (loc, env, err)) in
+    let err = In_context (loc, env, err) in
     if !Clflags.typing_recovery then
       Typing_recovery.log_or_raise err
     else
@@ -1628,7 +1624,7 @@ and transl_signature ?(keep_warnings = false) env sg =
     | [] -> [], [], env 
     | item :: srem ->
         try transl_sig_ env item srem
-        with Error.(Error _) when !Clflags.typing_recovery ->
+        with Error.In_context _ when !Clflags.typing_recovery ->
           transl_sig env srem
   and transl_sig_ env item srem =
     let loc = item.psig_loc in
@@ -2328,7 +2324,7 @@ let package_subtype env pack1 pack2 =
     modtype_of_package env Location.none {pack with pack_constraints = fl}
   in
   match mkmty pack1, mkmty pack2 with
-  | exception Error.Error In_context (_, _, Cannot_scrape_package_type r) ->
+  | exception Error.In_context (_, _, Cannot_scrape_package_type r) ->
       Result.Error (Errortrace.Package_cannot_scrape r)
   | mty1, mty2 ->
     let loc = Location.none in
@@ -2424,7 +2420,7 @@ let rec type_module ?(alias=false) ~strengthen ~funct_body anchor env smod =
        before starting and restore them when finished. *)
     Typing_recovery.with_saved_types (fun () ->
         try delayed ()
-        with Error.Error In_context _ when !Clflags.typing_recovery ->
+        with Error.In_context _ when !Clflags.typing_recovery ->
           { mod_desc = Tmod_structure {
                 str_items = [];
                 str_type = [];
@@ -2821,7 +2817,7 @@ and type_structure ?(toplevel = false)  ?(keep_warnings = false) ~funct_body anc
             type_struct new_env shape_map srem
           in
           (str :: str_rem, sg @ sig_rem, shape_map, final_env)
-        with Error.Error In_context _ when !Clflags.typing_recovery ->
+        with Error.In_context _ when !Clflags.typing_recovery ->
           type_struct env shape_map srem
   in
   let previous_saved_types = Cmt_format.get_saved_types () in
@@ -3864,7 +3860,7 @@ let report_errors env errors =
 let () =
   Location.register_error_of_exn
     (function
-      | Error.Error In_context (loc, env, err) ->
+      | Error.In_context (loc, env, err) ->
           Some (report_error ~loc env err)
       | Error_forward err ->
           Some err
