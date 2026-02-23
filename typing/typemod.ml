@@ -85,10 +85,32 @@ exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
 exception Errors of Env.t * Typing_recovery.Error_set.t
 
-let raise_error exn =
-  if !Clflags.typing_recovery then
-    Typing_recovery.raise_error exn
-  else raise exn
+module Error : sig
+  type recoverable = private In_context of Location.t * Env.t * error
+
+  exception Error of recoverable
+
+  val log_or_raise : Location.t -> Env.t -> error -> unit
+  val log_and_raise : Location.t -> Env.t -> error -> 'a
+end = struct
+  type recoverable = In_context of Location.t * Env.t * error
+
+  exception Error of recoverable
+
+  let log_and_raise loc env err =
+    let err = Error (In_context (loc, env, err)) in
+    if !Clflags.typing_recovery then
+      Typing_recovery.log_and_raise err
+    else
+      raise err
+
+  let log_or_raise loc env err =
+    let err = Error (In_context (loc, env, err)) in
+    if !Clflags.typing_recovery then
+      Typing_recovery.log_or_raise err
+    else
+      raise err
+end
 
 open Typedtree
 
@@ -141,7 +163,7 @@ let initial_env ~loc ~initially_opened_module
     | (Typetexp.Error _
       | Env.Error _
       | Persistent_env.Error _) as exn ->
-        raise_error exn;
+        Typing_recovery.log_or_raise exn;
         env
   in
   let add_units env units =
@@ -1607,13 +1629,9 @@ and transl_signature ?(keep_warnings = false) env sg =
     | [] -> [], [], env 
     | item :: srem ->
         try transl_sig_ env item srem
-        with exn ->
-          if !Clflags.typing_recovery then
-            begin
-              Typing_recovery.raise_error exn;
-              transl_sig env srem
-            end
-          else raise exn
+        with Error (loc, env, err)  ->
+          Error.log_or_raise loc env err;
+          transl_sig env srem
   and transl_sig_ env item srem =
     let loc = item.psig_loc in
     match item.psig_desc with
@@ -1706,7 +1724,7 @@ and transl_signature ?(keep_warnings = false) env sg =
           match tmty.mty_type with
           | Mty_alias p ->
               if not (Env.is_aliasable p env) then
-                raise_error (Error (pmd.pmd_loc, env, Cannot_alias p));
+                Error.log_and_raise pmd.pmd_loc env (Cannot_alias p);
               Mp_absent
           | _ -> Mp_present
         in
@@ -1912,7 +1930,7 @@ and transl_signature ?(keep_warnings = false) env sg =
         let (trem,rem, final_env) = transl_sig env srem in
         mksig (Tsig_attribute x) env loc :: trem, rem, final_env
     | Psig_extension (ext, _attrs) ->
-        raise_error
+        Typing_recovery.log_or_raise
           (Error_forward (Builtin_attributes.error_of_extension ext));
         transl_sig env srem
   in
@@ -2228,7 +2246,7 @@ let check_recmodule_inclusion env bindings =
               env mty_actual' mty_decl'
           with Includemod.Error msg ->
             let err = Error (modl.mod_loc, env, Not_included msg) in
-            raise_error err;
+            Typing_recovery.log_or_raise err;
             (Tcoerce_none, shape)
         in
         let modl' =
@@ -2337,8 +2355,7 @@ let wrap_constraint_package env mark arg mty explicit =
     try
       Includemod.modtypes ~loc:arg.mod_loc env ~mark mty1 mty2
     with Includemod.Error msg ->
-      let err = Error(arg.mod_loc, env, Not_included msg) in
-      raise_error err;
+      Error.log_or_raise arg.mod_loc env (Not_included msg);
       Tcoerce_none
   in
   { mod_desc = Tmod_constraint(arg, mty, explicit, coercion);
@@ -2406,8 +2423,8 @@ let rec type_module ?(alias=false) ~strengthen ~funct_body anchor env smod =
        include potential saved_items from its parent. We backup them
        before starting and restore them when finished. *)
     Typing_recovery.with_saved_types (fun () ->
-        try delayed () with exn ->
-          let () = raise_error exn in
+        try delayed () with Error (loc, env, err) ->
+          Error.log_or_raise loc env err;
           { mod_desc = Tmod_structure {
                 str_items = [];
                 str_type = [];
@@ -2554,7 +2571,7 @@ and type_module_aux ~alias ~strengthen ~funct_body anchor env smod =
             raise (Error(smod.pmod_loc, env, Not_a_packed_module exp.exp_type))
       in
       if funct_body && Mtype.contains_type env mty then
-        raise_error (Error (smod.pmod_loc, env, Not_allowed_in_functor_body));
+        Error.log_or_raise smod.pmod_loc env Not_allowed_in_functor_body;
       { mod_desc = Tmod_unpack(exp, mty);
         mod_type = mty;
         mod_env = env;
@@ -2625,7 +2642,7 @@ and type_one_application ~ctx:(apply_loc,sfunct,md_f,args)
             raise (Error (app_view.f_loc, env, Apply_generative));
       end;
       if funct_body && Mtype.contains_type env funct.mod_type then
-        raise_error (Error (apply_loc, env, Not_allowed_in_functor_body));
+        Error.log_or_raise apply_loc env Not_allowed_in_functor_body;
       { mod_desc = Tmod_apply_unit funct;
         mod_type = mty_res;
         mod_env = env;
@@ -2644,7 +2661,7 @@ and type_one_application ~ctx:(apply_loc,sfunct,md_f,args)
       in
       begin match app_view with
       | { arg = None; loc = app_loc; attributes = app_attributes; _ }  ->
-          raise_error (apply_error ());
+          Typing_recovery.log_or_raise (apply_error ());
           { mod_desc = Tmod_apply_unit(funct);
             mod_type = mty_res;
             mod_env = env;
@@ -2656,7 +2673,7 @@ and type_one_application ~ctx:(apply_loc,sfunct,md_f,args)
         try Includemod.modtypes ~loc:arg.mod_loc ~mark:true env
               arg.mod_type mty_param
         with Includemod.Error _ ->
-          raise_error (apply_error ());
+          Typing_recovery.log_or_raise (apply_error ());
           Tcoerce_none
       in
       let mty_appl =
@@ -2803,8 +2820,8 @@ and type_structure ?(toplevel = false)  ?(keep_warnings = false) ~funct_body anc
             type_struct new_env shape_map srem
           in
           (str :: str_rem, sg @ sig_rem, shape_map, final_env)
-        with exn ->
-          raise_error exn;
+        with Error (loc, env, err) ->
+          Error.log_or_raise loc env err;
           type_struct env shape_map srem
   in
   let previous_saved_types = Cmt_format.get_saved_types () in
@@ -3845,7 +3862,7 @@ let report_errors env errors =
 let () =
   Location.register_error_of_exn
     (function
-      | Error (loc, env, err) ->
+      | Error.Error In_context (loc, env, err) ->
           Some (report_error ~loc env err)
       | Error_forward err ->
           Some err
