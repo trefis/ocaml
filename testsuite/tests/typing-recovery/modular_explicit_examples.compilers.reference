@@ -37,6 +37,18 @@ Error: This expression should not be a function, the expected type is
        (module Typ)
 
 
+File "modular_explicit_examples.ml", line 60, characters 2-6:
+60 |   f ~a (fun x -> x)
+       ^^^^
+Error: This expression has type (module M : Typ) -> M.t
+       but an expression was expected of type (module Typ) -> 'a
+       The module M would escape its scope
+This function is module-dependent. The dependency is preserved
+when the function is passed a static module argument (module M : S)
+or (module M). Its argument here is not static, so the type-checker
+tried instead to change the function type to be non-dependent.
+
+
 File "modular_explicit_examples.ml", line 62, characters 17-19:
 62 | let c : string = 10 
                       ^^
@@ -82,24 +94,6 @@ File "modular_explicit_examples.ml", line 83, characters 43-44:
 83 | let x_from_generative_functor = id (module F ())
                                                 ^
 Error: Unbound module F
-
-
-File "modular_explicit_examples.ml", line 83, characters 43-47:
-83 | let x_from_generative_functor = id (module F ())
-                                                ^^^^
-Error: The module F is not a functor, it cannot be applied.
-
-
-File "modular_explicit_examples.ml", line 83, characters 32-34:
-83 | let x_from_generative_functor = id (module F ())
-                                     ^^
-Error: This expression has type (module T : Typ) -> T.t -> T.t
-       but an expression was expected of type (module Typ) -> 'a
-       The module T would escape its scope
-This function is module-dependent. The dependency is preserved
-when the function is passed a static module argument (module M : S)
-or (module M). Its argument here is not static, so the type-checker
-tried instead to change the function type to be non-dependent.
 
 
 File "modular_explicit_examples.ml", lines 102-105, characters 14-12:
@@ -149,25 +143,6 @@ File "modular_explicit_examples.ml", line 108, characters 23-24:
 108 | let fail = map (module F()) string_of_int [3]
                              ^
 Error: Unbound module F
-
-
-File "modular_explicit_examples.ml", line 108, characters 23-26:
-108 | let fail = map (module F()) string_of_int [3]
-                             ^^^
-Error: The module F is not a functor, it cannot be applied.
-
-
-File "modular_explicit_examples.ml", line 108, characters 11-14:
-108 | let fail = map (module F()) string_of_int [3]
-                 ^^^
-Error: This expression has type
-         (module M : Map) -> ('a -> 'b) -> 'a M.t -> 'b M.t
-       but an expression was expected of type (module Map) -> 'c
-       The module M would escape its scope
-This function is module-dependent. The dependency is preserved
-when the function is passed a static module argument (module M : S)
-or (module M). Its argument here is not static, so the type-checker
-tried instead to change the function type to be non-dependent.
 
 
 File "modular_explicit_examples.ml", line 123, characters 2-39:

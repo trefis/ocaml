@@ -34,18 +34,6 @@ Error: This expression should not be a function, the expected type is
        bool because it is in the condition of an if-statement
 
 
-File "not_a_function.ml", line 51, characters 27-28:
-51 |   String.capitalize_ascii (x ^ R.x)
-                                ^
-Error: Unbound value x
-
-
-File "not_a_function.ml", line 51, characters 31-34:
-51 |   String.capitalize_ascii (x ^ R.x)
-                                    ^^^
-Error: Unbound value R.x
-
-
 File "not_a_function.ml", line 53, characters 15-16:
 53 | let t : bool = 0
                     ^
