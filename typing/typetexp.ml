@@ -483,7 +483,6 @@ let rec transl_type env ~policy ?(aliased=false) ~row_context styp =
         with Error.(Error In_context (loc, env, err)) ->
           let ty = new_global_var () in
           Typing_recovery.erroneous_type_register ty;
-          Error.log_or_raise loc env err;
           { ctyp_desc = Ttyp_any;
             ctyp_type = ty;
             ctyp_env = env;
