@@ -96,8 +96,6 @@ type error =
   | Polymorphic_optional_param of string
   | Functor_optional_param of string
 
-exception Error of Location.t * Env.t * error
-
 module Error : sig
   type recoverable = private In_context of Location.t * Env.t * error
 

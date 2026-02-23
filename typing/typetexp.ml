@@ -49,7 +49,7 @@ type error =
   | Polymorphic_optional_param of string
   | Functor_optional_param of string
 
-exception Error of Location.t * Env.t * error
+
 exception Error_forward of Location.error
 
 
@@ -480,7 +480,7 @@ let rec transl_type env ~policy ?(aliased=false) ~row_context styp =
   if !Clflags.typing_recovery then
     Typing_recovery.with_saved_types (fun () ->
         try delayed ()
-        with Error (loc, env, err) ->
+        with Error.(Error In_context (loc, env, err)) ->
           let ty = new_global_var () in
           Typing_recovery.erroneous_type_register ty;
           Error.log_or_raise loc env err;
