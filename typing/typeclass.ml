@@ -1950,8 +1950,8 @@ let rec check_recmod_class_type env name cty =
       begin try
         ignore (Env.lookup_cltype ~use:false ~loc:lid.loc lid.txt env)
       with
-      | Env.Error
-          (Lookup_error
+      | Env.Error.In_context
+          (_, _, Lookup_error
              (location, env,
               Illegal_reference_to_recursive_module { container; unbound; })) ->
           Env.lookup_error

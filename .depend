@@ -2106,6 +2106,7 @@ typing/typemod.cmo : \
     typing/shape_reduce.cmi \
     typing/shape.cmi \
     typing/printtyp.cmi \
+    typing/persistent_env.cmi \
     typing/path.cmi \
     parsing/parsetree.cmi \
     parsing/parse.cmi \
@@ -2146,6 +2147,7 @@ typing/typemod.cmx : \
     typing/shape_reduce.cmx \
     typing/shape.cmx \
     typing/printtyp.cmx \
+    typing/persistent_env.cmx \
     typing/path.cmx \
     parsing/parsetree.cmi \
     parsing/parse.cmx \
@@ -2172,6 +2174,7 @@ typing/typemod.cmx : \
     typing/typemod.cmi
 typing/typemod.cmi : \
     parsing/unit_info.cmi \
+    typing/typing_recovery.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
     typing/typedecl.cmi \
@@ -2331,7 +2334,6 @@ typing/typing_recovery.cmo : \
     utils/misc.cmi \
     parsing/location.cmi \
     typing/ident.cmi \
-    typing/ctype.cmi \
     file_formats/cmt_format.cmi \
     parsing/builtin_attributes.cmi \
     parsing/ast_helper.cmi \
@@ -2346,7 +2348,6 @@ typing/typing_recovery.cmx : \
     utils/misc.cmx \
     parsing/location.cmx \
     typing/ident.cmx \
-    typing/ctype.cmx \
     file_formats/cmt_format.cmx \
     parsing/builtin_attributes.cmx \
     parsing/ast_helper.cmx \
@@ -2356,6 +2357,7 @@ typing/typing_recovery.cmi : \
     typing/types.cmi \
     typing/typedtree.cmi \
     parsing/parsetree.cmi \
+    parsing/location.cmi \
     file_formats/cmt_format.cmi
 typing/untypeast.cmo : \
     typing/typedtree.cmi \

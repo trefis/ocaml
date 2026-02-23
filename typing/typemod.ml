@@ -155,10 +155,9 @@ let initial_env ~loc ~initially_opened_module
     try
       snd (type_open_ Override env loc {txt;loc})
     with
-    | Typetexp.Error.In_context _ ->
-        env
-    |  ( Env.Error _
-       | Persistent_env.Error _) as exn ->
+    | Typetexp.Error.In_context _
+    | Env.Error.In_context _ when !Clflags.typing_recovery -> env
+    | Persistent_env.Error _ as exn when !Clflags.typing_recovery ->
         Typing_recovery.log_or_raise exn;
         env
   in

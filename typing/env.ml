@@ -672,12 +672,34 @@ type error =
   | Illegal_value_name of Location.t * string
   | Lookup_error of Location.t * t * lookup_error
 
-exception Error of error
+module Error : sig
+  type exn += private In_context of Location.t * t * error
 
-let error err = raise (Error err)
+  val log_or_raise : Location.t -> t -> error -> unit
+  val log_and_raise : Location.t -> t -> error -> 'a
+end = struct
+  type exn += In_context of Location.t * t * error
+
+  let log_and_raise a b e = raise (In_context (a, b, e))
+  let log_or_raise a b e = raise (In_context (a, b, e))
+
+  (* let log_and_raise loc env err = *)
+  (*   let err = In_context (loc, env, err) in *)
+  (*   if !Clflags.typing_recovery then *)
+  (*     Typing_recovery.log_and_raise err *)
+  (*   else  *)
+  (*     raise err *)
+
+  (* let log_or_raise loc env err = *)
+  (*   let err = In_context (loc, env, err) in *)
+  (*   if !Clflags.typing_recovery then *)
+  (*     Typing_recovery.log_or_raise err *)
+  (*   else *)
+  (*     raise err *)
+end
 
 let lookup_error loc env err =
-  error (Lookup_error(loc, env, err))
+  Error.log_and_raise loc env (Lookup_error(loc, env, err))
 
 let same_type_declarations e1 e2 =
   e1.types == e2.types &&
@@ -1398,10 +1420,11 @@ and expand_module_path ~lax env path =
 let normalize_module_path oloc env path =
   try normalize_module_path ~lax:(oloc = None) env path
   with Not_found ->
-    match oloc with None -> assert false
-    | Some loc ->
-        error (Missing_module(loc, path,
-                              normalize_module_path ~lax:true env path))
+  match oloc with
+  | None -> assert false
+  | Some loc ->
+      Error.log_and_raise loc env
+        (Missing_module(loc, path, normalize_module_path ~lax:true env path))
 
 let rec normalize_path_prefix oloc env path =
   match path with
@@ -1996,7 +2019,7 @@ and check_value_name name loc =
        (Utf8_lexeme.starts_like_a_valid_identifier name) then
     for i = 1 to String.length name - 1 do
       if name.[i] = '#' then
-        error (Illegal_value_name(loc, name))
+        Error.log_and_raise loc empty (Illegal_value_name (loc, name))
     done
 
 and store_value ?check id addr decl shape env =
@@ -3344,7 +3367,7 @@ let lookup_cltype ?(use=true) ~loc lid env =
 
 let lookup_all_constructors ?(use=true) ~loc usage lid env =
   match lookup_all_constructors ~errors:true ~use ~loc usage lid env with
-  | exception Error(Lookup_error(loc', env', err)) ->
+  | exception Error.In_context (_, _, Lookup_error(loc', env', err)) ->
       (Error(loc', env', err) : _ result)
   | cstrs -> Ok cstrs
 
@@ -3356,7 +3379,7 @@ let lookup_all_constructors_from_type ?(use=true) ~loc usage ty_path env =
 
 let lookup_all_labels ?(use=true) ~loc usage lid env =
   match lookup_all_labels ~errors:true ~use ~loc usage lid env with
-  | exception Error(Lookup_error(loc', env', err)) ->
+  | exception Error.In_context (_, _, Lookup_error(loc', env', err)) ->
       (Error(loc', env', err) : _ result)
   | lbls -> Ok lbls
 
@@ -3886,7 +3909,7 @@ let report_error_doc = function
 let () =
   Location.register_error_of_exn
     (function
-      | Error err ->  Some (report_error_doc err)
+      | Error.In_context (_, _, err) ->  Some (report_error_doc err)
       | _ ->
           None
     )
