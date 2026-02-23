@@ -5814,7 +5814,8 @@ and split_function_ty env ty_expected ~arg_label ~has_poly ~first ~in_function =
         in
         Error.log_or_raise loc env err;
         let level = get_level (instance ty_expected) in
-        { ty_param = newvar2 level; ty_ret = ty_expected}
+        let ty_param = newty2 ~level (Tpoly (newvar2 level, [])) in
+        { ty_param; ty_ret = ty_expected}
     end
   in
   if !Clflags.principal
