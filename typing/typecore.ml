@@ -638,10 +638,7 @@ let unify_exp_types ?sexp loc env ty expected_ty =
     Unify err ->
       Error.log_and_raise loc env (Expr_type_clash(err, None, sexp))
   | Tags(l1,l2) ->
-      (* FIXME: this should be recovered.
-         Should be flagged once Texptexp moves to the same "private error"
-         scheme as we have in Typecore. *)
-      raise(Typetexp.Error(loc, env, Typetexp.Variant_tags (l1, l2)))
+      Typetexp.Error.log_and_raise loc env (Typetexp.Variant_tags (l1, l2))
 
 (* Getting proper location of already typed expressions.
 
@@ -681,8 +678,7 @@ let unify_pat_types ?sdesc_for_hint loc env ty ty' =
   | Unify err ->
       Error.log_and_raise loc env (Pattern_type_clash(err, sdesc_for_hint))
   | Tags(l1,l2) ->
-      (* FIXME: same remark as in unify_exp_types above *)
-      raise(Typetexp.Error(loc, env, Typetexp.Variant_tags (l1, l2)))
+      Typetexp.Error.log_and_raise loc env (Typetexp.Variant_tags (l1, l2))
 
 (* GADT unification inside solve_Ppat_construct and check_counter_example_pat *)
 (* We need to distinguish [pat] and [expected] if [refine = true] and
@@ -697,8 +693,7 @@ let unify_pat_types_return_equated_pairs ~refine loc penv ~pat ~expected =
   | Unify err ->
       Error.log_and_raise loc !!penv (Pattern_type_clash(err, None))
   | Tags(l1,l2) ->
-      (* FIXME: same as unify_pat_types above *)
-      raise(Typetexp.Error(loc, !!penv, Typetexp.Variant_tags (l1, l2)))
+      Typetexp.Error.log_and_raise loc !!penv (Typetexp.Variant_tags (l1, l2))
 
 (* Unify pattern types in functions that can be called either from
    [type_pat] or [check_counter_example_pat].
@@ -898,7 +893,8 @@ let enter_variable ?(is_module=false) ?(is_as_variable=false) tps loc name ty
         (* FIXME: I think we could recover here by switching to [log_or_raise]
            and returning the same ident as in the case above.
            That would give us finer grained recovery on module unpacks *)
-        Error.log_and_raise loc Env.empty Modules_not_allowed
+          Error.log_or_raise loc Env.empty Modules_not_allowed;
+          Ident.create_local name.txt
       | Modvars_allowed { scope; module_variables } ->
         let id = Ident.create_scoped name.txt ~scope in
         let module_variables =
@@ -3728,15 +3724,10 @@ let type_approx_fun_one_param
       let err =
         error_of_filter_arrow_failure ~explanation:None ty_fun err ~first
       in
-      (* FIXME: the two branches don't need to exist.
-         Just [log_or_raise] and then return the returned value, they'll behave
-         the same if recovery is off. *)
-      if !Clflags.typing_recovery then
-        let level = get_level (instance ty_expected) in
-        Error.log_or_raise loc_fun env err;
-        { ty_param = newvar2 level; ty_ret = ty_expected}
-      else
-        Error.log_and_raise loc_fun env err
+      let level = get_level (instance ty_expected) in
+      Error.log_or_raise loc_fun env err;
+      { ty_param = newvar2 level; ty_ret = ty_expected}
+
   in
   begin
     match spato with
