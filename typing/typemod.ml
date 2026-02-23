@@ -160,7 +160,6 @@ let initial_env ~loc ~initially_opened_module
       snd (type_open_ Override env loc {txt;loc})
     with
     | Typetexp.Error.Error (In_context (loc, env, err)) ->
-        Typetexp.Error.log_or_raise loc env err;
         env
     |  ( Env.Error _
        | Persistent_env.Error _) as exn ->
@@ -1630,7 +1629,6 @@ and transl_signature ?(keep_warnings = false) env sg =
     | item :: srem ->
         try transl_sig_ env item srem
         with Error.(Error In_context (loc, env, err))  ->
-          Error.log_or_raise loc env err;
           transl_sig env srem
   and transl_sig_ env item srem =
     let loc = item.psig_loc in
@@ -2426,7 +2424,6 @@ let rec type_module ?(alias=false) ~strengthen ~funct_body anchor env smod =
        before starting and restore them when finished. *)
     Typing_recovery.with_saved_types (fun () ->
         try delayed () with Error.Error In_context (loc, env, err) ->
-          Error.log_or_raise loc env err;
           { mod_desc = Tmod_structure {
                 str_items = [];
                 str_type = [];
@@ -2824,7 +2821,6 @@ and type_structure ?(toplevel = false)  ?(keep_warnings = false) ~funct_body anc
           in
           (str :: str_rem, sg @ sig_rem, shape_map, final_env)
         with Error.Error In_context (loc, env, err) ->
-          Error.log_or_raise loc env err;
           type_struct env shape_map srem
   in
   let previous_saved_types = Cmt_format.get_saved_types () in
