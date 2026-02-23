@@ -228,16 +228,12 @@ module Error : sig
       ensuring that these errors can only be reported using the functions
       exposed here. *)
 
-  type recoverable = private In_context of Location.t * Env.t * error
-
-  exception Error of recoverable
+  type exn += private In_context of Location.t * Env.t * error
 
   val log_or_raise : Location.t -> Env.t -> error -> unit
   val log_and_raise : Location.t -> Env.t -> error -> 'a
 end = struct
-  type recoverable = In_context of Location.t * Env.t * error
-
-  exception Error of recoverable
+  type exn += In_context of Location.t * Env.t * error
 
   (* Typing_recovery: deep copy types in errors, to keep them meaningful after
      backtracking *)
@@ -348,16 +344,16 @@ end = struct
 
   let log_and_raise loc env err =
     if !Clflags.typing_recovery then
-      Typing_recovery.log_and_raise (Error (freeze_error (loc, env, err)))
+      Typing_recovery.log_and_raise (freeze_error (loc, env, err))
     else
-      raise (Error (In_context (loc, env, err)))
+      raise (In_context (loc, env, err))
 
 
   let log_or_raise loc env err =
     if !Clflags.typing_recovery then
-      Typing_recovery.log_or_raise (Error (freeze_error (loc, env, err)))
+      Typing_recovery.log_or_raise (freeze_error (loc, env, err))
     else
-      raise (Error (In_context (loc, env, err)))
+      raise (In_context (loc, env, err))
 end
 
 exception Error_forward of Location.error
@@ -1310,7 +1306,7 @@ let solve_Ppat_record_field loc penv label label_lid record_ty =
     let (_, ty_arg, ty_res) = instance_label ~fixed:false label in
     begin try
       unify_pat_types_penv loc penv ty_res (instance record_ty)
-    with Error.Error In_context (_loc, _env, Pattern_type_clash(err, _)) ->
+    with Error.In_context (_loc, _env, Pattern_type_clash(err, _)) ->
       (* FIXME: in case of recovery the [Pattern_type_clash] will already have
          been logged, so there will be two errors reported, but we'd want only
          one.
@@ -2040,7 +2036,7 @@ let rec type_pat
     if !Clflags.typing_recovery then
       Typing_recovery.with_saved_types (fun () ->
           try delayed ()
-          with Error.Error _ ->
+          with Error.In_context _ ->
             (* We only want to catch error, not internal exceptions
                such as [Need_backtrack], etc.
 
@@ -2763,7 +2759,7 @@ let rec find_valid_alternative f pat =
   match pat.pat_desc with
   | Tpat_or(p1,p2,_) ->
       (try find_valid_alternative f p1 with
-       | Empty_branch | Error.Error _ -> find_valid_alternative f p2
+       | Empty_branch | Error.In_context _ -> find_valid_alternative f p2
       )
   | _ -> f pat
 
@@ -2945,7 +2941,7 @@ let partial_pred ~lev ~splitting_mode ?(explode=0) env expected_ty p =
       (* types are invalidated but we don't need them here *)
       Some typed_p
     )
-  with Error.Error _ | Empty_branch ->
+  with Error.In_context _ | Empty_branch ->
     set_state state penv;
     None
 
@@ -3335,7 +3331,7 @@ let collect_unknown_apply_args env funct ty_fun0 rev_args sargs =
                           dependent_app_error env failure ~rev_args ~funct
                             ~sarg pack pack
             in arg, ty_res
-          with Error.Error _ when !Clflags.typing_recovery ->
+          with Error.In_context _ when !Clflags.typing_recovery ->
             (* FIXME: should we call Typing_recovery.erroneous_type_register? *)
             Unknown_arg {sarg; ty_arg = newvar ()}, ty_fun
         in
@@ -4230,7 +4226,7 @@ let with_explanation explanation f =
   | None -> f ()
   | Some explanation ->
       try f ()
-      with Error.Error In_context
+      with Error.In_context
              (loc', env', Expr_type_clash(err', None, exp'))
         when not loc'.Location.loc_ghost ->
           (* FIXME: as in solve_Ppat_record_field we're refining the error and
@@ -4348,7 +4344,7 @@ and type_expect ?recarg env sexp (ty_expected_explained : type_expected) =
   if !Clflags.typing_recovery then
     Typing_recovery.with_saved_types (fun () ->
         try delayed ()
-        with (Error.Error _ | Env.Error _) as exn ->
+        with (Error.In_context _ | Env.Error _) as exn ->
           Typing_recovery.erroneous_type_register ty_expected_explained.ty;
           let () =
             (* FIXME: remove once Env logs errors *)
@@ -4960,7 +4956,7 @@ and type_expect_
          record labels which are in scope, which it wouldn't if it didn't know
          that it was in a record expression context. *)
       begin try suspended ()
-      with Error.Error _ when !Clflags.typing_recovery ->
+      with Error.In_context _ when !Clflags.typing_recovery ->
         re {
           exp_desc = Texp_record {
             fields = [||]; representation = Record_regular;
@@ -5158,7 +5154,7 @@ and type_expect_
       if !Clflags.typing_recovery then
         let obj = type_exp env e in
         try suspended ()
-        with Error.Error In_context
+        with Error.In_context
                (_, _, Undefined_method (_, _, valid_methods)) ->
           (* FIXME: it seems we're just duplicating code which is
              already in [type_send] without actually "improving" on it.
@@ -6233,7 +6229,7 @@ and type_label_access env srecord usage lid =
     (record, label, expected_type)
   in
   try suspended ()
-  with (Env.Error _ | Error.Error _) as exn when !Clflags.typing_recovery ->
+  with (Env.Error _ | Error.In_context _) as exn when !Clflags.typing_recovery ->
     let () =
       (* FIXME: eventually Env should also be logging when it raises... *)
       match exn with
@@ -6680,7 +6676,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
   if !Clflags.typing_recovery then
     Typing_recovery.with_saved_types (fun () ->
         try delayed ()
-        with Error.Error _ ->
+        with Error.In_context _ ->
           Typing_recovery.erroneous_type_register ty_expected;
           let loc = sarg.pexp_loc in
           let exp =
@@ -8538,7 +8534,7 @@ let report_error ~loc env err =
 let () =
   Location.register_error_of_exn
     (function
-      | Error.Error In_context (loc, env, err) ->
+      | Error.In_context (loc, env, err) ->
         Some (report_error ~loc env err)
       | Error_forward err ->
         Some err

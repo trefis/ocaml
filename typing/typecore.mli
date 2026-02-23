@@ -257,9 +257,7 @@ type error =
   | Cannot_omit_tfunctor_argument of Ident.Unscoped.t * type_expr
 
 module Error : sig
-  type recoverable = private In_context of Location.t * Env.t * error
-
-  exception Error of recoverable
+  type exn += private In_context of Location.t * Env.t * error
 
   val log_or_raise : Location.t -> Env.t -> error -> unit
   val log_and_raise : Location.t -> Env.t -> error -> 'a
