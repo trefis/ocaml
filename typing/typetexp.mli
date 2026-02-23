@@ -98,6 +98,15 @@ type error =
 
 exception Error of Location.t * Env.t * error
 
+module Error : sig
+  type recoverable = private In_context of Location.t * Env.t * error
+
+  exception Error of recoverable
+
+  val log_or_raise : Location.t -> Env.t -> error -> unit
+  val log_and_raise : Location.t -> Env.t -> error -> 'a
+end
+
 (* Support for first-class modules. *)
 val transl_modtype_longident:  (* from Typemod *)
     (Location.t -> Env.t -> Longident.t -> Path.t) ref
