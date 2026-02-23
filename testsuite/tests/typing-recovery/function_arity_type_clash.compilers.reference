@@ -1,9 +1,14 @@
 File "_none_", line 1:
-Error: File "function_arity_type_clash.ml", line 22, characters 17-19:
-       22 | let x : string = 10
-                             ^^
-       Error: The constant 10 has type int
-              but an expression was expected of type string
+Error: File "function_arity_type_clash.ml", line 13, characters 2-44:
+       13 |   fun ?opt:(Eq = assert false) () x -> x + 1
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       Error: The syntactic arity of the function doesn't match the type constraint:
+              This function has 3 syntactic arguments, but its type is constrained to
+                ?opt:(a, int -> int) eq -> unit -> a.
+               Hint: consider splitting the function definition into
+                 fun ... gadt_pat -> fun ...
+                 where gadt_pat is the pattern with the GADT constructor that
+                 introduces the local type equation on a.
 
 
 File "function_arity_type_clash.ml", line 18, characters 2-44:
@@ -18,14 +23,9 @@ Error: The syntactic arity of the function doesn't match the type constraint:
           introduces the local type equation on a.
 
 
-File "function_arity_type_clash.ml", line 13, characters 2-44:
-13 |   fun ?opt:(Eq = assert false) () x -> x + 1
-       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: The syntactic arity of the function doesn't match the type constraint:
-       This function has 3 syntactic arguments, but its type is constrained to
-         ?opt:(a, int -> int) eq -> unit -> a.
-        Hint: consider splitting the function definition into
-          fun ... gadt_pat -> fun ...
-          where gadt_pat is the pattern with the GADT constructor that
-          introduces the local type equation on a.
+File "function_arity_type_clash.ml", line 22, characters 17-19:
+22 | let x : string = 10
+                      ^^
+Error: The constant 10 has type int but an expression was expected of type
+         string
 

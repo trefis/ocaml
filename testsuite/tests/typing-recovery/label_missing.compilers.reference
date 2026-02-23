@@ -1,9 +1,8 @@
 File "_none_", line 1:
-Error: File "label_missing.ml", line 18, characters 17-19:
-       18 | let x : string = 10
-                             ^^
-       Error: The constant 10 has type int
-              but an expression was expected of type string
+Error: File "label_missing.ml", line 12, characters 8-17:
+       12 | let _ = { x = 10}
+                    ^^^^^^^^^
+       Error: Some record fields are undefined: y z
 
 
 File "label_missing.ml", line 14, characters 8-32:
@@ -12,8 +11,9 @@ File "label_missing.ml", line 14, characters 8-32:
 Error: The record field label y is defined several times
 
 
-File "label_missing.ml", line 12, characters 8-17:
-12 | let _ = { x = 10}
-             ^^^^^^^^^
-Error: Some record fields are undefined: y z
+File "label_missing.ml", line 18, characters 17-19:
+18 | let x : string = 10
+                      ^^
+Error: The constant 10 has type int but an expression was expected of type
+         string
 

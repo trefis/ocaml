@@ -8,11 +8,10 @@ Warning 14 [illegal-backslash]: illegal backslash escape in string.
 
 File "_none_", line 1:
 Error: 
-File "invalid_format.ml", line 13, characters 15-17:
-13 | let _ : bool = 10
-                    ^^
-Error: The constant 10 has type int but an expression was expected of type
-         bool
+File "invalid_format.ml", line 10, characters 24-31:
+10 | let _ = Format.asprintf "%d%\r" 10
+                             ^^^^^^^
+Error: invalid format "%d%\r": at character number 3, invalid conversion "%"
 
 
 File "invalid_format.ml", line 12, characters 24-31:
@@ -21,8 +20,9 @@ File "invalid_format.ml", line 12, characters 24-31:
 Error: invalid format "%d%\\e": at character number 3, invalid conversion "%\"
 
 
-File "invalid_format.ml", line 10, characters 24-31:
-10 | let _ = Format.asprintf "%d%\r" 10
-                             ^^^^^^^
-Error: invalid format "%d%\r": at character number 3, invalid conversion "%"
+File "invalid_format.ml", line 13, characters 15-17:
+13 | let _ : bool = 10
+                    ^^
+Error: The constant 10 has type int but an expression was expected of type
+         bool
 

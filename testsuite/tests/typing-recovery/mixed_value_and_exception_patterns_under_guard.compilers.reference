@@ -1,9 +1,8 @@
 File "_none_", line 1:
-Error: File "mixed_value_and_exception_patterns_under_guard.ml", line 27, characters 8-9:
-       27 | let k = u + 10
-                    ^
-       Error: The value u has type string
-              but an expression was expected of type int
+Error: File "mixed_value_and_exception_patterns_under_guard.ml", line 12, characters 4-32:
+       12 |   | Some x | exception Failure x when String.equal x "foo" ->
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       Error: Mixing value and exception patterns under when-guards is not supported.
 
 
 File "mixed_value_and_exception_patterns_under_guard.ml", line 21, characters 6-34:
@@ -12,8 +11,8 @@ File "mixed_value_and_exception_patterns_under_guard.ml", line 21, characters 6-
 Error: Mixing value and exception patterns under when-guards is not supported.
 
 
-File "mixed_value_and_exception_patterns_under_guard.ml", line 12, characters 4-32:
-12 |   | Some x | exception Failure x when String.equal x "foo" ->
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Mixing value and exception patterns under when-guards is not supported.
+File "mixed_value_and_exception_patterns_under_guard.ml", line 27, characters 8-9:
+27 | let k = u + 10
+             ^
+Error: The value u has type string but an expression was expected of type int
 

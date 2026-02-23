@@ -3363,12 +3363,12 @@ let gen_annot target annots =
 let collect_recovery_errors env exn_list =
   (* TODO: Improve multi error recovery *)
   let error_list =
-    List.fold_left (fun set exn ->
+    List.fold_right (fun exn set ->
         match Location.error_of_exn exn with
         | Some (`Ok error) -> Typing_recovery.Error_set.add error set
         | Some `Already_displayed
         | None -> set
-      ) (Typing_recovery.Error_set.empty) exn_list
+      ) exn_list (Typing_recovery.Error_set.empty) 
   in
   raise (Errors (env, error_list))
 

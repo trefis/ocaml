@@ -1,26 +1,8 @@
 File "_none_", line 1:
-Error: File "partial_tuple_pattern_bad_type.ml", line 11, characters 24-25:
-       11 | let g (~x, ~y, ..) = x, y
-                                    ^
-       Error: Unbound value y
-
-
-File "partial_tuple_pattern_bad_type.ml", line 11, characters 21-22:
-11 | let g (~x, ~y, ..) = x, y
-                          ^
-Error: Unbound value x
-
-
-File "partial_tuple_pattern_bad_type.ml", line 11, characters 6-18:
-11 | let g (~x, ~y, ..) = x, y
-           ^^^^^^^^^^^^
-Error: Could not determine the type of this partial tuple pattern.
-
-
-File "partial_tuple_pattern_bad_type.ml", line 10, characters 29-30:
-10 | let f (z, (~y, ~x, ..)) = x, y, z
-                                  ^
-Error: Unbound value y
+Error: File "partial_tuple_pattern_bad_type.ml", line 10, characters 10-22:
+       10 | let f (z, (~y, ~x, ..)) = x, y, z
+                      ^^^^^^^^^^^^
+       Error: Could not determine the type of this partial tuple pattern.
 
 
 File "partial_tuple_pattern_bad_type.ml", line 10, characters 26-27:
@@ -29,8 +11,26 @@ File "partial_tuple_pattern_bad_type.ml", line 10, characters 26-27:
 Error: Unbound value x
 
 
-File "partial_tuple_pattern_bad_type.ml", line 10, characters 10-22:
+File "partial_tuple_pattern_bad_type.ml", line 10, characters 29-30:
 10 | let f (z, (~y, ~x, ..)) = x, y, z
-               ^^^^^^^^^^^^
+                                  ^
+Error: Unbound value y
+
+
+File "partial_tuple_pattern_bad_type.ml", line 11, characters 6-18:
+11 | let g (~x, ~y, ..) = x, y
+           ^^^^^^^^^^^^
 Error: Could not determine the type of this partial tuple pattern.
+
+
+File "partial_tuple_pattern_bad_type.ml", line 11, characters 21-22:
+11 | let g (~x, ~y, ..) = x, y
+                          ^
+Error: Unbound value x
+
+
+File "partial_tuple_pattern_bad_type.ml", line 11, characters 24-25:
+11 | let g (~x, ~y, ..) = x, y
+                             ^
+Error: Unbound value y
 

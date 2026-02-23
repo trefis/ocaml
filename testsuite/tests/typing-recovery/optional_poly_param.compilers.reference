@@ -20,10 +20,10 @@ Warning 20 [ignored-extra-argument]: this argument will not be used by the funct
 
 File "_none_", line 1:
 Error: 
-File "optional_poly_param.ml", line 20, characters 17-18:
-20 | let t : string = r
-                      ^
-Error: The value r has type int but an expression was expected of type string
+File "optional_poly_param.ml", line 12, characters 8-25:
+12 | let a ?(id : 'a. 'a -> 'a) () = id 3, id "three"
+             ^^^^^^^^^^^^^^^^^
+Error: The optional parameter id cannot have a polymorphic type.
 
 
 File "optional_poly_param.ml", line 13, characters 8-27:
@@ -32,8 +32,8 @@ File "optional_poly_param.ml", line 13, characters 8-27:
 Error: The optional parameter id cannot have a polymorphic type.
 
 
-File "optional_poly_param.ml", line 12, characters 8-25:
-12 | let a ?(id : 'a. 'a -> 'a) () = id 3, id "three"
-             ^^^^^^^^^^^^^^^^^
-Error: The optional parameter id cannot have a polymorphic type.
+File "optional_poly_param.ml", line 20, characters 17-18:
+20 | let t : string = r
+                      ^
+Error: The value r has type int but an expression was expected of type string
 

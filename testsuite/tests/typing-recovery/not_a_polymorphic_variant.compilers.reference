@@ -1,15 +1,8 @@
 File "_none_", line 1:
-Error: File "not_a_polymorphic_variant.ml", line 31, characters 17-18:
-       31 | let t : string = u
-                             ^
-       Error: The value u has type int but an expression was expected of type
-                string
-
-
-File "not_a_polymorphic_variant.ml", line 23, characters 9-10:
-23 |       | #t -> 10
-              ^
-Error: The type t is not a variant type
+Error: File "not_a_polymorphic_variant.ml", line 12, characters 18-19:
+       12 | let f = function #t -> assert false
+                              ^
+       Error: The type t is not a variant type
 
 
 File "not_a_polymorphic_variant.ml", line 15, characters 7-8:
@@ -18,8 +11,14 @@ File "not_a_polymorphic_variant.ml", line 15, characters 7-8:
 Error: The type t is not a variant type
 
 
-File "not_a_polymorphic_variant.ml", line 12, characters 18-19:
-12 | let f = function #t -> assert false
-                       ^
+File "not_a_polymorphic_variant.ml", line 23, characters 9-10:
+23 |       | #t -> 10
+              ^
 Error: The type t is not a variant type
+
+
+File "not_a_polymorphic_variant.ml", line 31, characters 17-18:
+31 | let t : string = u
+                      ^
+Error: The value u has type int but an expression was expected of type string
 

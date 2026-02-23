@@ -1,14 +1,13 @@
 File "_none_", line 1:
-Error: File "cannot_infer_signature.ml", line 34, characters 17-21:
-       34 | let r : string = k ()
-                             ^^^^
-       Error: This expression has type int
-              but an expression was expected of type string
+Error: File "cannot_infer_signature.ml", line 11, characters 8-38:
+       11 | let m = (module struct let x = 10 end)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       Error: The signature for this packaged module couldn't be inferred.
 
 
-File "cannot_infer_signature.ml", line 30, characters 17-32:
-30 |   let module A = (val fst (U.f)) in
-                      ^^^^^^^^^^^^^^^
+File "cannot_infer_signature.ml", line 18, characters 10-40:
+18 |   let m = (module struct let x = 10 end) in
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: The signature for this packaged module couldn't be inferred.
 
 
@@ -18,14 +17,15 @@ File "cannot_infer_signature.ml", line 24, characters 12-42:
 Error: The signature for this packaged module couldn't be inferred.
 
 
-File "cannot_infer_signature.ml", line 18, characters 10-40:
-18 |   let m = (module struct let x = 10 end) in
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "cannot_infer_signature.ml", line 30, characters 17-32:
+30 |   let module A = (val fst (U.f)) in
+                      ^^^^^^^^^^^^^^^
 Error: The signature for this packaged module couldn't be inferred.
 
 
-File "cannot_infer_signature.ml", line 11, characters 8-38:
-11 | let m = (module struct let x = 10 end)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: The signature for this packaged module couldn't be inferred.
+File "cannot_infer_signature.ml", line 34, characters 17-21:
+34 | let r : string = k ()
+                      ^^^^
+Error: This expression has type int but an expression was expected of type
+         string
 

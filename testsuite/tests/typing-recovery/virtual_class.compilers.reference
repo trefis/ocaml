@@ -5,16 +5,9 @@ Warning 20 [ignored-extra-argument]: this argument will not be used by the funct
 
 File "_none_", line 1:
 Error: 
-File "virtual_class.ml", line 36, characters 14-16:
-36 | let t: bool = 10
-                   ^^
-Error: The constant 10 has type int but an expression was expected of type
-         bool
-
-
-File "virtual_class.ml", line 30, characters 10-15:
-30 |   let a = new t in
-               ^^^^^
+File "virtual_class.ml", line 26, characters 8-13:
+26 | let f = new t
+             ^^^^^
 Error: Cannot instantiate the virtual class t
 
 
@@ -24,8 +17,15 @@ File "virtual_class.ml", line 27, characters 8-13:
 Error: Cannot instantiate the virtual class k
 
 
-File "virtual_class.ml", line 26, characters 8-13:
-26 | let f = new t
-             ^^^^^
+File "virtual_class.ml", line 30, characters 10-15:
+30 |   let a = new t in
+               ^^^^^
 Error: Cannot instantiate the virtual class t
+
+
+File "virtual_class.ml", line 36, characters 14-16:
+36 | let t: bool = 10
+                   ^^
+Error: The constant 10 has type int but an expression was expected of type
+         bool
 

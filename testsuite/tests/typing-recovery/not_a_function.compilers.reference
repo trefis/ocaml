@@ -1,21 +1,14 @@
 File "_none_", line 1:
-Error: File "not_a_function.ml", line 27, characters 15-16:
-       27 | let t : bool = 0
-                           ^
-       Error: The constant 0 has type int
-              but an expression was expected of type bool
+Error: File "not_a_function.ml", line 11, characters 19-21:
+       11 |   let a : string = 10 in
+                               ^^
+       Error: The constant 10 has type int
+              but an expression was expected of type string
 
 
-File "not_a_function.ml", line 22, characters 12-24:
-22 | let () = if (fun x -> x) then () else ()
-                 ^^^^^^^^^^^^
-Error: This expression should not be a function, the expected type is 
-       bool because it is in the condition of an if-statement
-
-
-File "not_a_function.ml", line 18, characters 16-28:
-18 |     let () = if (fun x -> x) then () in
-                     ^^^^^^^^^^^^
+File "not_a_function.ml", line 12, characters 14-26:
+12 |   let () = if (fun x -> x) then () in
+                   ^^^^^^^^^^^^
 Error: This expression should not be a function, the expected type is 
        bool because it is in the condition of an if-statement
 
@@ -27,16 +20,23 @@ Error: The constant 10 has type int but an expression was expected of type
          string
 
 
-File "not_a_function.ml", line 12, characters 14-26:
-12 |   let () = if (fun x -> x) then () in
-                   ^^^^^^^^^^^^
+File "not_a_function.ml", line 18, characters 16-28:
+18 |     let () = if (fun x -> x) then () in
+                     ^^^^^^^^^^^^
 Error: This expression should not be a function, the expected type is 
        bool because it is in the condition of an if-statement
 
 
-File "not_a_function.ml", line 11, characters 19-21:
-11 |   let a : string = 10 in
-                        ^^
-Error: The constant 10 has type int but an expression was expected of type
-         string
+File "not_a_function.ml", line 22, characters 12-24:
+22 | let () = if (fun x -> x) then () else ()
+                 ^^^^^^^^^^^^
+Error: This expression should not be a function, the expected type is 
+       bool because it is in the condition of an if-statement
+
+
+File "not_a_function.ml", line 27, characters 15-16:
+27 | let t : bool = 0
+                    ^
+Error: The constant 0 has type int but an expression was expected of type
+         bool
 

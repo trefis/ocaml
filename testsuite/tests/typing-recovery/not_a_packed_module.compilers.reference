@@ -1,9 +1,8 @@
 File "_none_", line 1:
-Error: File "not_a_packed_module.ml", line 25, characters 17-24:
-       25 | let t : string = x + U.x
-                             ^^^^^^^
-       Error: This expression has type int
-              but an expression was expected of type string
+Error: File "not_a_packed_module.ml", line 14, characters 12-31:
+       14 |   let a = f (module struct end)
+                        ^^^^^^^^^^^^^^^^^^^
+       Error: This expression is packed module, but the expected type is int
 
 
 File "not_a_packed_module.ml", line 20, characters 14-33:
@@ -12,8 +11,9 @@ File "not_a_packed_module.ml", line 20, characters 14-33:
 Error: This expression is packed module, but the expected type is int
 
 
-File "not_a_packed_module.ml", line 14, characters 12-31:
-14 |   let a = f (module struct end)
-                 ^^^^^^^^^^^^^^^^^^^
-Error: This expression is packed module, but the expected type is int
+File "not_a_packed_module.ml", line 25, characters 17-24:
+25 | let t : string = x + U.x
+                      ^^^^^^^
+Error: This expression has type int but an expression was expected of type
+         string
 
