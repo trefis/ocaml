@@ -680,9 +680,6 @@ module Error : sig
 end = struct
   type exn += In_context of Location.t * t * error
 
-  let log_and_raise a b e = raise (In_context (a, b, e))
-  let log_or_raise a b e = raise (In_context (a, b, e))
-(*
   let log_and_raise loc env err =
     let err = In_context (loc, env, err) in
     if !Clflags.typing_recovery then
@@ -695,7 +692,7 @@ end = struct
     if !Clflags.typing_recovery then
       Typing_recovery.log_or_raise err
     else
-      raise err *)
+      raise err
 end
 
 let lookup_error loc env err =

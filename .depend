@@ -732,6 +732,7 @@ typing/datarepr.cmi : \
 typing/env.cmo : \
     utils/warnings.cmi \
     parsing/unit_info.cmi \
+    typing/typing_recovery.cmi \
     typing/types.cmi \
     typing/subst.cmi \
     typing/shape.cmi \
@@ -758,6 +759,7 @@ typing/env.cmo : \
 typing/env.cmx : \
     utils/warnings.cmx \
     parsing/unit_info.cmx \
+    typing/typing_recovery.cmx \
     typing/types.cmx \
     typing/subst.cmx \
     typing/shape.cmx \
