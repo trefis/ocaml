@@ -476,7 +476,9 @@ let rec transl_type env ~policy ?(aliased=false) ~row_context styp =
   if !Clflags.typing_recovery then
     Typing_recovery_state.with_saved_types (fun () ->
         try delayed ()
-        with Error.(In_context _) ->
+        with
+        | Error.In_context _
+        | Env.Error.In_context _ ->
           let ty = new_global_var () in
           Typing_recovery.erroneous_type_register ty;
           { ctyp_desc = Ttyp_any;
