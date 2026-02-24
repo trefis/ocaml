@@ -124,6 +124,11 @@ type error =
   | Atomic_field_must_be_mutable of string
   | External_with_non_syntactic_arity
 
-exception Error of Location.t * error
+module Error : sig
+    type exn += private In_context of Location.t * Env.t * error
+
+  val log_or_raise : Location.t -> Env.t -> error -> unit
+  val log_and_raise : Location.t -> Env.t -> error -> 'a
+end
 
 val report_error: loc:Location.t -> error -> Location.report

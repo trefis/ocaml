@@ -458,7 +458,7 @@ let check_well_formed_module env loc context mty =
             let forced_env = Lazy.force env in
             check_recmod_typedecls ~abs_env:forced_env forced_env
               ((id, mty) :: id_mty_l)
-          with Typedecl.Error (_, err) ->
+          with Typedecl.Error.In_context (_, _, err) ->
             Error.log_and_raise loc (Lazy.force env)
               (Badly_formed_signature(context, err))
           end;

@@ -1902,7 +1902,7 @@ let type_classes define_class approx kind env cls =
   let decls =
     try Typedecl_variance.update_class_decls env decls
     with Typedecl_variance.Error(loc, err) ->
-      raise (Typedecl.Error(loc, Typedecl.Variance err))
+      Typedecl.Error.log_and_raise loc env (Typedecl.Variance err)
   in
   let res = List.map2 merge_type_decls res decls in
   let env = List.fold_left (final_env define_class) env res in

@@ -65,7 +65,7 @@ end = struct
     let err = In_context (loc, env, err) in
     if !Clflags.typing_recovery then
       Typing_recovery.log_and_raise err
-    else 
+    else
       raise err
 
   let log_or_raise loc env err =
