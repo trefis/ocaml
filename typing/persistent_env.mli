@@ -25,12 +25,7 @@ type error =
   | Inconsistent_import of modname * filepath * filepath
   | Need_recursive_types of modname
 
-module Error : sig
-  type exn += private In_context of error
-
-  val log_or_raise : error -> unit
-  val log_and_raise : error -> 'a
-end
+type exn += private Error of error
 
 val report_error: error Format_doc.format_printer
 val report_error_doc: error Format_doc.printer

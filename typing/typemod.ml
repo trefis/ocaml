@@ -157,7 +157,7 @@ let initial_env ~loc ~initially_opened_module
     with
     | Typetexp.Error.In_context _
     | Env.Error.In_context _
-    | Persistent_env.Error.In_context _ when !Clflags.typing_recovery -> env
+    | Persistent_env.Error _ when !Clflags.typing_recovery -> env
   in
   let add_units env units =
     String.Set.fold
