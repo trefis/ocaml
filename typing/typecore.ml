@@ -3636,7 +3636,7 @@ let check_recursive_class_bindings env ids exprs =
   List.iter
     (fun expr ->
        if not (Value_rec_check.is_valid_class_expr ids expr) then
-         Error.log_and_raise expr.cl_loc env Illegal_class_expr)
+         Error.log_or_raise expr.cl_loc env Illegal_class_expr)
     exprs
 
 (* The "rest of the function" extends from the start of the first parameter
