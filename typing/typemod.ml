@@ -156,10 +156,8 @@ let initial_env ~loc ~initially_opened_module
       snd (type_open_ Override env loc {txt;loc})
     with
     | Typetexp.Error.In_context _
-    | Env.Error.In_context _ when !Clflags.typing_recovery -> env
-    | Persistent_env.Error _ as exn when !Clflags.typing_recovery ->
-        Typing_recovery.log_or_raise exn;
-        env
+    | Env.Error.In_context _
+    | Persistent_env.Error.In_context _ when !Clflags.typing_recovery -> env
   in
   let add_units env units =
     String.Set.fold

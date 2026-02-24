@@ -232,7 +232,7 @@ let main () =
   with
   | Toplevel ->
       exit 2
-  | Persistent_env.Error e ->
+  | Persistent_env.Error.In_context e ->
       report Persistent_env.report_error e;
       exit 2
   | Cmi_format.Error e ->

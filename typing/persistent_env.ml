@@ -28,8 +28,30 @@ type error =
   | Inconsistent_import of modname * filepath * filepath
   | Need_recursive_types of modname
 
-exception Error of error
-let error err = raise (Error err)
+module Error : sig
+  type exn += private In_context of error
+
+  val log_or_raise : error -> unit
+  val log_and_raise : error -> 'a
+end = struct
+  type exn += In_context of error
+
+  let log_and_raise err =
+    let err = In_context err in
+    if !Clflags.typing_recovery then
+      Typing_recovery.log_and_raise err
+    else
+      raise err
+
+  let log_or_raise err =
+    let err = In_context err in
+    if !Clflags.typing_recovery then
+      Typing_recovery.log_or_raise err
+    else
+      raise err
+end
+
+let error err = Error.log_and_raise err
 
 module Persistent_signature = struct
   type t =
@@ -247,7 +269,7 @@ let check_pers_struct ~allow_hidden penv f ~loc name =
           Cmi_format.report_error err in
       let warn = Warnings.No_cmi_file(name, Some msg) in
         Location.prerr_warning loc warn
-  | Error err ->
+  | Error.In_context err ->
       let msg =
         match err with
         | Illegal_renaming(name, ps_name, filename) ->
@@ -376,7 +398,7 @@ let report_error_doc ppf =
 let () =
   Location.register_error_of_exn
     (function
-      | Error err ->
+      | Error.In_context err ->
           Some (Location.error_of_printer_file report_error_doc err)
       | _ -> None
     )
