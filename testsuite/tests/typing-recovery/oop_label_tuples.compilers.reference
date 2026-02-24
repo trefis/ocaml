@@ -51,12 +51,6 @@ Error: The constant 3000 has type int but an expression was expected of type
          string
 
 
-File "oop_label_tuples.ml", line 49, characters 9-12:
-49 |   | Foo {bar; _} -> (int_of_string bar) + 10
-              ^^^
-Error: Unbound record field bar
-
-
 File "oop_label_tuples.ml", line 49, characters 35-38:
 49 |   | Foo {bar; _} -> (int_of_string bar) + 10
                                         ^^^

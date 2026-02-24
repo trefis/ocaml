@@ -17,18 +17,6 @@ File "inlined_record_escape.ml", line 17, characters 4-5:
 Error: Unbound record field x
 
 
-File "inlined_record_escape.ml", line 19, characters 14-15:
-19 | let u = f (A {x = 11}) + g (A {x = 10})
-                   ^
-Error: Unbound record field x
-
-
-File "inlined_record_escape.ml", line 19, characters 31-32:
-19 | let u = f (A {x = 11}) + g (A {x = 10})
-                                    ^
-Error: Unbound record field x
-
-
 File "inlined_record_escape.ml", line 20, characters 17-18:
 20 | let t : string = u
                       ^
