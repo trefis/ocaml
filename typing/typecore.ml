@@ -2034,7 +2034,7 @@ let rec type_pat
            type_pat_aux tps category ~no_existentials ~penv sp expected_ty)
     in
     if !Clflags.typing_recovery then
-      Typing_recovery.with_saved_types (fun () ->
+      Typing_recovery_state.with_saved_types (fun () ->
           try delayed ()
           with Error.In_context _ ->
             (* We only want to catch error, not internal exceptions
@@ -2051,7 +2051,7 @@ let rec type_pat
               pat_type = expected_ty;
               pat_env = !!penv;
               pat_attributes =
-                Typing_recovery.recovery_attributes
+                Typing_recovery_state.recovery_attributes
                   sp.ppat_attributes
             }
             in
@@ -4342,7 +4342,7 @@ and type_expect ?recarg env sexp (ty_expected_explained : type_expected) =
          type_expect_ ?recarg env sexp ty_expected_explained)
   in
   if !Clflags.typing_recovery then
-    Typing_recovery.with_saved_types (fun () ->
+    Typing_recovery_state.with_saved_types (fun () ->
         try delayed ()
         with (Error.In_context _ | Env.Error.In_context _) ->
           Typing_recovery.erroneous_type_register ty_expected_explained.ty;
@@ -4365,7 +4365,7 @@ and type_expect ?recarg env sexp (ty_expected_explained : type_expected) =
             exp_type = ty_expected_explained.ty;
             exp_env = env;
             exp_attributes =
-              Typing_recovery.recovery_attributes sexp.pexp_attributes })
+              Typing_recovery_state.recovery_attributes sexp.pexp_attributes })
   else
     let previous_saved_types = Cmt_format.get_saved_types () in
     let exp = delayed () in
@@ -4959,7 +4959,7 @@ and type_expect_
           exp_loc = loc; exp_extra = [];
           exp_type = instance ty_expected;
           exp_attributes =
-            Typing_recovery.recovery_attributes sexp.pexp_attributes;
+            Typing_recovery_state.recovery_attributes sexp.pexp_attributes;
           exp_env = env }
       end
   | Pexp_field(srecord, lid) ->
@@ -5182,7 +5182,7 @@ and type_expect_
             exp_extra = [];
             exp_type = ty_expected;
             exp_attributes =
-              Typing_recovery.recovery_attributes sexp.pexp_attributes;
+              Typing_recovery_state.recovery_attributes sexp.pexp_attributes;
             exp_env = env }
       else suspended ()
   | Pexp_new cl ->
@@ -6663,7 +6663,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
     type_argument_ ?explanation ?recarg env sarg ty_expected' ty_expected
   in
   if !Clflags.typing_recovery then
-    Typing_recovery.with_saved_types (fun () ->
+    Typing_recovery_state.with_saved_types (fun () ->
         try delayed ()
         with Error.In_context _ ->
           Typing_recovery.erroneous_type_register ty_expected;
@@ -6686,7 +6686,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
             exp_type = ty_expected;
             exp_env = env;
             exp_attributes =
-              Typing_recovery.recovery_attributes sarg.pexp_attributes
+              Typing_recovery_state.recovery_attributes sarg.pexp_attributes
           })
   else delayed ()
 

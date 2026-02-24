@@ -1934,7 +1934,7 @@ and transl_signature ?(keep_warnings = false) env sg =
     { sig_items = trem; sig_type = rem; sig_final_env = final_env }
   in 
   if !Clflags.typing_recovery then
-    Typing_recovery.with_saved_types
+    Typing_recovery_state.with_saved_types
       ~save_part:(fun sg -> Cmt_format.Partial_signature sg)
       (fun () ->
          let warning_attribute = if keep_warnings then None else Some [] in
@@ -2417,7 +2417,7 @@ let rec type_module ?(alias=false) ~strengthen ~funct_body anchor env smod =
     (* Recovery: when we start typing a module we don't want to
        include potential saved_items from its parent. We backup them
        before starting and restore them when finished. *)
-    Typing_recovery.with_saved_types (fun () ->
+    Typing_recovery_state.with_saved_types (fun () ->
         try delayed ()
         with Error.In_context _ when !Clflags.typing_recovery ->
           { mod_desc = Tmod_structure {
@@ -2428,7 +2428,7 @@ let rec type_module ?(alias=false) ~strengthen ~funct_body anchor env smod =
             mod_type = Mty_signature [];
             mod_env = env;
             mod_attributes =
-              Typing_recovery.recovery_attributes smod.pmod_attributes;
+              Typing_recovery_state.recovery_attributes smod.pmod_attributes;
             mod_loc = smod.pmod_loc },
           Shape.dummy_mod)
   else delayed ()
@@ -2834,7 +2834,7 @@ and type_structure ?(toplevel = false)  ?(keep_warnings = false) ~funct_body anc
     str, sg, names, shape_map, final_env
   in
   if !Clflags.typing_recovery then
-    Typing_recovery.with_saved_types
+    Typing_recovery_state.with_saved_types
       ~save_part:(fun (str,_,_,_,_) -> Cmt_format.Partial_structure str)
       (fun () ->
          let warning_attribute =

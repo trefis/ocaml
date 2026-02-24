@@ -44,14 +44,7 @@ val erroneous_type_check : Types.type_expr -> bool
 val erroneous_expr_check : Typedtree.expression -> bool
 
 
-(** Extend the given attributes with an incorrect attribute and the
-    saved types after turning them into attributes *)
-val recovery_attributes : Parsetree.attributes -> Parsetree.attributes
-
 val with_warning_attribute :
   ?warning_attribute:Parsetree.attributes -> (unit -> 'b) -> 'b
-
-val with_saved_types :
-  ?save_part:('a -> Cmt_format.binary_part) -> (unit -> 'a) -> 'a
 
 module Error_set : Set.S with type elt = Location.error

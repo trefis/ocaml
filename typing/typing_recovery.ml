@@ -15,8 +15,6 @@
 
 module RawTypeHash = Types.TransientTypeHash
 
-external reraise : exn -> 'a = "%reraise"
-
 let ref_errors : (exn list ref * unit RawTypeHash.t) option ref = ref None
 let ref_monitor_errors =
   (* Using a reference handle allows nested calls to be monitored.
@@ -60,11 +58,13 @@ let uncatch_errors f =
   ref_errors := None;
   Misc.try_finally f ~always:(fun () -> ref_errors := e)
 
+
 let erroneous_type_check te =
   let te = Types.Transient_expr.coerce te in
   match !ref_errors with
   | Some (_, h) -> RawTypeHash.mem h te
   | _ -> false
+
 
 let rec erroneous_expr_check e =
   erroneous_type_check e.Typedtree.exp_type
@@ -83,65 +83,6 @@ let with_warning_attribute ?warning_attribute f =
   match warning_attribute with
   | None -> f ()
   | Some attr -> Builtin_attributes.warning_scope attr f
-
-let with_saved_types ?save_part f =
-  let saved_types = Cmt_format.get_saved_types () in
-  Cmt_format.set_saved_types [];
-  try
-    let result = f () in
-    begin
-      match save_part with
-      | None -> ()
-      | Some f -> Cmt_format.set_saved_types (f result :: saved_types)
-    end;
-    result
-  with exn ->
-    let saved_types' = Cmt_format.get_saved_types () in
-    Cmt_format.set_saved_types (saved_types' @ saved_types);
-    reraise exn
-
-module Saved_parts = struct
-  let attribute = Location.mknoloc "ocaml.saved-parts"
-
-  module H = Ephemeron.K1.Make(
-    struct
-      type t = string
-      let hash = Hashtbl.hash
-      let equal = String.equal
-    end)
-
-  let table = H.create 7
-
-  let gensym =
-    let counter = ref 0 in
-    fun () -> incr counter; !counter
-
-  let store parts =
-    let id = string_of_int (gensym ()) in
-    let key = Parsetree.Pconst_integer (id, None) in
-    H.add table id parts;
-    key
-end
-
-let flush_saved_types () =
-  match Cmt_format.get_saved_types () with
-  | [] -> []
-  | parts ->
-    Cmt_format.set_saved_types [];
-    let open Ast_helper in
-    let pconst_desc = Saved_parts.store parts in
-    let pexp = Exp.constant { pconst_desc; pconst_loc = !default_loc } in
-    let pstr = Str.eval pexp in
-    [ Attr.mk Saved_parts.attribute (Parsetree.PStr [ pstr ]) ]
-
-let incorrect_attribute =
-  Ast_helper.Attr.mk (Location.mknoloc "ocaml.incorrect") (Parsetree.PStr [])
-
-let recovery_attributes attrs =
-  let attrs' = incorrect_attribute :: flush_saved_types () in
-  match attrs with
-  | [] -> attrs'
-  | attrs -> attrs' @ attrs
 
 module Error_set = Set.Make (struct
     type t = Location.error

@@ -682,20 +682,20 @@ end = struct
 
   let log_and_raise a b e = raise (In_context (a, b, e))
   let log_or_raise a b e = raise (In_context (a, b, e))
+(*
+  let log_and_raise loc env err =
+    let err = In_context (loc, env, err) in
+    if !Clflags.typing_recovery then
+      Typing_recovery.log_and_raise err
+    else
+      raise err
 
-  (* let log_and_raise loc env err = *)
-  (*   let err = In_context (loc, env, err) in *)
-  (*   if !Clflags.typing_recovery then *)
-  (*     Typing_recovery.log_and_raise err *)
-  (*   else  *)
-  (*     raise err *)
-
-  (* let log_or_raise loc env err = *)
-  (*   let err = In_context (loc, env, err) in *)
-  (*   if !Clflags.typing_recovery then *)
-  (*     Typing_recovery.log_or_raise err *)
-  (*   else *)
-  (*     raise err *)
+  let log_or_raise loc env err =
+    let err = In_context (loc, env, err) in
+    if !Clflags.typing_recovery then
+      Typing_recovery.log_or_raise err
+    else
+      raise err *)
 end
 
 let lookup_error loc env err =

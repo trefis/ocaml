@@ -474,7 +474,7 @@ let rec transl_type env ~policy ?(aliased=false) ~row_context styp =
       (fun () -> transl_type_aux env ~policy ~aliased ~row_context styp)
   in
   if !Clflags.typing_recovery then
-    Typing_recovery.with_saved_types (fun () ->
+    Typing_recovery_state.with_saved_types (fun () ->
         try delayed ()
         with Error.(In_context _) ->
           let ty = new_global_var () in
