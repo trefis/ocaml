@@ -7,6 +7,12 @@ Error: File "or_pattern_type_clash.ml", line 12, characters 4-19:
               but on the right-hand side it has type string
 
 
+File "or_pattern_type_clash.ml", line 12, characters 23-24:
+12 |   | (x, _) | (_, x) -> x
+                            ^
+Error: Unbound value x
+
+
 File "or_pattern_type_clash.ml", line 16, characters 8-9:
 16 | let y = x ^ "ocaml"
              ^

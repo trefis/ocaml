@@ -2,8 +2,7 @@ File "_none_", line 1:
 Error: File "missing_constructor_and_invalid_types.ml", line 16, characters 4-5:
        16 |   | C -> 'a'
                 ^
-       Error: This variant pattern is expected to have type t
-              There is no constructor C within type t
+       Error: Unbound constructor C
 
 
 File "missing_constructor_and_invalid_types.ml", line 15, characters 9-10:

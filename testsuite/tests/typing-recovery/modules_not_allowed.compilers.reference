@@ -11,6 +11,12 @@ File "modules_not_allowed.ml", line 17, characters 10-21:
 Error: Modules are not allowed in this pattern.
 
 
+File "modules_not_allowed.ml", line 17, characters 24-25:
+17 |       let (module Ob) = m in
+                             ^
+Error: Unbound value m
+
+
 File "modules_not_allowed.ml", line 22, characters 14-18:
 22 | let t : int = true
                    ^^^^

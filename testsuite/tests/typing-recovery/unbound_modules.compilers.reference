@@ -1,2 +1,13 @@
->> Fatal error: Cannot find address for: *type-error*
-Fatal error: exception Misc.Fatal_error
+File "_none_", line 1:
+Error: File "unbound_modules.ml", line 12, characters 11-18:
+       12 |   let open Unknown in
+                       ^^^^^^^
+       Error: Unbound module Unknown
+
+
+File "unbound_modules.ml", line 17, characters 11-15:
+17 |   let open Lsit in
+                ^^^^
+Error: Unbound module Lsit
+Hint:    Did you mean List?
+

@@ -11,6 +11,18 @@ File "inline_record_expected.ml", line 14, characters 10-13:
 Error: This constructor expects an inlined record argument.
 
 
+File "inline_record_expected.ml", line 16, characters 7-8:
+16 |   | A {x}, A {x = y} -> x + y
+            ^
+Error: Unbound record field x
+
+
+File "inline_record_expected.ml", line 16, characters 14-15:
+16 |   | A {x}, A {x = y} -> x + y
+                   ^
+Error: Unbound record field x
+
+
 File "inline_record_expected.ml", line 19, characters 17-18:
 19 | let t : string = u
                       ^
